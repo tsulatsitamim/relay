@@ -6,6 +6,13 @@ export type SessionStatus =
   | "error"
   | "exited";
 
+export type Repo = {
+  path: string;
+  name: string;
+  addedAt: number;
+  branch?: string | null;
+};
+
 export type AgentConfig = {
   id: string;
   name: string;

@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, dialog, ipcMain, clipboard } from "electron";
@@ -6,6 +7,7 @@ import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import { SessionManager, defaultAgents } from "./session-manager.ts";
 import { createLogger } from "./logger.ts";
+import { repoNameFromPath, withGitBranch } from "./repo-name.ts";
 import type { CreatePayload } from "../shared/ipc.ts";
 
 function fakeAgentPath(): string | undefined {
@@ -25,7 +27,9 @@ function createWindow(): BrowserWindow {
     minWidth: 800,
     minHeight: 520,
     title: "Relay",
-    backgroundColor: "#0e1116",
+    backgroundColor: "#F4F4F2",
+    titleBarStyle: "hiddenInset",
+    trafficLightPosition: { x: 16, y: 14 },
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(dir, "../preload/index.mjs"),
@@ -82,7 +86,9 @@ async function main(): Promise<void> {
       sessions,
       agents: manager.agents(),
       recents: manager.recents(),
+      repos: manager.repos().map(withGitBranch),
       transcripts,
+      homeDir: homedir(),
     };
   });
 
@@ -92,7 +98,7 @@ async function main(): Promise<void> {
     logger.info("create session", { agent: agent.id, cwd: payload.cwd });
     return manager.create({
       agent,
-      cwd: payload.cwd,
+      cwd: payload.cwd || homedir(),
       prompt: payload.prompt,
     });
   });
@@ -126,6 +132,30 @@ async function main(): Promise<void> {
       properties: ["openDirectory", "createDirectory"],
     });
     return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+
+  ipcMain.handle("relay:addRepo", async (event) => {
+    const win =
+      BrowserWindow.fromWebContents(event.sender) ??
+      BrowserWindow.getFocusedWindow();
+    if (!win) return manager.repos().map(withGitBranch);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ["openDirectory", "createDirectory"],
+    });
+    const path = result.canceled ? null : (result.filePaths[0] ?? null);
+    if (path) {
+      manager.addRepo({
+        path,
+        name: repoNameFromPath(path),
+        addedAt: Date.now(),
+      });
+    }
+    return manager.repos().map(withGitBranch);
+  });
+
+  ipcMain.handle("relay:removeRepo", (_e, path: string) => {
+    manager.removeRepo(path);
+    return manager.repos().map(withGitBranch);
   });
 
   ipcMain.handle("relay:copyDebug", (_e, id: string) => {

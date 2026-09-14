@@ -54,6 +54,22 @@ describe("Store", () => {
     expect(reopened.listEvents("sess-1")[0].payload).toEqual({ text: "hello" });
   });
 
+  it("starts with no repositories and persists added ones", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
+    const store = await openStore(file);
+    expect(store.listRepos()).toEqual([]);
+
+    store.addRepo({ path: "/tmp/relay", name: "relay", addedAt: 10 });
+    store.addRepo({ path: "/tmp/kk", name: "kk", addedAt: 20 });
+    expect(store.listRepos().map((r) => r.path)).toEqual(["/tmp/kk", "/tmp/relay"]);
+
+    store.removeRepo("/tmp/kk");
+    const reopened = await openStore(file);
+    expect(reopened.listRepos()).toEqual([
+      { path: "/tmp/relay", name: "relay", addedAt: 10 },
+    ]);
+  });
+
   it("deletes a session and its events", async () => {
     const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
     const store = await openStore(file);

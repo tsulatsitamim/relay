@@ -1,10 +1,12 @@
-import type { AgentConfig, Session, TranscriptEvent } from "./types.ts";
+import type { AgentConfig, Repo, Session, TranscriptEvent } from "./types.ts";
 
 export type RelayState = {
   sessions: Session[];
   agents: AgentConfig[];
   recents: string[];
+  repos: Repo[];
   transcripts: Record<string, TranscriptEvent[]>;
+  homeDir: string;
 };
 
 export type RelayEvent =

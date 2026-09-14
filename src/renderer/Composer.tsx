@@ -23,17 +23,27 @@ export function Composer({ disabled, onSend }: Props) {
   }
 
   return (
-    <div className="composer">
-      <textarea
-        value={text}
-        disabled={disabled}
-        placeholder={disabled ? "Agent is working…" : "Send a follow-up…"}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={onKeyDown}
-      />
-      <button className="send" disabled={disabled || !text.trim()} onClick={() => void submit()}>
-        Send
-      </button>
+    <div className="dock">
+      <div className="composer-card">
+        <textarea
+          value={text}
+          disabled={disabled}
+          placeholder={disabled ? "Agent is working…" : "Plan, Build, / for skills, @ for context"}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={onKeyDown}
+          rows={2}
+        />
+        <div className="composer-bar">
+          <div className="left">
+            <span className="plus" aria-hidden>
+              +
+            </span>
+          </div>
+          <button className="send-orb" disabled={disabled || !text.trim()} onClick={() => void submit()}>
+            ↑
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

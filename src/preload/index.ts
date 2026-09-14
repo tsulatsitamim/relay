@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
-import type { Session } from "../shared/types.ts";
+import type { Repo, Session } from "../shared/types.ts";
 
 contextBridge.exposeInMainWorld("relay", {
   getState: (): Promise<RelayState> => ipcRenderer.invoke("relay:getState"),
@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld("relay", {
   delete: (id: string): Promise<void> => ipcRenderer.invoke("relay:delete", id),
   pickDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke("relay:pickDirectory"),
+  addRepo: (): Promise<Repo[]> => ipcRenderer.invoke("relay:addRepo"),
+  removeRepo: (path: string): Promise<Repo[]> =>
+    ipcRenderer.invoke("relay:removeRepo", path),
   copyDebug: (id: string): Promise<void> =>
     ipcRenderer.invoke("relay:copyDebug", id),
   subscribe: (listener: (event: RelayEvent) => void) => {

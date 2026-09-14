@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
-import type { AgentConfig, Session, SessionStatus, TranscriptEvent } from "../shared/types.ts";
+import type { AgentConfig, Repo, Session, SessionStatus, TranscriptEvent } from "../shared/types.ts";
 import { AcpSession } from "./acp-session.ts";
 import type { Store } from "./db.ts";
 import { reduceSessionUpdate } from "./transcript.ts";
@@ -49,6 +49,18 @@ export class SessionManager {
 
   recents(): string[] {
     return this.store.listRecents();
+  }
+
+  repos(): Repo[] {
+    return this.store.listRepos();
+  }
+
+  addRepo(repo: Repo): void {
+    this.store.addRepo(repo);
+  }
+
+  removeRepo(path: string): void {
+    this.store.removeRepo(path);
   }
 
   saveAgents(agents: AgentConfig[]): void {

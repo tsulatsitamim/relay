@@ -1,5 +1,5 @@
 import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
-import type { Session } from "../shared/types.ts";
+import type { Repo, Session } from "../shared/types.ts";
 
 export type RelayBridge = {
   getState: () => Promise<RelayState>;
@@ -9,6 +9,8 @@ export type RelayBridge = {
   restart: (id: string) => Promise<void>;
   delete: (id: string) => Promise<void>;
   pickDirectory: () => Promise<string | null>;
+  addRepo: () => Promise<Repo[]>;
+  removeRepo: (path: string) => Promise<Repo[]>;
   copyDebug: (id: string) => Promise<void>;
   subscribe: (listener: (event: RelayEvent) => void) => () => void;
 };

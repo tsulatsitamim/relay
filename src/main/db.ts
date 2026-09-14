@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createRequire } from "node:module";
 import initSqlJs, { type Database } from "sql.js";
-import type { AgentConfig, Session, SessionStatus, TranscriptEvent } from "../shared/types.ts";
+import type { AgentConfig, Repo, Session, SessionStatus, TranscriptEvent } from "../shared/types.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -24,6 +24,11 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS recents (
   path TEXT PRIMARY KEY,
   used_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS repos (
+  path TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  added_at INTEGER NOT NULL
 );
 `;
 
@@ -125,6 +130,31 @@ export class Store {
     );
     if (!rows[0]) return [];
     return rows[0].values.map((v) => String(v[0]));
+  }
+
+  addRepo(repo: Repo): void {
+    this.db.run(
+      "INSERT OR REPLACE INTO repos (path, name, added_at) VALUES (?, ?, ?)",
+      [repo.path, repo.name, repo.addedAt],
+    );
+    this.flush();
+  }
+
+  removeRepo(path: string): void {
+    this.db.run("DELETE FROM repos WHERE path = ?", [path]);
+    this.flush();
+  }
+
+  listRepos(): Repo[] {
+    const rows = this.db.exec(
+      "SELECT path, name, added_at FROM repos ORDER BY added_at DESC",
+    );
+    if (!rows[0]) return [];
+    return rows[0].values.map((v) => ({
+      path: String(v[0]),
+      name: String(v[1]),
+      addedAt: Number(v[2]),
+    }));
   }
 
   private flush(): void {
