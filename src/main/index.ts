@@ -1,0 +1,164 @@
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { app, BrowserWindow, dialog, ipcMain, clipboard } from "electron";
+import { applyLoginPath } from "./path-env.ts";
+import { openStore } from "./db.ts";
+import { SessionManager, defaultAgents } from "./session-manager.ts";
+import { createLogger } from "./logger.ts";
+import type { CreatePayload } from "../shared/ipc.ts";
+
+function fakeAgentPath(): string | undefined {
+  const candidates = [
+    join(app.getAppPath(), "agents", "fake-acp-agent.mjs"),
+    join(process.cwd(), "agents", "fake-acp-agent.mjs"),
+    fileURLToPath(new URL("../../agents/fake-acp-agent.mjs", import.meta.url)),
+  ];
+  return candidates.find((path) => existsSync(path));
+}
+
+function createWindow(): BrowserWindow {
+  const dir = dirname(fileURLToPath(import.meta.url));
+  const win = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 520,
+    title: "Relay",
+    backgroundColor: "#0e1116",
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: join(dir, "../preload/index.mjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+  if (rendererUrl) {
+    void win.loadURL(rendererUrl);
+  } else {
+    void win.loadFile(join(dir, "../renderer/index.html"));
+  }
+
+  return win;
+}
+
+async function main(): Promise<void> {
+  await app.whenReady();
+  await applyLoginPath();
+
+  const userData = app.getPath("userData");
+  const logger = createLogger(join(userData, "relay.log"));
+  const store = await openStore(join(userData, "relay.db"));
+  if (store.listAgents().length === 0) {
+    store.saveAgents(defaultAgents(fakeAgentPath()));
+  }
+
+  const manager = new SessionManager(store);
+  let shuttingDown = false;
+
+  const windows = new Set<BrowserWindow>();
+
+  const broadcast = (channel: string, payload: unknown) => {
+    for (const win of windows) {
+      if (!win.isDestroyed()) win.webContents.send(channel, payload);
+    }
+  };
+
+  manager.onEvent((event) => {
+    if (event.type === "log") logger.info(event.message, { sessionId: event.sessionId });
+    broadcast("relay:event", event);
+  });
+
+  ipcMain.handle("relay:getState", () => {
+    const sessions = manager.list();
+    const transcripts: Record<string, ReturnType<typeof manager.transcript>> = {};
+    for (const session of sessions) {
+      transcripts[session.id] = manager.transcript(session.id);
+    }
+    return {
+      sessions,
+      agents: manager.agents(),
+      recents: manager.recents(),
+      transcripts,
+    };
+  });
+
+  ipcMain.handle("relay:create", async (_e, payload: CreatePayload) => {
+    const agent = manager.agents().find((a) => a.id === payload.agentId);
+    if (!agent) throw new Error(`unknown agent ${payload.agentId}`);
+    logger.info("create session", { agent: agent.id, cwd: payload.cwd });
+    return manager.create({
+      agent,
+      cwd: payload.cwd,
+      prompt: payload.prompt,
+    });
+  });
+
+  ipcMain.handle("relay:send", async (_e, id: string, text: string) => {
+    logger.info("prompt", { sessionId: id });
+    await manager.send(id, text);
+  });
+
+  ipcMain.handle("relay:cancel", async (_e, id: string) => {
+    logger.info("cancel", { sessionId: id });
+    await manager.cancel(id);
+  });
+
+  ipcMain.handle("relay:restart", async (_e, id: string) => {
+    logger.info("restart", { sessionId: id });
+    await manager.restart(id);
+  });
+
+  ipcMain.handle("relay:delete", async (_e, id: string) => {
+    logger.info("delete", { sessionId: id });
+    await manager.delete(id);
+  });
+
+  ipcMain.handle("relay:pickDirectory", async (event) => {
+    const win =
+      BrowserWindow.fromWebContents(event.sender) ??
+      BrowserWindow.getFocusedWindow();
+    if (!win) return null;
+    const result = await dialog.showOpenDialog(win, {
+      properties: ["openDirectory", "createDirectory"],
+    });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+
+  ipcMain.handle("relay:copyDebug", (_e, id: string) => {
+    const session = manager.get(id);
+    const live = session
+      ? {
+          id: session.id,
+          agent: session.agentName,
+          cwd: session.workingDirectory,
+          status: session.status,
+          acpSessionId: session.acpSessionId,
+          error: session.error,
+        }
+      : { error: "missing session" };
+    clipboard.writeText(JSON.stringify(live, null, 2));
+  });
+
+  const win = createWindow();
+  windows.add(win);
+
+  app.on("before-quit", (e) => {
+    if (shuttingDown) return;
+    e.preventDefault();
+    shuttingDown = true;
+    void manager.shutdown().finally(() => app.exit(0));
+  });
+
+  app.on("window-all-closed", () => {
+    app.quit();
+  });
+}
+
+main().catch((err) => {
+  console.error(err);
+  app.exit(1);
+});

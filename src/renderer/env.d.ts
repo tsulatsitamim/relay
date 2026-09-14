@@ -1,0 +1,22 @@
+import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
+import type { Session } from "../shared/types.ts";
+
+export type RelayBridge = {
+  getState: () => Promise<RelayState>;
+  create: (payload: CreatePayload) => Promise<Session>;
+  send: (id: string, text: string) => Promise<void>;
+  cancel: (id: string) => Promise<void>;
+  restart: (id: string) => Promise<void>;
+  delete: (id: string) => Promise<void>;
+  pickDirectory: () => Promise<string | null>;
+  copyDebug: (id: string) => Promise<void>;
+  subscribe: (listener: (event: RelayEvent) => void) => () => void;
+};
+
+declare global {
+  interface Window {
+    relay: RelayBridge;
+  }
+}
+
+export {};
