@@ -1,5 +1,6 @@
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { AgentConfig, Repo } from "../shared/types.ts";
+import { IconChevron, IconCirclePlus, IconMic, IconMonitor, IconSend } from "./icons";
 
 type Props = {
   agents: AgentConfig[];
@@ -12,6 +13,28 @@ type Props = {
   onRepoPath: (path: string) => void;
   onSubmit: (prompt: string) => Promise<void>;
 };
+
+function Chip({
+  value,
+  onChange,
+  children,
+  icon,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+  icon?: ReactNode;
+}) {
+  return (
+    <label className="chip">
+      {icon}
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        {children}
+      </select>
+      <IconChevron />
+    </label>
+  );
+}
 
 export function HomeComposer({
   agents,
@@ -26,6 +49,7 @@ export function HomeComposer({
 }: Props) {
   const [text, setText] = useState("");
   const selected = repos.find((r) => r.path === repoPath);
+  const canSend = Boolean(text.trim()) && !busy;
 
   async function submit() {
     const value = text.trim();
@@ -44,22 +68,29 @@ export function HomeComposer({
   return (
     <div className="home">
       <div className="context">
-        <select value={repoPath} onChange={(e) => onRepoPath(e.target.value)}>
+        <Chip value={repoPath} onChange={onRepoPath}>
           <option value="">No repository</option>
           {repos.map((repo) => (
             <option key={repo.path} value={repo.path}>
               {repo.name}
             </option>
           ))}
-        </select>
+        </Chip>
         {selected?.branch ? (
           <>
             <span className="sep">/</span>
-            <span>{selected.branch}</span>
+            <span className="chip static">
+              {selected.branch}
+              <IconChevron />
+            </span>
           </>
         ) : null}
         <span className="sep">/</span>
-        <span>This Mac</span>
+        <span className="chip static">
+          <IconMonitor />
+          This Mac
+          <IconChevron />
+        </span>
       </div>
 
       <form
@@ -75,30 +106,40 @@ export function HomeComposer({
           placeholder="Plan, Build, / for skills, @ for context"
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
-          rows={3}
+          rows={2}
         />
         <div className="composer-bar">
           <div className="left">
             <span className="plus" aria-hidden>
-              +
+              <IconCirclePlus />
             </span>
-            <select
-              className="agent-select"
-              value={agentId}
-              onChange={(e) => onAgentId(e.target.value)}
-            >
+            <Chip value={agentId} onChange={onAgentId}>
               {agents.map((agent) => (
                 <option key={agent.id} value={agent.id}>
                   {agent.name}
                 </option>
               ))}
-            </select>
+            </Chip>
           </div>
-          <button className="send-orb" disabled={busy || !text.trim()} type="submit">
-            ↑
+          <button
+            className={`send-orb ${canSend ? "send" : "mic"}`}
+            disabled={!canSend}
+            type="submit"
+            aria-label={canSend ? "Send" : "Voice"}
+          >
+            {canSend ? <IconSend /> : <IconMic />}
           </button>
         </div>
       </form>
+      <div className="pills">
+        <button type="button" className="pill" tabIndex={-1}>
+          Plan New Idea
+          <kbd>Tab</kbd>
+        </button>
+        <button type="button" className="pill" tabIndex={-1}>
+          Multitask
+        </button>
+      </div>
       {error && <div className="err">{error}</div>}
       <div className="hint">Ask Relay to find a prior conversation, or summarize across conversations</div>
     </div>

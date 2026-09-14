@@ -1,9 +1,9 @@
 export function timeAgo(from: number, now = Date.now()): string {
-  const delta = Math.max(0, now - from);
-  const minute = 60_000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-  if (delta < hour) return `${Math.max(1, Math.floor(delta / minute))}m`;
-  if (delta < day) return `${Math.floor(delta / hour)}h`;
-  return `${Math.floor(delta / day)}d`;
+  const seconds = Math.max(0, Math.floor((now - from) / 1000));
+  if (seconds < 3600) return `${Math.max(1, Math.floor(seconds / 60))}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  const days = Math.floor(seconds / 86400);
+  if (days < 30) return `${days}d`;
+  if (days < 365) return `${Math.floor(days / 30)}mo`;
+  return `${Math.floor(days / 365)}y`;
 }

@@ -13,12 +13,8 @@ export function Transcript({ events }: Props) {
     bottom.current?.scrollIntoView({ block: "end" });
   }, [events]);
 
-  if (events.length === 0) {
-    return <div className="transcript empty">Waiting for output…</div>;
-  }
-
   return (
-    <div className="transcript">
+    <div className={`transcript${events.length === 0 ? " empty" : ""}`}>
       {events.map((event) => {
         if (event.kind === "user") {
           return (
@@ -37,11 +33,8 @@ export function Transcript({ events }: Props) {
         if (event.kind === "tool_call") {
           return (
             <div key={event.id} className="tool">
-              <div className="kicker">
-                {String(event.payload.status ?? "pending")} ·{" "}
-                {String(event.payload.toolKind ?? "tool")}
-              </div>
-              <div>{String(event.payload.title ?? "Tool")}</div>
+              <span className="kicker">{String(event.payload.status ?? "pending")}</span>
+              <span>{String(event.payload.title ?? "Tool")}</span>
             </div>
           );
         }
@@ -85,7 +78,7 @@ export function Transcript({ events }: Props) {
           <div key={event.id} className="msg status">
             {String(event.payload.text ?? "")}
           </div>
-          );
+        );
       })}
       <div ref={bottom} />
     </div>
