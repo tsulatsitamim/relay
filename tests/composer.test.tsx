@@ -173,4 +173,32 @@ describe("Composer", () => {
     fireEvent.keyDown(box, { key: "Enter" });
     expect(onSend).toHaveBeenCalledWith("plain");
   });
+
+  it("keeps text and attachments intact when submitting while working", async () => {
+    const onSend = vi.fn();
+    const onQueue = vi.fn();
+    const pickImages = vi
+      .fn()
+      .mockResolvedValue([{ name: "shot.png", mimeType: "image/png", data: "AAAA" }]);
+    // @ts-expect-error test shim
+    window.relay = { pickImages };
+    render(
+      <Composer
+        disabled={false}
+        working
+        onSend={onSend}
+        onCancel={noop}
+        onQueue={onQueue}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Attach image"));
+    expect(await screen.findByText("shot.png")).toBeTruthy();
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "look" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onQueue).not.toHaveBeenCalled();
+    expect(onSend).not.toHaveBeenCalled();
+    expect(box.value).toBe("look");
+    expect(screen.getByText("shot.png")).toBeTruthy();
+  });
 });

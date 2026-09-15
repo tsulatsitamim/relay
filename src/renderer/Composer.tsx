@@ -100,7 +100,7 @@ export function Composer({
     if (disabled) return;
     if (!value && attachments.length === 0) return;
     if (working) {
-      if (!value) return;
+      if (attachments.length > 0 || !value) return;
       onQueue?.(value);
       setText("");
       return;

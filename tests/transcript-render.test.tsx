@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { Transcript } from "../src/renderer/Transcript.tsx";
 import type { TranscriptEvent } from "../src/shared/types.ts";
@@ -30,6 +30,30 @@ describe("Transcript rendering", () => {
     render(<Transcript events={events} />);
     expect(screen.getByText("shot.png")).toBeTruthy();
     expect(screen.getByText(/see this/)).toBeTruthy();
+  });
+
+  it("renders duplicate attachment names without key collisions", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const events: TranscriptEvent[] = [
+      {
+        id: "1",
+        kind: "user",
+        payload: {
+          text: "two shots",
+          attachments: [
+            { name: "shot.png", mimeType: "image/png" },
+            { name: "shot.png", mimeType: "image/png" },
+          ],
+        },
+      },
+    ];
+    render(<Transcript events={events} />);
+    expect(screen.getAllByText("shot.png")).toHaveLength(2);
+    const keyWarnings = spy.mock.calls.filter((call) =>
+      call.some((arg) => typeof arg === "string" && arg.includes("same key")),
+    );
+    expect(keyWarnings).toHaveLength(0);
+    spy.mockRestore();
   });
 
   it("renders tool calls, thinking and plans through their components", () => {

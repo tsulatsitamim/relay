@@ -24,8 +24,8 @@ function EventRow({ event }: { event: TranscriptEvent }) {
         {String(event.payload.text ?? "")}
         {attachments?.length ? (
           <div className="msg-attachments">
-            {attachments.map((a) => (
-              <span className="msg-attachment" key={a.name}>
+            {attachments.map((a, index) => (
+              <span className="msg-attachment" key={`${index}-${a.name}`}>
                 {a.name}
               </span>
             ))}
