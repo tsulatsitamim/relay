@@ -1157,6 +1157,38 @@ input:focus-visible {
   word-break: break-word;
 }
 
+.msg.user,
+.msg.agent {
+  position: relative;
+}
+
+.msg-actions {
+  position: absolute;
+  top: -10px;
+  right: 4px;
+  display: none;
+  gap: 2px;
+}
+
+.msg:hover .msg-actions {
+  display: inline-flex;
+}
+
+.msg-action {
+  height: 20px;
+  padding: 0 6px;
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.msg-action:hover {
+  background: var(--hover);
+}
+
 .msg-attachments {
   display: flex;
   flex-wrap: wrap;

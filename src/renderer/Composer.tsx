@@ -25,6 +25,7 @@ type Props = {
   onRemoveQueued?: (index: number) => void;
   commands?: AvailableCommandLike[];
   cwd?: string;
+  inject?: { text: string; nonce: number };
 };
 
 export function Composer({
@@ -37,6 +38,7 @@ export function Composer({
   onRemoveQueued,
   commands = [],
   cwd,
+  inject,
 }: Props) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<string[]>([]);
@@ -66,6 +68,14 @@ export function Composer({
       el.style.height = `${Math.min(next, maxComposerHeight)}px`;
     }
   }, [text]);
+
+  useEffect(() => {
+    if (inject) {
+      setText(inject.text);
+      setDismissed(false);
+      field.current?.focus();
+    }
+  }, [inject?.nonce]);
 
   useEffect(() => {
     if (mentionQuery === null || !cwd) {

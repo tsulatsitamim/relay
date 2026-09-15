@@ -354,4 +354,23 @@ describe("Composer", () => {
     expect(event.defaultPrevented).toBe(false);
     expect(container.querySelector(".attach-thumb")).toBeNull();
   });
+
+  it("injects text and focuses the field when an inject arrives", () => {
+    const onSend = vi.fn();
+    const { rerender } = render(
+      <Composer disabled={false} working={false} onSend={onSend} onCancel={noop} />,
+    );
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    rerender(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={onSend}
+        onCancel={noop}
+        inject={{ text: "edited draft", nonce: 1 }}
+      />,
+    );
+    expect(box.value).toBe("edited draft");
+    expect(document.activeElement).toBe(box);
+  });
 });

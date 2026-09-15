@@ -10,9 +10,16 @@ import { isNearBottom } from "./scroll";
 
 type Props = {
   events: TranscriptEvent[];
+  onEditUser?: (text: string) => void;
 };
 
-function EventRow({ event }: { event: TranscriptEvent }) {
+function EventRow({
+  event,
+  onEditUser,
+}: {
+  event: TranscriptEvent;
+  onEditUser?: (text: string) => void;
+}) {
   if (event.kind === "commands") return null;
 
   if (event.kind === "user") {
@@ -21,6 +28,18 @@ function EventRow({ event }: { event: TranscriptEvent }) {
       | undefined;
     return (
       <div className="msg user">
+        {onEditUser ? (
+          <div className="msg-actions">
+            <button
+              type="button"
+              className="msg-action"
+              aria-label="Edit message"
+              onClick={() => onEditUser(String(event.payload.text ?? ""))}
+            >
+              Edit
+            </button>
+          </div>
+        ) : null}
         {String(event.payload.text ?? "")}
         {attachments?.length ? (
           <div className="msg-attachments">
@@ -41,6 +60,18 @@ function EventRow({ event }: { event: TranscriptEvent }) {
   if (event.kind === "agent_message") {
     return (
       <div className="msg agent">
+        <div className="msg-actions">
+          <button
+            type="button"
+            className="msg-action"
+            aria-label="Copy message"
+            onClick={() =>
+              void navigator.clipboard?.writeText(String(event.payload.text ?? ""))
+            }
+          >
+            Copy
+          </button>
+        </div>
         <Markdown text={String(event.payload.text ?? "")} />
       </div>
     );
@@ -75,7 +106,7 @@ function EventRow({ event }: { event: TranscriptEvent }) {
   return <div className="msg status">{String(event.payload.text ?? "")}</div>;
 }
 
-export function Transcript({ events }: Props) {
+export function Transcript({ events, onEditUser }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stick, setStick] = useState(true);
 
@@ -111,7 +142,7 @@ export function Transcript({ events }: Props) {
         onScroll={onScroll}
       >
         {events.map((event) => (
-          <EventRow key={event.id} event={event} />
+          <EventRow key={event.id} event={event} onEditUser={onEditUser} />
         ))}
       </div>
       {!stick && events.length > 0 ? (

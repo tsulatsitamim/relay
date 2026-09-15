@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Transcript } from "../src/renderer/Transcript.tsx";
 import type { TranscriptEvent } from "../src/shared/types.ts";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  delete (navigator as { clipboard?: unknown }).clipboard;
+});
 
 describe("Transcript rendering", () => {
   it("renders agent messages as markdown", () => {
@@ -112,5 +115,34 @@ describe("Transcript rendering", () => {
     expect(screen.getByRole("button", { name: /Thinking/i })).toBeTruthy();
     expect(screen.getByText("Edit README.md")).toBeTruthy();
     expect(screen.getByText("First step")).toBeTruthy();
+  });
+
+  it("copies an agent message through the clipboard action", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "agent_message", payload: { text: "the answer" } },
+    ];
+    render(<Transcript events={events} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy message" }));
+    expect(writeText).toHaveBeenCalledWith("the answer");
+  });
+
+  it("edits a user message through the action when onEditUser is provided", () => {
+    const onEditUser = vi.fn();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "try again" } },
+    ];
+    render(<Transcript events={events} onEditUser={onEditUser} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
+    expect(onEditUser).toHaveBeenCalledWith("try again");
+  });
+
+  it("omits the edit action when onEditUser is not provided", () => {
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "try again" } },
+    ];
+    render(<Transcript events={events} />);
+    expect(screen.queryByRole("button", { name: "Edit message" })).toBeNull();
   });
 });

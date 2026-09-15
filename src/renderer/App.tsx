@@ -208,6 +208,7 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("relay.sidebarCollapsed") === "1",
   );
+  const [inject, setInject] = useState<{ text: string; nonce: number } | undefined>();
   const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   const onHome = selectedId === null;
@@ -850,7 +851,10 @@ export function App() {
                 </button>
               ) : null}
             </header>
-            <Transcript events={events} />
+            <Transcript
+              events={events}
+              onEditUser={(text) => setInject({ text, nonce: Date.now() })}
+            />
             {permissions.length > 0 ? (
               <div className="permission-dock">
                 {permissions.map((request) => (
@@ -885,6 +889,7 @@ export function App() {
               onRemoveQueued={(index) => removeQueued(selected.id, index)}
               commands={commands}
               cwd={selected.workingDirectory}
+              inject={inject}
             />
           </div>
         ) : (
