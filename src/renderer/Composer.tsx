@@ -92,7 +92,7 @@ export function Composer({
   function pickMention(index: number) {
     const item = mentionItems[index];
     if (!item) return;
-    setText((prev) => prev.replace(/@([^\s@]*)$/, `@${item.id} `));
+    setText((prev) => prev.replace(/@([^\s@]*)$/, () => `@${item.id} `));
   }
 
   async function submit() {

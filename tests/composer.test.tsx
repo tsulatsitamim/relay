@@ -18,7 +18,10 @@ function setup(overrides: Partial<React.ComponentProps<typeof Composer>> = {}) {
   return { onSend, onCancel, field: screen.getByRole("textbox") as HTMLTextAreaElement };
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  delete (window as any).relay;
+});
 const noop = () => {};
 describe("Composer", () => {
   it("sends on Enter", () => {
@@ -145,6 +148,26 @@ describe("Composer", () => {
     fireEvent.click(option);
     expect(box.value).toBe("look at @src/index.ts ");
     expect(listFiles).toHaveBeenCalledWith("/tmp/repo");
+  });
+
+  it("inserts mention paths literally when they contain replacement tokens", async () => {
+    const listFiles = vi.fn().mockResolvedValue(["a$&b.ts"]);
+    // @ts-expect-error test shim
+    window.relay = { listFiles };
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={vi.fn()}
+        onCancel={noop}
+        cwd="/tmp/repo"
+      />,
+    );
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "see @a" } });
+    const option = await screen.findByText("a$&b.ts");
+    fireEvent.click(option);
+    expect(box.value).toBe("see @a$&b.ts ");
   });
 
   it("attaches picked images and sends them", async () => {
