@@ -49,4 +49,24 @@ describe("listFiles", () => {
       "src/index.ts",
     ]);
   });
+
+  it("bounds traversal with a visited cap", () => {
+    const root = mkdtempSync(join(tmpdir(), "relay-files-cap-"));
+    dirs.push(root);
+    for (const name of ["a.txt", "b.txt", "c.txt", "d.txt", "e.txt"]) {
+      writeFileSync(join(root, name), "");
+    }
+    expect(listFiles(root, { maxVisited: 3 })).toEqual([
+      "a.txt",
+      "b.txt",
+      "c.txt",
+    ]);
+    expect(listFiles(root, { maxVisited: 100 })).toEqual([
+      "a.txt",
+      "b.txt",
+      "c.txt",
+      "d.txt",
+      "e.txt",
+    ]);
+  });
 });
