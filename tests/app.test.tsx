@@ -126,6 +126,16 @@ describe("App composer session isolation", () => {
   });
 });
 
+describe("App sidebar markup", () => {
+  it("does not nest buttons inside other buttons", async () => {
+    mount([makeSession({ id: "s1", title: "Session one" })]);
+    await screen.findByText("Session one");
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const nested = buttons.filter((button) => button.querySelector("button"));
+    expect(nested).toEqual([]);
+  });
+});
+
 describe("App retry", () => {
   it("resends the original attachments when retrying a failed prompt", async () => {
     const attachment: PromptAttachment = {

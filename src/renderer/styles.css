@@ -243,6 +243,11 @@ input:focus-visible {
   position: relative;
 }
 
+.repo-row {
+  cursor: pointer;
+  user-select: none;
+}
+
 .nav-item::before,
 .repo-row::before,
 .row-item::before {

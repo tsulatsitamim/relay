@@ -632,12 +632,19 @@ export function App() {
                   const collapsed = collapsedRepos.has(repo.path);
                   return (
                     <div key={repo.path} className={`repo-group ${collapsed ? "collapsed" : ""}`}>
-                      <button
+                      <div
                         className="repo-row"
+                        role="button"
+                        tabIndex={0}
                         data-section-head=""
                         data-has-actions="true"
                         aria-expanded={!collapsed}
                         onClick={() => toggleRepo(repo.path)}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" && e.key !== " ") return;
+                          e.preventDefault();
+                          toggleRepo(repo.path);
+                        }}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setMenu({ kind: "repo", x: e.clientX, y: e.clientY, path: repo.path });
@@ -669,7 +676,7 @@ export function App() {
                             </button>
                           </span>
                         </span>
-                      </button>
+                      </div>
                       {!collapsed &&
                         sessions.map((session) => renderRow(session))}
                       {!collapsed && sessions.length === 0 && (
