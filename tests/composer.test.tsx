@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Composer } from "../src/renderer/Composer";
 
 function setup(overrides: Partial<React.ComponentProps<typeof Composer>> = {}) {
@@ -195,6 +195,96 @@ describe("Composer", () => {
     fireEvent.change(box, { target: { value: "plain" } });
     fireEvent.keyDown(box, { key: "Enter" });
     expect(onSend).toHaveBeenCalledWith("plain");
+  });
+
+  it("does not pick a suggestion on Shift+Enter", () => {
+    const onSend = vi.fn();
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={onSend}
+        onCancel={noop}
+        commands={[{ name: "init", description: "Create AGENTS.md" }]}
+      />,
+    );
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "/in" } });
+    expect(screen.getByText("/init")).toBeTruthy();
+    fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+    expect(box.value).toBe("/in");
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("keeps the draft when Escape closes the slash menu", () => {
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={vi.fn()}
+        onCancel={noop}
+        commands={[{ name: "init", description: "Create AGENTS.md" }]}
+      />,
+    );
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "/in" } });
+    expect(screen.getByText("/init")).toBeTruthy();
+    fireEvent.keyDown(box, { key: "Escape" });
+    expect(screen.queryByText("/init")).toBeNull();
+    expect(box.value).toBe("/in");
+  });
+
+  it("keeps the draft when Escape closes the mention menu", async () => {
+    const listFiles = vi.fn().mockResolvedValue(["src/index.ts"]);
+    // @ts-expect-error test shim
+    window.relay = { listFiles };
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={vi.fn()}
+        onCancel={noop}
+        cwd="/tmp/repo"
+      />,
+    );
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "look at @ind" } });
+    expect(await screen.findByText("src/index.ts")).toBeTruthy();
+    fireEvent.keyDown(box, { key: "Escape" });
+    expect(screen.queryByText("src/index.ts")).toBeNull();
+    expect(box.value).toBe("look at @ind");
+  });
+
+  it("ignores a stale mention response", async () => {
+    const pending = new Map<string, (value: string[]) => void>();
+    const listFiles = vi.fn(
+      (_cwd: string, query?: string) =>
+        new Promise<string[]>((resolve) => {
+          pending.set(query ?? "", resolve);
+        }),
+    );
+    // @ts-expect-error test shim
+    window.relay = { listFiles };
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={vi.fn()}
+        onCancel={noop}
+        cwd="/tmp/repo"
+      />,
+    );
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "@e" } });
+    await waitFor(() => expect(listFiles).toHaveBeenCalledWith("/tmp/repo", "e"));
+    fireEvent.change(box, { target: { value: "@ea" } });
+    await waitFor(() => expect(listFiles).toHaveBeenCalledWith("/tmp/repo", "ea"));
+    pending.get("ea")!(["early.ts"]);
+    expect(await screen.findByText("early.ts")).toBeTruthy();
+    pending.get("e")!(["late.ts"]);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(screen.queryByText("late.ts")).toBeNull();
+    expect(screen.getByText("early.ts")).toBeTruthy();
   });
 
   it("keeps text and attachments intact when submitting while working", async () => {

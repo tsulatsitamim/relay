@@ -33,6 +33,7 @@ export function Composer({
   const [files, setFiles] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<PromptAttachment[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const canSubmit = (Boolean(text.trim()) || attachments.length > 0) && !disabled;
   const slashMatch = /^\/([^\s\n]*)$/.exec(text);
@@ -44,8 +45,8 @@ export function Composer({
   const mentionMatch = /(?:^|\s)@([^\s@]*)$/.exec(text);
   const mentionQuery = mentionMatch ? mentionMatch[1] : null;
   const mentionItems = files.map((file) => ({ id: file, label: file }));
-  const slashMenuOpen = slashItems.length > 0;
-  const mentionMenuOpen = !slashMenuOpen && mentionItems.length > 0;
+  const slashMenuOpen = slashItems.length > 0 && !dismissed;
+  const mentionMenuOpen = !slashMenuOpen && mentionItems.length > 0 && !dismissed;
 
   useEffect(() => {
     const el = field.current;
@@ -62,25 +63,33 @@ export function Composer({
       setFiles([]);
       return;
     }
+    let cancelled = false;
     const handle = setTimeout(() => {
       void window.relay
         .listFiles(cwd, mentionQuery)
-        .then((all) =>
+        .then((all) => {
+          if (cancelled) return;
           setFiles(
             all
               .filter((file) =>
                 file.toLowerCase().includes(mentionQuery.toLowerCase()),
               )
               .slice(0, 8),
-          ),
-        )
-        .catch(() => setFiles([]));
+          );
+        })
+        .catch(() => {
+          if (!cancelled) setFiles([]);
+        });
     }, 120);
-    return () => clearTimeout(handle);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
   }, [mentionQuery, cwd]);
 
   useEffect(() => {
     setActiveIndex(0);
+    setDismissed(false);
   }, [text]);
 
   function pickSlash(index: number) {
@@ -127,14 +136,14 @@ export function Composer({
         setActiveIndex((i) => (i - 1 + slashItems.length) % slashItems.length);
         return;
       }
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         pickSlash(activeIndex);
         return;
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        setText("");
+        setDismissed(true);
         return;
       }
     }
@@ -149,14 +158,14 @@ export function Composer({
         setActiveIndex((i) => (i - 1 + mentionItems.length) % mentionItems.length);
         return;
       }
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         pickMention(activeIndex);
         return;
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        setFiles([]);
+        setDismissed(true);
         return;
       }
     }

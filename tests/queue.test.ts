@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { nextQueued } from "../src/renderer/queue.ts";
+import { nextQueued, pruneQueued } from "../src/renderer/queue.ts";
+
+describe("pruneQueued", () => {
+  it("drops entries for sessions that no longer exist", () => {
+    expect(pruneQueued({ a: ["one"], b: ["two"] }, ["a"])).toEqual({ a: ["one"] });
+  });
+
+  it("drops empty queues", () => {
+    expect(pruneQueued({ a: [], b: ["two"] }, ["a", "b"])).toEqual({ b: ["two"] });
+  });
+
+  it("returns the same reference when there is nothing to prune", () => {
+    const queued = { a: ["one"] };
+    expect(pruneQueued(queued, ["a", "b"])).toBe(queued);
+  });
+});
 
 describe("nextQueued", () => {
   it("returns nothing when the queue is empty", () => {

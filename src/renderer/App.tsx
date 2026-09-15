@@ -13,7 +13,7 @@ import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
 import { ErrorBanner } from "./ErrorBanner";
-import { nextQueued } from "./queue";
+import { nextQueued, pruneQueued } from "./queue";
 import { PermissionCard } from "./PermissionCard";
 import { SessionRow } from "./SessionRow";
 import { matchesSession } from "./search.ts";
@@ -351,6 +351,15 @@ export function App() {
       [sessionId]: (prev[sessionId] ?? []).filter((_, i) => i !== index),
     }));
   };
+
+  useEffect(() => {
+    setQueued((prev) =>
+      pruneQueued(
+        prev,
+        state.sessions.map((session) => session.id),
+      ),
+    );
+  }, [state.sessions]);
 
   useEffect(() => {
     for (const session of state.sessions) {
