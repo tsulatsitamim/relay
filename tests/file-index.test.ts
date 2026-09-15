@@ -42,7 +42,11 @@ describe("listFiles", () => {
     expect(files).not.toContain(".env");
   });
 
-  it("honors the limit", () => {
-    expect(listFiles(fixture(), { limit: 1 })).toHaveLength(1);
+  it("returns a deterministic sorted prefix when limited", () => {
+    expect(listFiles(fixture(), { limit: 1 })).toEqual(["README.md"]);
+    expect(listFiles(fixture(), { limit: 2 })).toEqual([
+      "README.md",
+      "src/index.ts",
+    ]);
   });
 });

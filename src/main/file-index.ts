@@ -27,7 +27,7 @@ export function listFiles(
   const files: string[] = [];
 
   const walk = (dir: string, prefix: string, depth: number) => {
-    if (depth > maxDepth || files.length >= limit) return;
+    if (depth > maxDepth) return;
     let entries;
     try {
       entries = readdirSync(dir, { withFileTypes: true });
@@ -35,7 +35,6 @@ export function listFiles(
       return;
     }
     for (const entry of entries) {
-      if (files.length >= limit) return;
       if (shouldIgnore(entry.name)) continue;
       const relative = prefix ? posix.join(prefix, entry.name) : entry.name;
       if (entry.isDirectory()) walk(join(dir, entry.name), relative, depth + 1);
@@ -44,5 +43,5 @@ export function listFiles(
   };
 
   walk(cwd, "", 1);
-  return files.sort();
+  return files.sort().slice(0, limit);
 }
