@@ -87,6 +87,7 @@ function WindowLights() {
         title="Close"
         aria-label="Close"
         onClick={() => void window.relay.windowControl("close")}
+        onMouseDown={(e) => e.preventDefault()}
       />
       <button
         type="button"
@@ -94,6 +95,7 @@ function WindowLights() {
         title="Minimize"
         aria-label="Minimize"
         onClick={() => void window.relay.windowControl("min")}
+        onMouseDown={(e) => e.preventDefault()}
       />
       <button
         type="button"
@@ -101,6 +103,7 @@ function WindowLights() {
         title="Maximize"
         aria-label="Maximize"
         onClick={() => void window.relay.windowControl("max")}
+        onMouseDown={(e) => e.preventDefault()}
       />
     </span>
   );
@@ -108,12 +111,14 @@ function WindowLights() {
 
 function TitlebarChrome({
   collapsed,
+  spread,
   onToggle,
   prevChatId,
   nextChatId,
   onSelect,
 }: {
   collapsed: boolean;
+  spread?: boolean;
   onToggle: () => void;
   prevChatId: string | null;
   nextChatId: string | null;
@@ -127,11 +132,12 @@ function TitlebarChrome({
         className="icon-btn"
         title={collapsed ? "Show Sidebar" : "Hide Sidebar"}
         aria-label={collapsed ? "Show Sidebar" : "Hide Sidebar"}
+        onMouseDown={(e) => e.preventDefault()}
         onClick={onToggle}
       >
         <IconPanelLeft />
       </button>
-      <span className="titlebar-spacer" />
+      {spread ? <span className="titlebar-spacer" /> : null}
       <span className="canvas-tools-nav">
         <button
           type="button"
@@ -139,6 +145,7 @@ function TitlebarChrome({
           title="Go Back"
           aria-label="Go Back"
           disabled={!prevChatId}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => prevChatId && onSelect(prevChatId)}
         >
           <IconArrowLeft />
@@ -149,6 +156,7 @@ function TitlebarChrome({
           title="Go Forward"
           aria-label="Go Forward"
           disabled={!nextChatId}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => nextChatId && onSelect(nextChatId)}
         >
           <IconArrowRight />
@@ -371,15 +379,18 @@ export function App() {
   return (
     <div className={`app${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
-        <div className="traffic">
-          <TitlebarChrome
-            collapsed={false}
-            onToggle={toggleSidebar}
-            prevChatId={prevChatId}
-            nextChatId={nextChatId}
-            onSelect={setSelectedId}
-          />
-        </div>
+        {!sidebarCollapsed && (
+          <div className="traffic">
+            <TitlebarChrome
+              collapsed={false}
+              spread
+              onToggle={toggleSidebar}
+              prevChatId={prevChatId}
+              nextChatId={nextChatId}
+              onSelect={setSelectedId}
+            />
+          </div>
+        )}
         <div className="nav">
           <button
             className={`nav-item ${onHome && !searching ? "active" : ""}`}
@@ -668,6 +679,7 @@ export function App() {
           ) : (
             <span />
           )}
+          <span className="canvas-tools-drag" />
           <span className="canvas-tools-right">
             <span className="ide-link" aria-disabled="true">
               IDE

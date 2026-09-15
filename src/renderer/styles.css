@@ -164,6 +164,7 @@ input:focus-visible {
   border: 0.5px solid rgb(0 0 0 / 18%);
   position: relative;
   flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
 .traffic-btn.close {
@@ -631,23 +632,32 @@ input:focus-visible {
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-2);
-  -webkit-app-region: drag;
-  z-index: 2;
+  -webkit-app-region: no-drag;
+  z-index: 4;
   pointer-events: none;
+}
+
+.canvas-tools-drag {
+  flex: 1;
+  align-self: stretch;
+  min-width: 24px;
+  -webkit-app-region: drag;
+  pointer-events: auto;
 }
 
 .canvas-tools-left,
 .canvas-tools-right {
   display: flex;
   align-items: center;
-  gap: var(--space-0-5);
+  gap: var(--space-2);
   -webkit-app-region: no-drag;
   pointer-events: auto;
+  position: relative;
+  z-index: 5;
 }
 
 .canvas-tools-left {
-  flex: 1;
-  gap: var(--space-2);
+  flex: 0 0 auto;
   min-width: 0;
 }
 
@@ -672,8 +682,8 @@ input:focus-visible {
   font-size: var(--font-size-sm);
 }
 
-.app.sidebar-collapsed .canvas-tools {
-  padding-left: 16px;
+.app.sidebar-collapsed .thread-head {
+  padding-left: 168px;
 }
 
 .ide-link {
@@ -875,7 +885,7 @@ input:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 
 .thread-name {
@@ -884,6 +894,7 @@ input:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
+  -webkit-app-region: drag;
 }
 
 .thread-err {
