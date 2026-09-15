@@ -930,10 +930,6 @@ input:focus-visible {
   box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
 }
 
-.menu-end {
-  transform: translateX(-100%);
-}
-
 .menu-item {
   width: 100%;
   border: 0;

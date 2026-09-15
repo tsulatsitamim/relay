@@ -46,14 +46,12 @@ type MenuState =
 function Menu({
   x,
   y,
-  align = "start",
   onClose,
   ignoreRef,
   children,
 }: {
   x: number;
   y: number;
-  align?: "start" | "end";
   onClose: () => void;
   ignoreRef?: RefObject<HTMLElement | null>;
   children: ReactNode;
@@ -70,12 +68,7 @@ function Menu({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [onClose, ignoreRef]);
   return createPortal(
-    <div
-      ref={ref}
-      className={`menu${align === "end" ? " menu-end" : ""}`}
-      style={{ top: y, left: x }}
-      role="menu"
-    >
+    <div ref={ref} className="menu" style={{ top: y, left: x }} role="menu">
       {children}
     </div>,
     document.body,
@@ -391,7 +384,7 @@ export function App() {
                       return;
                     }
                     const box = e.currentTarget.getBoundingClientRect();
-                    setMenu({ kind: "filter", x: box.right, y: box.bottom + 4 });
+                    setMenu({ kind: "filter", x: box.right + 4, y: box.top });
                   }}
                 >
                   <IconFilter />
@@ -485,7 +478,6 @@ export function App() {
           <Menu
             x={menu.x}
             y={menu.y}
-            align="end"
             ignoreRef={filterBtnRef}
             onClose={() => setMenu(null)}
           >
