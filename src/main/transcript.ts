@@ -29,6 +29,43 @@ export function reduceSessionUpdate(
     ];
   }
 
+  if (kind === "agent_thought_chunk") {
+    const text = textFromContent(update.content);
+    if (!text) return events;
+    const last = events[events.length - 1];
+    if (last?.kind === "thinking") {
+      const prev = String(last.payload.text ?? "");
+      return [
+        ...events.slice(0, -1),
+        { ...last, payload: { ...last.payload, text: prev + text } },
+      ];
+    }
+    return [
+      ...events,
+      {
+        id: nextId(),
+        kind: "thinking",
+        payload: { text },
+        createdAt: Date.now(),
+      },
+    ];
+  }
+
+  if (kind === "plan") {
+    const entries = planEntries(update.entries);
+    const event: TranscriptEvent = {
+      id: nextId(),
+      kind: "plan",
+      payload: { entries },
+      createdAt: Date.now(),
+    };
+    const last = events[events.length - 1];
+    if (last?.kind === "plan") {
+      return [...events.slice(0, -1), { ...event, id: last.id }];
+    }
+    return [...events, event];
+  }
+
   if (kind === "tool_call") {
     const toolCallId = String(update.toolCallId ?? nextId());
     return [
@@ -76,6 +113,22 @@ function textFromContent(content: unknown): string {
   const c = content as { type?: string; text?: string };
   if (c.type === "text" && typeof c.text === "string") return c.text;
   return "";
+}
+
+function planEntries(entries: unknown): Array<{ content: string; priority?: string; status?: string }> {
+  if (!Array.isArray(entries)) return [];
+  const out: Array<{ content: string; priority?: string; status?: string }> = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") continue;
+    const rec = entry as Record<string, unknown>;
+    if (typeof rec.content !== "string") continue;
+    out.push({
+      content: rec.content,
+      priority: typeof rec.priority === "string" ? rec.priority : undefined,
+      status: typeof rec.status === "string" ? rec.status : undefined,
+    });
+  }
+  return out;
 }
 
 function diffsFromContent(

@@ -5,6 +5,7 @@ import { IconChevron, IconCirclePlus, IconMic, IconMonitor, IconSend } from "./i
 type Props = {
   agents: AgentConfig[];
   repos: Repo[];
+  recents: string[];
   agentId: string;
   repoPath: string;
   busy: boolean;
@@ -39,6 +40,7 @@ function Chip({
 export function HomeComposer({
   agents,
   repos,
+  recents,
   agentId,
   repoPath,
   busy,
@@ -49,6 +51,9 @@ export function HomeComposer({
 }: Props) {
   const [text, setText] = useState("");
   const selected = repos.find((r) => r.path === repoPath);
+  const recentFolders = recents.filter(
+    (path) => !repos.some((repo) => repo.path === path),
+  );
   const canSend = Boolean(text.trim()) && !busy;
 
   async function submit() {
@@ -59,10 +64,9 @@ export function HomeComposer({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      void submit();
-    }
+    if (e.key !== "Enter" || e.shiftKey) return;
+    e.preventDefault();
+    void submit();
   }
 
   return (
@@ -75,6 +79,15 @@ export function HomeComposer({
               {repo.name}
             </option>
           ))}
+          {recentFolders.length > 0 ? (
+            <optgroup label="Recent">
+              {recentFolders.map((path) => (
+                <option key={path} value={path}>
+                  {path}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
         </Chip>
         {selected?.branch ? (
           <>

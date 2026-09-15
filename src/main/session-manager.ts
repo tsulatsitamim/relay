@@ -1,11 +1,25 @@
 import { randomUUID } from "node:crypto";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
-import type { AgentConfig, Repo, Session, SessionStatus, TranscriptEvent } from "../shared/types.ts";
-import { AcpSession } from "./acp-session.ts";
+import type {
+  AgentConfig,
+  PermissionRequest,
+  Repo,
+  Session,
+  SessionStatus,
+  TranscriptEvent,
+} from "../shared/types.ts";
+import {
+  AcpSession,
+  type AcpExitInfo,
+  type PermissionAnswer,
+  type PermissionPrompt,
+} from "./acp-session.ts";
 import type { Store } from "./db.ts";
 import { reduceSessionUpdate } from "./transcript.ts";
 import { titleFromPrompt } from "./title.ts";
 import { repoFor } from "../shared/repo.ts";
+
+const PERMISSION_TIMEOUT_MS = 120_000;
 
 export type CreateSessionInput = {
   agent: AgentConfig;
@@ -16,6 +30,8 @@ export type CreateSessionInput = {
 export type ManagerEvent =
   | { type: "sessions"; sessions: Session[] }
   | { type: "transcript"; sessionId: string; events: TranscriptEvent[] }
+  | { type: "permission"; sessionId: string; request: PermissionRequest }
+  | { type: "permission_resolved"; sessionId: string; requestId: string }
   | { type: "log"; sessionId?: string; message: string };
 
 export class SessionManager {
@@ -23,6 +39,10 @@ export class SessionManager {
   private readonly events = new Map<string, TranscriptEvent[]>();
   private readonly listeners = new Set<(event: ManagerEvent) => void>();
   private readonly loading = new Set<string>();
+  private readonly permissions = new Map<
+    string,
+    { request: PermissionRequest; resolve: (answer: PermissionAnswer) => void }
+  >();
   private seq = 0;
 
   constructor(private readonly store: Store) {
@@ -80,12 +100,94 @@ export class SessionManager {
     return this.patch(id, archived ? { archived: true, pinned: false } : { archived: false }, false);
   }
 
+  setTitle(id: string, title: string): Session {
+    return this.patch(id, { title }, false);
+  }
+
   saveAgents(agents: AgentConfig[]): void {
     this.store.saveAgents(agents);
   }
 
   transcript(sessionId: string): TranscriptEvent[] {
     return this.events.get(sessionId) ?? [];
+  }
+
+  pendingPermissions(): PermissionRequest[] {
+    return [...this.permissions.values()].map((p) => p.request);
+  }
+
+  answerPermission(requestId: string, optionId: string | null): void {
+    this.settlePermission(
+      requestId,
+      optionId ? { outcome: "selected", optionId } : { outcome: "cancelled" },
+    );
+  }
+
+  private askPermission(
+    sessionId: string,
+    prompt: PermissionPrompt,
+  ): Promise<PermissionAnswer> {
+    const id = randomUUID();
+    const request: PermissionRequest = {
+      id,
+      sessionId,
+      toolCallId: prompt.toolCallId,
+      title: prompt.title,
+      kind: prompt.kind,
+      options: prompt.options,
+    };
+    return new Promise<PermissionAnswer>((resolve) => {
+      const timer = setTimeout(() => {
+        this.emit({
+          type: "log",
+          sessionId,
+          message: `permission request timed out for ${request.title ?? id}`,
+        });
+        this.settlePermission(id, { outcome: "cancelled" });
+      }, PERMISSION_TIMEOUT_MS);
+      this.permissions.set(id, {
+        request,
+        resolve: (answer) => {
+          clearTimeout(timer);
+          resolve(answer);
+        },
+      });
+      this.emit({ type: "permission", sessionId, request });
+    });
+  }
+
+  private settlePermission(requestId: string, answer: PermissionAnswer): void {
+    const pending = this.permissions.get(requestId);
+    if (!pending) return;
+    this.permissions.delete(requestId);
+    pending.resolve(answer);
+    this.emit({
+      type: "permission_resolved",
+      sessionId: pending.request.sessionId,
+      requestId,
+    });
+  }
+
+  private cancelPendingForSession(sessionId: string): void {
+    for (const [id, pending] of [...this.permissions]) {
+      if (pending.request.sessionId === sessionId) {
+        this.settlePermission(id, { outcome: "cancelled" });
+      }
+    }
+  }
+
+  private handleExit(sessionId: string, info: AcpExitInfo): void {
+    this.live.delete(sessionId);
+    this.cancelPendingForSession(sessionId);
+    const session = this.get(sessionId);
+    if (!session || session.status === "exited") return;
+    this.patch(sessionId, { status: "exited" });
+    this.append(sessionId, {
+      kind: "status",
+      payload: {
+        text: `Agent process exited (code ${info.code}, signal ${info.signal}).`,
+      },
+    });
   }
 
   async create(input: CreateSessionInput): Promise<Session> {
@@ -146,6 +248,7 @@ export class SessionManager {
   async delete(id: string): Promise<void> {
     await this.live.get(id)?.kill();
     this.live.delete(id);
+    this.cancelPendingForSession(id);
     this.events.delete(id);
     this.store.deleteSession(id);
     this.emitSessions();
@@ -156,6 +259,9 @@ export class SessionManager {
       [...this.live.values()].map((session) => session.kill()),
     );
     this.live.clear();
+    for (const id of [...this.permissions.keys()]) {
+      this.settlePermission(id, { outcome: "cancelled" });
+    }
     for (const session of this.list()) {
       if (session.status !== "error") {
         this.patch(session.id, { status: "exited" });
@@ -181,13 +287,8 @@ export class SessionManager {
       env: agent.env,
       resumeSessionId: resume ? session.acpSessionId : undefined,
       onUpdate: (update) => this.handleUpdate(session.id, update),
-      onPermission: (info) => {
-        this.emit({
-          type: "log",
-          sessionId: session.id,
-          message: `auto-allow ${info.optionId} for ${info.title ?? info.toolCallId}`,
-        });
-      },
+      requestPermission: (prompt) => this.askPermission(session.id, prompt),
+      onExit: (info) => this.handleExit(session.id, info),
       onLog: (line) => {
         this.emit({ type: "log", sessionId: session.id, message: line.trim() });
       },

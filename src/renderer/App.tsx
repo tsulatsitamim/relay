@@ -3,17 +3,20 @@ import { createPortal } from "react-dom";
 import type { RelayState } from "../shared/ipc.ts";
 import type { Repo, Session, TranscriptEvent } from "../shared/types.ts";
 import { repoFor } from "../shared/repo.ts";
-import { timeAgo } from "../shared/time.ts";
 import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
+import { ErrorBanner } from "./ErrorBanner";
+import { PermissionCard } from "./PermissionCard";
+import { SessionRow } from "./SessionRow";
+import { matchesSession } from "./search.ts";
 import {
-  IconArchive,
   IconAutomations,
   IconCheck,
   IconArrowLeft,
   IconArrowRight,
   IconChevron,
+  IconCopy,
   IconCustomize,
   IconFilter,
   IconFolder,
@@ -24,7 +27,6 @@ import {
   IconPanelLeft,
   IconPen,
   IconPencil,
-  IconPin,
   IconPlus,
   IconRedo,
   IconSearch,
@@ -39,12 +41,14 @@ const emptyState: RelayState = {
   recents: [],
   repos: [],
   transcripts: {},
+  permissions: [],
   homeDir: "",
 };
 
 type MenuState =
   | { kind: "filter"; x: number; y: number }
-  | { kind: "repo"; x: number; y: number; path: string };
+  | { kind: "repo"; x: number; y: number; path: string }
+  | { kind: "session"; x: number; y: number; sessionId: string };
 
 function Menu({
   x,
@@ -175,6 +179,9 @@ export function App() {
   const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<
+    { sessionId: string; message: string; prompt: string } | null
+  >(null);
   const [reposCollapsed, setReposCollapsed] = useState(false);
   const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
   const [collapsedRepos, setCollapsedRepos] = useState<Set<string>>(() => new Set());
@@ -182,6 +189,7 @@ export function App() {
     () => localStorage.getItem("relay.showArchived") === "1",
   );
   const [menu, setMenu] = useState<MenuState | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("relay.sidebarCollapsed") === "1",
   );
@@ -205,6 +213,21 @@ export function App() {
           return {
             ...prev,
             transcripts: { ...prev.transcripts, [event.sessionId]: event.events },
+          };
+        }
+        if (event.type === "permission") {
+          return {
+            ...prev,
+            permissions: [
+              ...prev.permissions.filter((p) => p.id !== event.request.id),
+              event.request,
+            ],
+          };
+        }
+        if (event.type === "permission_resolved") {
+          return {
+            ...prev,
+            permissions: prev.permissions.filter((p) => p.id !== event.requestId),
           };
         }
         return prev;
@@ -251,11 +274,51 @@ export function App() {
   const composerLocked = Boolean(
     selected && ["starting", "working", "cancelling"].includes(selected.status),
   );
+  const permissions = selected
+    ? state.permissions.filter((request) => request.sessionId === selected.id)
+    : [];
+  const permissionSessionIds = new Set(
+    state.permissions.map((request) => request.sessionId),
+  );
+  const canRestart = Boolean(
+    selected && ["exited", "error"].includes(selected.status),
+  );
 
-  const q = query.trim().toLowerCase();
+  const answerPermission = (requestId: string, optionId: string | null) => {
+    setState((prev) => ({
+      ...prev,
+      permissions: prev.permissions.filter((p) => p.id !== requestId),
+    }));
+    void window.relay.permission(requestId, optionId);
+  };
+
+  const sendToSession = async (sessionId: string, text: string) => {
+    setBusy(true);
+    setChatError(null);
+    try {
+      await window.relay.send(sessionId, text);
+    } catch (err) {
+      setChatError({
+        sessionId,
+        message: err instanceof Error ? err.message : String(err),
+        prompt: text,
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const activeChatError =
+    chatError && selected && chatError.sessionId === selected.id ? chatError : null;
+
   const chats = state.sessions.filter((session) => {
-    if (q && !session.title.toLowerCase().includes(q)) return false;
     if (!showArchived && session.archived) return false;
+    if (
+      query.trim() &&
+      !matchesSession(query, session.title, state.transcripts[session.id] ?? [])
+    ) {
+      return false;
+    }
     return true;
   });
   const pinned = chats.filter((session) => session.pinned);
@@ -320,59 +383,24 @@ export function App() {
     }
   }
 
-  function ChatRow({ session }: { session: Session }) {
-    const active = session.id === selectedId;
+  function renderRow(session: Session) {
     return (
-      <div
-        className={`row-item ${active ? "active" : ""} ${session.archived ? "muted" : ""}`}
-        role="button"
-        tabIndex={0}
-        data-has-actions="true"
-        data-active={active || undefined}
-        onClick={() => setSelectedId(session.id)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setSelectedId(session.id);
-          }
+      <SessionRow
+        key={session.id}
+        session={session}
+        active={session.id === selectedId}
+        renaming={session.id === renamingId}
+        permission={permissionSessionIds.has(session.id)}
+        onSelect={setSelectedId}
+        onContextMenu={(row, e) =>
+          setMenu({ kind: "session", x: e.clientX, y: e.clientY, sessionId: row.id })
+        }
+        onRename={(id, title) => {
+          setRenamingId(null);
+          void window.relay.rename(id, title);
         }}
-      >
-        <span className="cell-icon">
-          {session.archived ? (
-            <IconArchive className="status-icon" />
-          ) : (
-            <span className={`dot ${session.status}`} />
-          )}
-        </span>
-        <span className="cell-content">{session.title}</span>
-        <span className="row-end">
-          <span className="row-actions">
-            <button
-              className={`row-action ${session.pinned ? "on" : ""}`}
-              title={session.pinned ? "Unpin" : "Pin"}
-              aria-label={session.pinned ? "Unpin" : "Pin"}
-              onClick={(e) => {
-                e.stopPropagation();
-                void window.relay.setPinned(session.id, !session.pinned);
-              }}
-            >
-              <IconPin />
-            </button>
-            <button
-              className={`row-action ${session.archived ? "on" : ""}`}
-              title={session.archived ? "Unarchive" : "Archive"}
-              aria-label={session.archived ? "Unarchive" : "Archive"}
-              onClick={(e) => {
-                e.stopPropagation();
-                void window.relay.setArchived(session.id, !session.archived);
-              }}
-            >
-              {session.archived ? <IconRedo /> : <IconArchive />}
-            </button>
-          </span>
-          <span className="when">{timeAgo(session.updatedAt)}</span>
-        </span>
-      </div>
+        onCancelRename={() => setRenamingId(null)}
+      />
     );
   }
 
@@ -470,9 +498,7 @@ export function App() {
               </div>
               {!pinnedCollapsed && (
                 <div className="list">
-                  {pinned.map((session) => (
-                    <ChatRow key={session.id} session={session} />
-                  ))}
+                  {pinned.map((session) => renderRow(session))}
                 </div>
               )}
             </div>
@@ -585,9 +611,7 @@ export function App() {
                         </span>
                       </button>
                       {!collapsed &&
-                        sessions.map((session) => (
-                          <ChatRow key={session.id} session={session} />
-                        ))}
+                        sessions.map((session) => renderRow(session))}
                       {!collapsed && sessions.length === 0 && (
                         <div className="row-item muted disabled">
                           <span className="cell-icon" />
@@ -597,9 +621,7 @@ export function App() {
                     </div>
                   );
                 })}
-                {ungrouped.map((session) => (
-                  <ChatRow key={session.id} session={session} />
-                ))}
+                {ungrouped.map((session) => renderRow(session))}
               </div>
             )}
           </div>
@@ -662,6 +684,53 @@ export function App() {
             </button>
           </Menu>
         )}
+        {menu?.kind === "session" && (
+          <Menu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
+            <button
+              className="menu-item"
+              onClick={() => {
+                setRenamingId(menu.sessionId);
+                setMenu(null);
+              }}
+            >
+              <IconPencil />
+              Rename
+            </button>
+            <button
+              className="menu-item"
+              onClick={() => {
+                void window.relay.restart(menu.sessionId);
+                setMenu(null);
+              }}
+            >
+              <IconRedo />
+              Restart
+            </button>
+            <button
+              className="menu-item"
+              onClick={() => {
+                void window.relay.copyDebug(menu.sessionId);
+                setMenu(null);
+              }}
+            >
+              <IconCopy />
+              Copy Debug Info
+            </button>
+            <button
+              className="menu-item danger"
+              onClick={async () => {
+                const id = menu.sessionId;
+                setMenu(null);
+                setRenamingId((current) => (current === id ? null : current));
+                await window.relay.delete(id);
+                setSelectedId((current) => (current === id ? null : current));
+              }}
+            >
+              <IconTrash />
+              Delete
+            </button>
+          </Menu>
+        )}
       </aside>
 
       <section className="canvas">
@@ -695,46 +764,46 @@ export function App() {
             <header className="thread-head">
               <span className="thread-name">{selected.title}</span>
               {selected.error ? <span className="thread-err">{selected.error}</span> : null}
-              <div className="actions">
+              {canRestart ? (
                 <button
-                  className="ghost"
-                  onClick={() => void window.relay.cancel(selected.id)}
-                  disabled={!composerLocked}
+                  type="button"
+                  className="thread-restart"
+                  onClick={() => void window.relay.restart(selected.id)}
                 >
-                  Stop
-                </button>
-                <button className="ghost" onClick={() => void window.relay.restart(selected.id)}>
                   Restart
                 </button>
-                <button
-                  className="ghost danger"
-                  onClick={async () => {
-                    await window.relay.delete(selected.id);
-                    await refresh();
-                    setSelectedId(null);
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
+              ) : null}
             </header>
             <Transcript events={events} />
+            {permissions.length > 0 ? (
+              <div className="permission-dock">
+                {permissions.map((request) => (
+                  <PermissionCard
+                    key={request.id}
+                    request={request}
+                    onAnswer={answerPermission}
+                  />
+                ))}
+              </div>
+            ) : null}
+            {activeChatError ? (
+              <ErrorBanner
+                message={activeChatError.message}
+                onRetry={() => void sendToSession(activeChatError.sessionId, activeChatError.prompt)}
+              />
+            ) : null}
             <Composer
               disabled={composerLocked || busy}
-              onSend={async (text) => {
-                setBusy(true);
-                try {
-                  await window.relay.send(selected.id, text);
-                } finally {
-                  setBusy(false);
-                }
-              }}
+              working={composerLocked}
+              onCancel={() => void window.relay.cancel(selected.id)}
+              onSend={(text) => sendToSession(selected.id, text)}
             />
           </div>
         ) : (
           <HomeComposer
             agents={state.agents}
             repos={state.repos}
+            recents={state.recents}
             agentId={agentId}
             repoPath={repoPath}
             busy={busy}

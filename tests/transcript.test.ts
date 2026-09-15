@@ -90,9 +90,63 @@ describe("reduceSessionUpdate", () => {
 
   it("ignores unknown update kinds without throwing", () => {
     const events = reduceSessionUpdate([], {
-      sessionUpdate: "agent_thought_chunk",
-      content: { type: "text", text: "thinking" },
+      sessionUpdate: "totally_unknown_update",
+      content: { type: "text", text: "nope" },
     }, ids());
     expect(events).toEqual([]);
+  });
+
+  it("accumulates consecutive thought chunks into one thinking event", () => {
+    const nextId = ids();
+    let events: TranscriptEvent[] = [];
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "agent_thought_chunk",
+      content: { type: "text", text: "Let me " },
+    }, nextId);
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "agent_thought_chunk",
+      content: { type: "text", text: "think..." },
+    }, nextId);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kind: "thinking",
+      payload: { text: "Let me think..." },
+    });
+  });
+
+  it("records a plan update as a plan event", () => {
+    const events = reduceSessionUpdate([], {
+      sessionUpdate: "plan",
+      entries: [
+        { content: "Read the file", priority: "high", status: "in_progress" },
+        { content: "Edit the file", priority: "medium", status: "pending" },
+      ],
+    }, ids());
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.kind).toBe("plan");
+    expect(events[0]?.payload.entries).toEqual([
+      { content: "Read the file", priority: "high", status: "in_progress" },
+      { content: "Edit the file", priority: "medium", status: "pending" },
+    ]);
+  });
+
+  it("replaces the previous plan event instead of stacking snapshots", () => {
+    const nextId = ids();
+    let events: TranscriptEvent[] = [];
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "plan",
+      entries: [{ content: "Step one", priority: "high", status: "pending" }],
+    }, nextId);
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "plan",
+      entries: [{ content: "Step one", priority: "high", status: "completed" }],
+    }, nextId);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.payload.entries).toEqual([
+      { content: "Step one", priority: "high", status: "completed" },
+    ]);
   });
 });

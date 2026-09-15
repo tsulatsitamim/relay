@@ -1,86 +1,109 @@
-import { useEffect, useRef } from "react";
-import type { TranscriptEvent } from "../shared/types.ts";
-import { unifiedDiff } from "../shared/diff.ts";
+import { useEffect, useRef, useState } from "react";
+import type { PlanEntry, TranscriptEvent } from "../shared/types.ts";
+import { DiffBlock } from "./DiffBlock";
+import { Markdown } from "./Markdown";
+import { PlanBlock } from "./PlanBlock";
+import { ThinkingBlock } from "./ThinkingBlock";
+import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
+import { IconArrowDown } from "./icons";
+import { isNearBottom } from "./scroll";
 
 type Props = {
   events: TranscriptEvent[];
 };
 
+function EventRow({ event }: { event: TranscriptEvent }) {
+  if (event.kind === "user") {
+    return <div className="msg user">{String(event.payload.text ?? "")}</div>;
+  }
+
+  if (event.kind === "agent_message") {
+    return (
+      <div className="msg agent">
+        <Markdown text={String(event.payload.text ?? "")} />
+      </div>
+    );
+  }
+
+  if (event.kind === "thinking") {
+    return <ThinkingBlock text={String(event.payload.text ?? "")} />;
+  }
+
+  if (event.kind === "plan") {
+    return <PlanBlock entries={(event.payload.entries as PlanEntry[] | undefined) ?? []} />;
+  }
+
+  if (event.kind === "tool_call") {
+    return <ToolCallCard toolCall={event.payload as ToolCallData} />;
+  }
+
+  if (event.kind === "diff") {
+    return (
+      <DiffBlock
+        path={String(event.payload.path ?? "file")}
+        oldText={(event.payload.oldText as string | null) ?? null}
+        newText={String(event.payload.newText ?? "")}
+      />
+    );
+  }
+
+  if (event.kind === "error") {
+    return <div className="msg error">{String(event.payload.text ?? "Error")}</div>;
+  }
+
+  return <div className="msg status">{String(event.payload.text ?? "")}</div>;
+}
+
 export function Transcript({ events }: Props) {
-  const bottom = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [stick, setStick] = useState(true);
 
   useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "end" });
-  }, [events]);
+    if (!stick) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [events, stick]);
+
+  function onScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    setStick(
+      isNearBottom({
+        scrollTop: el.scrollTop,
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+      }),
+    );
+  }
+
+  function jumpToLatest() {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+    setStick(true);
+  }
 
   return (
-    <div className={`transcript${events.length === 0 ? " empty" : ""}`}>
-      {events.map((event) => {
-        if (event.kind === "user") {
-          return (
-            <div key={event.id} className="msg user">
-              {String(event.payload.text ?? "")}
-            </div>
-          );
-        }
-        if (event.kind === "agent_message") {
-          return (
-            <div key={event.id} className="msg agent">
-              {String(event.payload.text ?? "")}
-            </div>
-          );
-        }
-        if (event.kind === "tool_call") {
-          return (
-            <div key={event.id} className="tool">
-              <span className="kicker">{String(event.payload.status ?? "pending")}</span>
-              <span>{String(event.payload.title ?? "Tool")}</span>
-            </div>
-          );
-        }
-        if (event.kind === "diff") {
-          const path = String(event.payload.path ?? "file");
-          const diff = unifiedDiff(
-            (event.payload.oldText as string | null) ?? null,
-            String(event.payload.newText ?? ""),
-            path,
-          );
-          return (
-            <details key={event.id} className="diff" open>
-              <summary>{path}</summary>
-              <pre>
-                {diff.split("\n").map((line, i) => (
-                  <div
-                    key={i}
-                    className={
-                      line.startsWith("+") && !line.startsWith("+++")
-                        ? "add"
-                        : line.startsWith("-") && !line.startsWith("---")
-                          ? "del"
-                          : undefined
-                    }
-                  >
-                    {line}
-                  </div>
-                ))}
-              </pre>
-            </details>
-          );
-        }
-        if (event.kind === "error") {
-          return (
-            <div key={event.id} className="msg error">
-              {String(event.payload.text ?? "Error")}
-            </div>
-          );
-        }
-        return (
-          <div key={event.id} className="msg status">
-            {String(event.payload.text ?? "")}
-          </div>
-        );
-      })}
-      <div ref={bottom} />
+    <div className="transcript-wrap">
+      <div
+        ref={scrollRef}
+        className={`transcript${events.length === 0 ? " empty" : ""}`}
+        onScroll={onScroll}
+      >
+        {events.map((event) => (
+          <EventRow key={event.id} event={event} />
+        ))}
+      </div>
+      {!stick && events.length > 0 ? (
+        <button
+          type="button"
+          className="jump-latest"
+          aria-label="Jump to latest"
+          onClick={jumpToLatest}
+        >
+          <IconArrowDown />
+          <span>Latest</span>
+        </button>
+      ) : null}
     </div>
   );
 }

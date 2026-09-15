@@ -37,11 +37,25 @@ export type Session = {
   archived?: boolean;
 };
 
+export type PlanEntry = {
+  content: string;
+  priority?: string;
+  status?: string;
+};
+
 export type TranscriptEvent = {
   id: string;
   sessionId?: string;
   seq?: number;
-  kind: "user" | "agent_message" | "tool_call" | "diff" | "status" | "error";
+  kind:
+    | "user"
+    | "agent_message"
+    | "thinking"
+    | "plan"
+    | "tool_call"
+    | "diff"
+    | "status"
+    | "error";
   payload: Record<string, unknown>;
   createdAt?: number;
 };
@@ -50,6 +64,15 @@ export type PermissionOptionLike = {
   optionId: string;
   name: string;
   kind: string;
+};
+
+export type PermissionRequest = {
+  id: string;
+  sessionId: string;
+  toolCallId?: string;
+  title?: string;
+  kind?: string;
+  options: PermissionOptionLike[];
 };
 
 export type SessionUpdateLike = {

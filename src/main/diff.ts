@@ -1,1 +1,1 @@
-export { unifiedDiff } from "../shared/diff.ts";
+export { diffStat, unifiedDiff } from "../shared/diff.ts";

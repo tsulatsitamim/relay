@@ -38,6 +38,26 @@ export function unifiedDiff(
   return [...header, ...hunks].join("\n");
 }
 
+export function diffStat(
+  oldText: string | null | undefined,
+  newText: string,
+): { adds: number; dels: number } {
+  const oldLines = oldText == null ? [] : splitLines(oldText);
+  const newLines = splitLines(newText);
+  if (oldText == null) return { adds: newLines.length, dels: 0 };
+  let adds = 0;
+  let dels = 0;
+  const max = Math.max(oldLines.length, newLines.length);
+  for (let i = 0; i < max; i++) {
+    const a = oldLines[i];
+    const b = newLines[i];
+    if (a === b) continue;
+    if (a !== undefined) dels++;
+    if (b !== undefined) adds++;
+  }
+  return { adds, dels };
+}
+
 function splitLines(text: string): string[] {
   if (text.length === 0) return [];
   const lines = text.split("\n");

@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld("relay", {
   send: (id: string, text: string): Promise<void> =>
     ipcRenderer.invoke("relay:send", id, text),
   cancel: (id: string): Promise<void> => ipcRenderer.invoke("relay:cancel", id),
+  permission: (requestId: string, optionId: string | null): Promise<void> =>
+    ipcRenderer.invoke("relay:permission", requestId, optionId),
   restart: (id: string): Promise<void> => ipcRenderer.invoke("relay:restart", id),
   delete: (id: string): Promise<void> => ipcRenderer.invoke("relay:delete", id),
   pickDirectory: (): Promise<string | null> =>
@@ -20,6 +22,8 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:setPinned", id, pinned),
   setArchived: (id: string, archived: boolean): Promise<void> =>
     ipcRenderer.invoke("relay:setArchived", id, archived),
+  rename: (id: string, title: string): Promise<void> =>
+    ipcRenderer.invoke("relay:rename", id, title),
   copyDebug: (id: string): Promise<void> =>
     ipcRenderer.invoke("relay:copyDebug", id),
   windowControl: (action: "min" | "max" | "close"): Promise<void> =>

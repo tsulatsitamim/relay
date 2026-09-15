@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { fileURLToPath } from "node:url";
-import { SessionManager } from "../src/main/session-manager.ts";
+import { SessionManager, type ManagerEvent } from "../src/main/session-manager.ts";
 import { openStore } from "../src/main/db.ts";
-import type { AgentConfig } from "../src/shared/types.ts";
+import type { AgentConfig, PermissionRequest } from "../src/shared/types.ts";
 
 const agentPath = fileURLToPath(
   new URL("../agents/fake-acp-agent.mjs", import.meta.url),
@@ -38,6 +38,23 @@ async function manager() {
   const sm = new SessionManager(store);
   managers.push(sm);
   return sm;
+}
+
+async function waitFor<T>(get: () => T | null | undefined, timeoutMs = 3000): Promise<T> {
+  const started = Date.now();
+  for (;;) {
+    const value = get();
+    if (value) return value;
+    if (Date.now() - started > timeoutMs) throw new Error("timed out waiting");
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+
+function firstPermission(events: ManagerEvent[]): PermissionRequest | null {
+  for (const event of events) {
+    if (event.type === "permission") return event.request;
+  }
+  return null;
 }
 
 describe("SessionManager", () => {
@@ -97,6 +114,80 @@ describe("SessionManager", () => {
           String(e.payload.text).includes("echo: follow up"),
       ),
     ).toBe(true);
+  });
+
+  it("surfaces a permission request and applies the chosen option", async () => {
+    const sm = await manager();
+    const events: ManagerEvent[] = [];
+    sm.onEvent((e) => events.push(e));
+
+    const creating = sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "need permission",
+    });
+    const request = await waitFor(() => firstPermission(events));
+    expect(request.title).toBe("Edit README.md");
+    expect(sm.pendingPermissions().map((r) => r.id)).toEqual([request.id]);
+
+    sm.answerPermission(request.id, "allow");
+    const session = await creating;
+
+    expect(sm.pendingPermissions()).toHaveLength(0);
+    expect(sm.transcript(session.id).some((e) => e.kind === "diff")).toBe(true);
+  });
+
+  it("cancels the turn when the user rejects the permission request", async () => {
+    const sm = await manager();
+    const events: ManagerEvent[] = [];
+    sm.onEvent((e) => events.push(e));
+
+    const creating = sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "need permission",
+    });
+    const request = await waitFor(() => firstPermission(events));
+    sm.answerPermission(request.id, null);
+    const session = await creating;
+
+    expect(
+      sm
+        .transcript(session.id)
+        .some((e) => e.kind === "status" && String(e.payload.text).includes("Cancelled")),
+    ).toBe(true);
+    expect(sm.transcript(session.id).some((e) => e.kind === "diff")).toBe(false);
+  });
+
+  it("marks a session exited when its agent process dies unexpectedly", async () => {
+    const sm = await manager();
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+
+    await sm.send(session.id, "please EXIT now");
+    await waitFor(() => (sm.get(session.id)?.status === "exited" ? true : null));
+
+    expect(sm.get(session.id)?.status).toBe("exited");
+    expect(
+      sm
+        .transcript(session.id)
+        .some((e) => e.kind === "status" && String(e.payload.text).includes("exited")),
+    ).toBe(true);
+  });
+
+  it("renames a session without bumping recency", async () => {
+    const sm = await manager();
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    const before = sm.get(session.id)?.updatedAt;
+    sm.setTitle(session.id, "Renamed chat");
+    expect(sm.get(session.id)).toMatchObject({ title: "Renamed chat", updatedAt: before });
   });
 
   it("pins a session without bumping recency and removeRepo deletes its chats", async () => {

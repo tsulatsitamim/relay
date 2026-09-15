@@ -9,7 +9,23 @@ import {
   type SessionNotification,
   type SessionUpdate,
 } from "@agentclientprotocol/sdk";
-import { pickAutoAllowOption } from "./permission.ts";
+import type { PermissionOptionLike } from "../shared/types.ts";
+
+export type PermissionPrompt = {
+  toolCallId?: string;
+  title?: string;
+  kind?: string;
+  options: PermissionOptionLike[];
+};
+
+export type PermissionAnswer =
+  | { outcome: "selected"; optionId: string }
+  | { outcome: "cancelled" };
+
+export type AcpExitInfo = {
+  code: number | null;
+  signal: string | null;
+};
 
 export type AcpSessionOptions = {
   command: string;
@@ -18,11 +34,8 @@ export type AcpSessionOptions = {
   env?: Record<string, string>;
   resumeSessionId?: string;
   onUpdate: (update: SessionUpdate) => void;
-  onPermission?: (info: {
-    title?: string;
-    optionId: string;
-    toolCallId?: string;
-  }) => void;
+  requestPermission?: (prompt: PermissionPrompt) => Promise<PermissionAnswer>;
+  onExit?: (info: AcpExitInfo) => void;
   onLog?: (line: string) => void;
 };
 
@@ -33,6 +46,8 @@ export class AcpSession {
   private loadSession = false;
   private didResume = false;
   private promptInFlight: Promise<{ stopReason: string }> | null = null;
+  private stopping = false;
+  private exited = false;
 
   constructor(private readonly opts: AcpSessionOptions) {}
 
@@ -68,15 +83,19 @@ export class AcpSession {
       this.opts.onLog?.(chunk.toString());
     });
 
+    let handshakeDone = false;
     const exitError = new Promise<never>((_, reject) => {
       child.once("error", reject);
       child.once("exit", (code, signal) => {
-        if (!this.connection) {
+        this.exited = true;
+        if (!handshakeDone) {
           reject(
             new Error(
               `agent exited before handshake (code ${code}, signal ${signal})`,
             ),
           );
+        } else if (!this.stopping) {
+          this.opts.onExit?.({ code, signal });
         }
       });
     });
@@ -87,16 +106,22 @@ export class AcpSession {
 
     const client: Client = {
       requestPermission: async (params: RequestPermissionRequest) => {
-        const optionId = pickAutoAllowOption(params.options);
-        if (!optionId) {
-          return { outcome: { outcome: "cancelled" } };
+        const answer: PermissionAnswer = this.opts.requestPermission
+          ? await this.opts.requestPermission({
+              toolCallId: params.toolCall.toolCallId,
+              title: params.toolCall.title ?? undefined,
+              kind: params.toolCall.kind ?? undefined,
+              options: params.options.map((option) => ({
+                optionId: option.optionId,
+                name: option.name,
+                kind: option.kind,
+              })),
+            })
+          : { outcome: "cancelled" };
+        if (answer.outcome === "selected") {
+          return { outcome: { outcome: "selected", optionId: answer.optionId } };
         }
-        this.opts.onPermission?.({
-          title: params.toolCall.title ?? undefined,
-          toolCallId: params.toolCall.toolCallId,
-          optionId,
-        });
-        return { outcome: { outcome: "selected", optionId } };
+        return { outcome: { outcome: "cancelled" } };
       },
       sessionUpdate: async (params: SessionNotification) => {
         this.opts.onUpdate(params.update);
@@ -140,6 +165,7 @@ export class AcpSession {
     })();
 
     await Promise.race([handshake, exitError]);
+    handshakeDone = true;
 
     if (!this.sessionId) {
       throw new Error("ACP session was not created");
@@ -175,10 +201,11 @@ export class AcpSession {
   }
 
   async kill(): Promise<void> {
+    this.stopping = true;
     const child = this.child;
     this.child = null;
     this.connection = null;
-    if (!child || child.killed) return;
+    if (!child || this.exited || child.killed) return;
     await new Promise<void>((resolve) => {
       const timer = setTimeout(() => {
         child.kill("SIGKILL");

@@ -103,6 +103,62 @@ new AgentSideConnection((conn) => {
       const text = promptText(params.prompt);
 
       try {
+        if (text.includes("EXIT")) {
+          setTimeout(() => process.exit(7), 30);
+        if (text.toUpperCase().includes("RICH")) {
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "agent_thought_chunk",
+              content: { type: "text", text: "Let me plan this out before writing code." },
+            },
+          });
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "plan",
+              entries: [
+                { content: "Inspect the repository", priority: "high", status: "completed" },
+                { content: "Write the implementation", priority: "high", status: "in_progress" },
+                { content: "Run the test suite", priority: "medium", status: "pending" },
+              ],
+            },
+          });
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "tool_call",
+              toolCallId: "call_read",
+              title: "Read src/index.ts",
+              kind: "read",
+              status: "in_progress",
+              locations: [{ path: "src/index.ts" }],
+            },
+          });
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "tool_call_update",
+              toolCallId: "call_read",
+              status: "completed",
+              rawOutput: "export const answer = 42;",
+            },
+          });
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "agent_message_chunk",
+              content: {
+                type: "text",
+                text: "## Summary\n\nHere is the change I made:\n\n```ts\nconst answer = 42;\n```\n\n- reads the config\n- returns the answer\n",
+              },
+            },
+          });
+        }
+
+        return { stopReason: "end_turn" };
+        }
+
         if (text.includes("SLOW")) {
           await sleep(2000, signal);
         } else {
@@ -121,52 +177,54 @@ new AgentSideConnection((conn) => {
           },
         });
 
-        await conn.sessionUpdate({
-          sessionId: params.sessionId,
-          update: {
-            sessionUpdate: "tool_call",
-            toolCallId: "call_edit",
-            title: "Edit README.md",
-            kind: "edit",
-            status: "pending",
-            locations: [{ path: "/tmp/README.md" }],
-          },
-        });
+        if (text.toLowerCase().includes("permission")) {
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "tool_call",
+              toolCallId: "call_edit",
+              title: "Edit README.md",
+              kind: "edit",
+              status: "pending",
+              locations: [{ path: "/tmp/README.md" }],
+            },
+          });
 
-        const permission = await conn.requestPermission({
-          sessionId: params.sessionId,
-          toolCall: {
-            toolCallId: "call_edit",
-            title: "Edit README.md",
-            kind: "edit",
-            status: "pending",
-          },
-          options: [
-            { optionId: "allow", name: "Allow once", kind: "allow_once" },
-            { optionId: "reject", name: "Reject", kind: "reject_once" },
-          ],
-        });
-
-        if (permission.outcome.outcome === "cancelled") {
-          return { stopReason: "cancelled" };
-        }
-
-        await conn.sessionUpdate({
-          sessionId: params.sessionId,
-          update: {
-            sessionUpdate: "tool_call_update",
-            toolCallId: "call_edit",
-            status: "completed",
-            content: [
-              {
-                type: "diff",
-                path: "/tmp/README.md",
-                oldText: "hello\n",
-                newText: "hello world\n",
-              },
+          const permission = await conn.requestPermission({
+            sessionId: params.sessionId,
+            toolCall: {
+              toolCallId: "call_edit",
+              title: "Edit README.md",
+              kind: "edit",
+              status: "pending",
+            },
+            options: [
+              { optionId: "allow", name: "Allow once", kind: "allow_once" },
+              { optionId: "reject", name: "Reject", kind: "reject_once" },
             ],
-          },
-        });
+          });
+
+          if (permission.outcome.outcome === "cancelled") {
+            return { stopReason: "cancelled" };
+          }
+
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "tool_call_update",
+              toolCallId: "call_edit",
+              status: "completed",
+              content: [
+                {
+                  type: "diff",
+                  path: "/tmp/README.md",
+                  oldText: "hello\n",
+                  newText: "hello world\n",
+                },
+              ],
+            },
+          });
+        }
 
         return { stopReason: "end_turn" };
       } catch (err) {

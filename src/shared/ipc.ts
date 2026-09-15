@@ -1,4 +1,10 @@
-import type { AgentConfig, Repo, Session, TranscriptEvent } from "./types.ts";
+import type {
+  AgentConfig,
+  PermissionRequest,
+  Repo,
+  Session,
+  TranscriptEvent,
+} from "./types.ts";
 
 export type RelayState = {
   sessions: Session[];
@@ -6,12 +12,15 @@ export type RelayState = {
   recents: string[];
   repos: Repo[];
   transcripts: Record<string, TranscriptEvent[]>;
+  permissions: PermissionRequest[];
   homeDir: string;
 };
 
 export type RelayEvent =
   | { type: "sessions"; sessions: Session[] }
   | { type: "transcript"; sessionId: string; events: TranscriptEvent[] }
+  | { type: "permission"; sessionId: string; request: PermissionRequest }
+  | { type: "permission_resolved"; sessionId: string; requestId: string }
   | { type: "log"; sessionId?: string; message: string };
 
 export type CreatePayload = {

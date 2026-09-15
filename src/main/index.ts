@@ -87,9 +87,17 @@ async function main(): Promise<void> {
       recents: manager.recents(),
       repos: manager.repos().map(withGitBranch),
       transcripts,
+      permissions: manager.pendingPermissions(),
       homeDir: homedir(),
     };
   });
+
+  ipcMain.handle(
+    "relay:permission",
+    (_e, requestId: string, optionId: string | null) => {
+      manager.answerPermission(requestId, optionId);
+    },
+  );
 
   ipcMain.handle("relay:create", async (_e, payload: CreatePayload) => {
     const agent = manager.agents().find((a) => a.id === payload.agentId);
@@ -163,6 +171,11 @@ async function main(): Promise<void> {
 
   ipcMain.handle("relay:setArchived", (_e, id: string, archived: boolean) => {
     manager.setArchived(id, archived);
+  });
+
+  ipcMain.handle("relay:rename", (_e, id: string, title: string) => {
+    const trimmed = title.trim();
+    if (trimmed) manager.setTitle(id, trimmed);
   });
 
   ipcMain.handle("relay:copyDebug", (_e, id: string) => {
