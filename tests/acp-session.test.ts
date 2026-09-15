@@ -146,6 +146,14 @@ describe("AcpSession", () => {
     expect(result.stopReason).toBe("cancelled");
   });
 
+  it("tolerates a malformed availableModes without throwing", async () => {
+    const { session } = createSession({
+      env: { ...fakeEnv(), FAKE_ACP_MALFORMED_MODES: "1" },
+    });
+    const started = await session.start();
+    expect(started.modes).toEqual([]);
+  });
+
   it("loads a previous ACP session after the process is killed", async () => {
     const env = fakeEnv();
     const first = createSession({ env });

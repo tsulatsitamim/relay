@@ -119,4 +119,37 @@ describe("SessionManager modes", () => {
     await waitFor(() => sm.get(created.id)?.currentModeId === "plan");
     expect(sm.get(created.id)?.currentModeId).toBe("plan");
   });
+
+  it("applies a mode change without bumping recency", async () => {
+    const sm = await manager();
+    const created = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    const before = sm.get(created.id)?.updatedAt;
+
+    await sm.setMode(created.id, "plan");
+    await waitFor(() => sm.get(created.id)?.currentModeId === "plan");
+
+    expect(sm.get(created.id)?.updatedAt).toBe(before);
+  });
+
+  it("attaches a non-live session before applying a mode change", async () => {
+    const sm = await manager();
+    const created = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+
+    await sm.detachAll();
+    expect(sm.get(created.id)?.status).toBe("exited");
+
+    await sm.setMode(created.id, "plan");
+    await waitFor(() => sm.get(created.id)?.currentModeId === "plan");
+
+    expect(sm.get(created.id)?.currentModeId).toBe("plan");
+    expect(sm.get(created.id)?.status).toBe("idle");
+  });
 });

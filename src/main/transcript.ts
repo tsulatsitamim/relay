@@ -83,11 +83,11 @@ export function reduceSessionUpdate(
 
   if (kind === "usage_update") {
     const payload: Record<string, unknown> = {};
-    if (typeof update.used === "number") payload.used = update.used;
-    if (typeof update.size === "number") payload.size = update.size;
+    if (Number.isFinite(update.used)) payload.used = update.used;
+    if (Number.isFinite(update.size)) payload.size = update.size;
     const cost = update.cost as { amount?: unknown; currency?: unknown } | undefined;
     if (cost && typeof cost === "object") {
-      if (typeof cost.amount === "number") payload.costAmount = cost.amount;
+      if (Number.isFinite(cost.amount)) payload.costAmount = cost.amount;
       if (typeof cost.currency === "string") payload.costCurrency = cost.currency;
     }
     const last = events[events.length - 1];

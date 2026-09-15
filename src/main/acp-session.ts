@@ -62,7 +62,8 @@ export function promptBlocks(
 }
 
 function sessionModes(state: SessionModeState): SessionModeLike[] {
-  return state.availableModes.map((mode) => ({
+  const available = Array.isArray(state.availableModes) ? state.availableModes : [];
+  return available.map((mode) => ({
     id: mode.id,
     ...(mode.name ? { name: mode.name } : {}),
     ...(mode.description ? { description: mode.description } : {}),

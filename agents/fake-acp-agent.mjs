@@ -82,6 +82,12 @@ new AgentSideConnection((conn) => {
       const sessionId = randomUUID();
       sessions.set(sessionId, { messages: [], abort: null, modeId: "build" });
       persist();
+      if (process.env.FAKE_ACP_MALFORMED_MODES) {
+        return {
+          sessionId,
+          modes: { availableModes: "nope", currentModeId: "build" },
+        };
+      }
       return { sessionId, modes: modeState("build") };
     },
 

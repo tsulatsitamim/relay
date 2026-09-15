@@ -258,6 +258,11 @@ export class SessionManager {
   }
 
   async setMode(id: string, modeId: string): Promise<void> {
+    const session = this.require(id);
+    if (!this.live.has(id)) {
+      const agent = this.agentFor(session);
+      await this.attach(session, agent, true);
+    }
     await this.live.get(id)?.setMode(modeId);
   }
 
@@ -370,7 +375,7 @@ export class SessionManager {
   private handleUpdate(sessionId: string, update: SessionUpdate): void {
     if (this.loading.has(sessionId)) return;
     if (update.sessionUpdate === "current_mode_update") {
-      this.patch(sessionId, { currentModeId: update.currentModeId });
+      this.patch(sessionId, { currentModeId: update.currentModeId }, false);
       return;
     }
     const current = this.events.get(sessionId) ?? [];

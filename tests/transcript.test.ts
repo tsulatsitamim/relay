@@ -237,6 +237,17 @@ describe("reduceSessionUpdate", () => {
     expect(events[events.length - 1].payload).toEqual({ size: 42 });
   });
 
+  it("drops non-finite usage numbers", () => {
+    const events = reduceSessionUpdate([], {
+      sessionUpdate: "usage_update",
+      used: Number.NaN,
+      size: Number.POSITIVE_INFINITY,
+      cost: { amount: Number.NEGATIVE_INFINITY, currency: "USD" },
+    }, ids());
+
+    expect(events[events.length - 1].payload).toEqual({ costCurrency: "USD" });
+  });
+
   it("replaces the previous usage event instead of stacking snapshots", () => {
     const nextId = ids();
     let events = reduceSessionUpdate([], {
