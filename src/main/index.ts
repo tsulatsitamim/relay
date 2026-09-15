@@ -148,9 +148,9 @@ async function main(): Promise<void> {
     return result.canceled ? null : (result.filePaths[0] ?? null);
   });
 
-  ipcMain.handle("relay:listFiles", (_e, cwd: string) => {
+  ipcMain.handle("relay:listFiles", (_e, cwd: string, query?: string) => {
     if (!cwd) return [];
-    return listFiles(cwd);
+    return listFiles(cwd, { query: typeof query === "string" ? query : "" });
   });
 
   ipcMain.handle("relay:pickImages", async (event) => {

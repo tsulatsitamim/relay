@@ -147,7 +147,7 @@ describe("Composer", () => {
     const option = await screen.findByText("src/index.ts");
     fireEvent.click(option);
     expect(box.value).toBe("look at @src/index.ts ");
-    expect(listFiles).toHaveBeenCalledWith("/tmp/repo");
+    expect(listFiles).toHaveBeenCalledWith("/tmp/repo", "ind");
   });
 
   it("inserts mention paths literally when they contain replacement tokens", async () => {

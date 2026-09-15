@@ -20,9 +20,15 @@ export function shouldIgnore(name: string): boolean {
   return name.startsWith(".") || IGNORED.has(name);
 }
 
+export function filterPaths(paths: string[], query: string): string[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return paths;
+  return paths.filter((path) => path.toLowerCase().includes(needle));
+}
+
 export function listFiles(
   cwd: string,
-  opts: { limit?: number; maxDepth?: number; maxVisited?: number } = {},
+  opts: { limit?: number; maxDepth?: number; maxVisited?: number; query?: string } = {},
 ): string[] {
   const limit = opts.limit ?? 200;
   const maxDepth = opts.maxDepth ?? 6;
@@ -50,5 +56,5 @@ export function listFiles(
   };
 
   walk(cwd, "", 1);
-  return files.sort().slice(0, limit);
+  return filterPaths(files.sort(), opts.query ?? "").slice(0, limit);
 }

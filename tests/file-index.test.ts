@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { listFiles, shouldIgnore } from "../src/main/file-index.ts";
+import { filterPaths, listFiles, shouldIgnore } from "../src/main/file-index.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -68,5 +68,27 @@ describe("listFiles", () => {
       "d.txt",
       "e.txt",
     ]);
+  });
+
+  it("filters by query before applying the limit", () => {
+    expect(listFiles(fixture(), { limit: 1, query: "index" })).toEqual([
+      "src/index.ts",
+    ]);
+  });
+
+  it("returns nothing when the query matches no file", () => {
+    expect(listFiles(fixture(), { query: "nope-nothing" })).toEqual([]);
+  });
+});
+
+describe("filterPaths", () => {
+  it("matches case-insensitively and trims the query", () => {
+    expect(filterPaths(["Src/Index.ts", "README.md"], "  sRC ")).toEqual([
+      "Src/Index.ts",
+    ]);
+  });
+
+  it("returns every path for an empty query", () => {
+    expect(filterPaths(["a.ts", "b.ts"], "")).toEqual(["a.ts", "b.ts"]);
   });
 });

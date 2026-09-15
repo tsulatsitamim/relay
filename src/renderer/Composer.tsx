@@ -64,7 +64,7 @@ export function Composer({
     }
     const handle = setTimeout(() => {
       void window.relay
-        .listFiles(cwd)
+        .listFiles(cwd, mentionQuery)
         .then((all) =>
           setFiles(
             all
