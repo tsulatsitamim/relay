@@ -18,6 +18,13 @@ const components: Components = {
     const code = String(props.children ?? "").replace(/\n$/, "");
     return <CodeBlock code={code} lang={lang} />;
   },
+  table({ node: _node, children, ...rest }) {
+    return (
+      <div className="table-scroll">
+        <table {...rest}>{children}</table>
+      </div>
+    );
+  },
   a({ node: _node, children, ...rest }) {
     return (
       <a {...rest} target="_blank" rel="noreferrer">

@@ -18,6 +18,15 @@ describe("Markdown", () => {
     expect(screen.getByRole("table")).toBeTruthy();
   });
 
+  it("wraps tables in a scroll container so wide tables do not overflow", () => {
+    const { container } = render(
+      <Markdown text={"| a | b |\n| - | - |\n| 1 | 2 |"} />,
+    );
+    const wrap = container.querySelector(".table-scroll");
+    expect(wrap).toBeTruthy();
+    expect(wrap?.querySelector("table")).toBeTruthy();
+  });
+
   it("renders inline code", () => {
     render(<Markdown text={"use `npm test` now"} />);
     expect(screen.getByText("npm test").tagName).toBe("CODE");

@@ -1091,15 +1091,30 @@ input:focus-visible {
 }
 
 .transcript {
-  flex: 1;
+  flex: 0 1 auto;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   width: min(var(--composer-max-width), calc(100% - (var(--composer-messages-padding-inline) * 2)));
   margin: 0 auto;
-  padding: var(--space-2) 0 var(--space-4);
+  padding: var(--space-5) 0 var(--space-5);
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.transcript::-webkit-scrollbar {
+  width: 6px;
+}
+
+.transcript::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 99px;
+}
+
+.transcript:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--base) 18%, transparent);
 }
 
 .jump-latest {
@@ -1129,7 +1144,7 @@ input:focus-visible {
 .msg.user {
   align-self: flex-end;
   width: fit-content;
-  max-width: calc(100% - max(32px, min(20%, max(0px, (100% - 480px) * 0.4))));
+  max-width: min(560px, 86%);
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
@@ -1261,9 +1276,14 @@ input:focus-visible {
   border-radius: var(--radius-sm);
 }
 
+.table-scroll {
+  max-width: 100%;
+  margin: 0 0 10px;
+  overflow-x: auto;
+}
+
 .markdown table {
   border-collapse: collapse;
-  margin: 0 0 10px;
   font-size: var(--font-size-sm);
   width: 100%;
 }
