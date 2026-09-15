@@ -8,6 +8,7 @@ import { openStore } from "./db.ts";
 import { SessionManager, defaultAgents } from "./session-manager.ts";
 import { createLogger } from "./logger.ts";
 import { repoNameFromPath, withGitBranch } from "./repo-name.ts";
+import { listFiles } from "./file-index.ts";
 import type { CreatePayload } from "../shared/ipc.ts";
 
 function fakeAgentPath(): string | undefined {
@@ -139,6 +140,11 @@ async function main(): Promise<void> {
       properties: ["openDirectory", "createDirectory"],
     });
     return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+
+  ipcMain.handle("relay:listFiles", (_e, cwd: string) => {
+    if (!cwd) return [];
+    return listFiles(cwd);
   });
 
   ipcMain.handle("relay:addRepo", async (event) => {

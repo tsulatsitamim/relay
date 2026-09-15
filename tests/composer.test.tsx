@@ -125,4 +125,25 @@ describe("Composer", () => {
     expect(box.value).toBe("/init ");
     expect(onSend).not.toHaveBeenCalled();
   });
+
+  it("offers files for an @ token and picks one", async () => {
+    const listFiles = vi.fn().mockResolvedValue(["src/index.ts", "README.md"]);
+    // @ts-expect-error test shim
+    window.relay = { listFiles };
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={vi.fn()}
+        onCancel={noop}
+        cwd="/tmp/repo"
+      />,
+    );
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "look at @ind" } });
+    const option = await screen.findByText("src/index.ts");
+    fireEvent.click(option);
+    expect(box.value).toBe("look at @src/index.ts ");
+    expect(listFiles).toHaveBeenCalledWith("/tmp/repo");
+  });
 });

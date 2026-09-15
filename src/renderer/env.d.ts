@@ -10,6 +10,7 @@ export type RelayBridge = {
   restart: (id: string) => Promise<void>;
   delete: (id: string) => Promise<void>;
   pickDirectory: () => Promise<string | null>;
+  listFiles: (cwd: string) => Promise<string[]>;
   addRepo: () => Promise<Repo[]>;
   removeRepo: (path: string) => Promise<Repo[]>;
   setPinned: (id: string, pinned: boolean) => Promise<void>;

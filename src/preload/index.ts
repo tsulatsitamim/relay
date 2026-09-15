@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("relay", {
   delete: (id: string): Promise<void> => ipcRenderer.invoke("relay:delete", id),
   pickDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke("relay:pickDirectory"),
+  listFiles: (cwd: string): Promise<string[]> =>
+    ipcRenderer.invoke("relay:listFiles", cwd),
   addRepo: (): Promise<Repo[]> => ipcRenderer.invoke("relay:addRepo"),
   removeRepo: (path: string): Promise<Repo[]> =>
     ipcRenderer.invoke("relay:removeRepo", path),

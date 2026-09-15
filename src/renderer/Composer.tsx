@@ -15,6 +15,7 @@ type Props = {
   onQueue?: (text: string) => void;
   onRemoveQueued?: (index: number) => void;
   commands?: AvailableCommandLike[];
+  cwd?: string;
 };
 
 export function Composer({
@@ -26,8 +27,10 @@ export function Composer({
   onQueue,
   onRemoveQueued,
   commands = [],
+  cwd,
 }: Props) {
   const [text, setText] = useState("");
+  const [files, setFiles] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const field = useRef<HTMLTextAreaElement>(null);
   const canSubmit = Boolean(text.trim()) && !disabled;
@@ -37,7 +40,11 @@ export function Composer({
         .filter((c) => c.name.toLowerCase().includes(slashMatch[1].toLowerCase()))
         .map((c) => ({ id: c.name, label: `/${c.name}`, detail: c.description }))
     : [];
-  const menuOpen = slashItems.length > 0;
+  const mentionMatch = /(?:^|\s)@([^\s@]*)$/.exec(text);
+  const mentionQuery = mentionMatch ? mentionMatch[1] : null;
+  const mentionItems = files.map((file) => ({ id: file, label: file }));
+  const slashMenuOpen = slashItems.length > 0;
+  const mentionMenuOpen = !slashMenuOpen && mentionItems.length > 0;
 
   useEffect(() => {
     const el = field.current;
@@ -50,6 +57,28 @@ export function Composer({
   }, [text]);
 
   useEffect(() => {
+    if (mentionQuery === null || !cwd) {
+      setFiles([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      void window.relay
+        .listFiles(cwd)
+        .then((all) =>
+          setFiles(
+            all
+              .filter((file) =>
+                file.toLowerCase().includes(mentionQuery.toLowerCase()),
+              )
+              .slice(0, 8),
+          ),
+        )
+        .catch(() => setFiles([]));
+    }, 120);
+    return () => clearTimeout(handle);
+  }, [mentionQuery, cwd]);
+
+  useEffect(() => {
     setActiveIndex(0);
   }, [text]);
 
@@ -57,6 +86,12 @@ export function Composer({
     const item = slashItems[index];
     if (!item) return;
     setText(`/${item.id} `);
+  }
+
+  function pickMention(index: number) {
+    const item = mentionItems[index];
+    if (!item) return;
+    setText((prev) => prev.replace(/@([^\s@]*)$/, `@${item.id} `));
   }
 
   async function submit() {
@@ -72,7 +107,7 @@ export function Composer({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (menuOpen) {
+    if (slashMenuOpen) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setActiveIndex((i) => (i + 1) % slashItems.length);
@@ -91,6 +126,28 @@ export function Composer({
       if (e.key === "Escape") {
         e.preventDefault();
         setText("");
+        return;
+      }
+    }
+    if (mentionMenuOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => (i + 1) % mentionItems.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) => (i - 1 + mentionItems.length) % mentionItems.length);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        pickMention(activeIndex);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setFiles([]);
         return;
       }
     }
@@ -117,8 +174,14 @@ export function Composer({
           ))}
         </div>
       ) : null}
-      {menuOpen ? (
+      {slashMenuOpen ? (
         <SuggestionMenu items={slashItems} activeIndex={activeIndex} onPick={pickSlash} />
+      ) : mentionMenuOpen ? (
+        <SuggestionMenu
+          items={mentionItems}
+          activeIndex={activeIndex}
+          onPick={pickMention}
+        />
       ) : null}
       <div className="composer-card dock-composer">
         <span className="plus" aria-hidden>

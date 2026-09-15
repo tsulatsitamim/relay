@@ -848,6 +848,7 @@ export function App() {
               onQueue={(text) => enqueue(selected.id, text)}
               onRemoveQueued={(index) => removeQueued(selected.id, index)}
               commands={commands}
+              cwd={selected.workingDirectory}
             />
           </div>
         ) : (
