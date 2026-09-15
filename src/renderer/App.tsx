@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { RelayState } from "../shared/ipc.ts";
-import type { Repo, Session, TranscriptEvent } from "../shared/types.ts";
+import type {
+  AvailableCommandLike,
+  Repo,
+  Session,
+  TranscriptEvent,
+} from "../shared/types.ts";
 import { repoFor } from "../shared/repo.ts";
 import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
@@ -274,6 +279,16 @@ export function App() {
   const events: TranscriptEvent[] = selected
     ? (state.transcripts[selected.id] ?? [])
     : [];
+  const commands: AvailableCommandLike[] = (() => {
+    if (!selected) return [];
+    const transcript = state.transcripts[selected.id] ?? [];
+    for (let i = transcript.length - 1; i >= 0; i--) {
+      if (transcript[i]?.kind === "commands") {
+        return (transcript[i].payload.commands as AvailableCommandLike[]) ?? [];
+      }
+    }
+    return [];
+  })();
   const composerLocked = Boolean(
     selected && ["starting", "working", "cancelling"].includes(selected.status),
   );
@@ -832,6 +847,7 @@ export function App() {
               queued={queued[selected.id] ?? []}
               onQueue={(text) => enqueue(selected.id, text)}
               onRemoveQueued={(index) => removeQueued(selected.id, index)}
+              commands={commands}
             />
           </div>
         ) : (

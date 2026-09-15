@@ -54,10 +54,17 @@ export type TranscriptEvent = {
     | "plan"
     | "tool_call"
     | "diff"
+    | "commands"
     | "status"
     | "error";
   payload: Record<string, unknown>;
   createdAt?: number;
+};
+
+export type AvailableCommandLike = {
+  name: string;
+  description: string;
+  inputHint?: string;
 };
 
 export type PermissionOptionLike = {

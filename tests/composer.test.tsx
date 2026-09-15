@@ -103,4 +103,26 @@ describe("Composer", () => {
     fireEvent.click(screen.getAllByLabelText("Remove queued message")[1]);
     expect(onRemoveQueued).toHaveBeenCalledWith(1);
   });
+
+  it("offers slash commands and picks one", () => {
+    const onSend = vi.fn();
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={onSend}
+        onCancel={noop}
+        commands={[
+          { name: "init", description: "Create AGENTS.md" },
+          { name: "review", description: "Review the diff" },
+        ]}
+      />,
+    );
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "/in" } });
+    expect(screen.getByText("/init")).toBeTruthy();
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(box.value).toBe("/init ");
+    expect(onSend).not.toHaveBeenCalled();
+  });
 });

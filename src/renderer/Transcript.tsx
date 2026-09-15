@@ -13,6 +13,8 @@ type Props = {
 };
 
 function EventRow({ event }: { event: TranscriptEvent }) {
+  if (event.kind === "commands") return null;
+
   if (event.kind === "user") {
     return <div className="msg user">{String(event.payload.text ?? "")}</div>;
   }

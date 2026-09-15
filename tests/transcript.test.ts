@@ -149,4 +149,31 @@ describe("reduceSessionUpdate", () => {
       { content: "Step one", priority: "high", status: "completed" },
     ]);
   });
+
+  it("records available commands as a replaceable event", () => {
+    const nextId = ids();
+    let events = reduceSessionUpdate([], {
+      sessionUpdate: "available_commands_update",
+      availableCommands: [
+        { name: "init", description: "Create AGENTS.md" },
+        { name: "review", description: "Review the diff" },
+      ],
+    }, nextId);
+    const first = events[events.length - 1];
+    expect(first.kind).toBe("commands");
+    expect(first.payload.commands).toEqual([
+      { name: "init", description: "Create AGENTS.md" },
+      { name: "review", description: "Review the diff" },
+    ]);
+
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "available_commands_update",
+      availableCommands: [{ name: "init", description: "Create AGENTS.md" }],
+    }, nextId);
+    const commands = events.filter((event) => event.kind === "commands");
+    expect(commands).toHaveLength(1);
+    expect(commands[0].payload.commands).toEqual([
+      { name: "init", description: "Create AGENTS.md" },
+    ]);
+  });
 });

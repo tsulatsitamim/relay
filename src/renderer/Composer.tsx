@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import type { AvailableCommandLike } from "../shared/types.ts";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
+import { SuggestionMenu } from "./SuggestionMenu";
 
 const lineHeight = 24;
 const maxComposerHeight = 176;
@@ -12,6 +14,7 @@ type Props = {
   queued?: string[];
   onQueue?: (text: string) => void;
   onRemoveQueued?: (index: number) => void;
+  commands?: AvailableCommandLike[];
 };
 
 export function Composer({
@@ -22,10 +25,19 @@ export function Composer({
   queued = [],
   onQueue,
   onRemoveQueued,
+  commands = [],
 }: Props) {
   const [text, setText] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const field = useRef<HTMLTextAreaElement>(null);
   const canSubmit = Boolean(text.trim()) && !disabled;
+  const slashMatch = /^\/([^\s\n]*)$/.exec(text);
+  const slashItems = slashMatch
+    ? commands
+        .filter((c) => c.name.toLowerCase().includes(slashMatch[1].toLowerCase()))
+        .map((c) => ({ id: c.name, label: `/${c.name}`, detail: c.description }))
+    : [];
+  const menuOpen = slashItems.length > 0;
 
   useEffect(() => {
     const el = field.current;
@@ -36,6 +48,16 @@ export function Composer({
       el.style.height = `${Math.min(next, maxComposerHeight)}px`;
     }
   }, [text]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [text]);
+
+  function pickSlash(index: number) {
+    const item = slashItems[index];
+    if (!item) return;
+    setText(`/${item.id} `);
+  }
 
   async function submit() {
     const value = text.trim();
@@ -50,6 +72,28 @@ export function Composer({
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (menuOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => (i + 1) % slashItems.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) => (i - 1 + slashItems.length) % slashItems.length);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        pickSlash(activeIndex);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setText("");
+        return;
+      }
+    }
     if (e.key !== "Enter" || e.shiftKey) return;
     e.preventDefault();
     void submit();
@@ -72,6 +116,9 @@ export function Composer({
             </span>
           ))}
         </div>
+      ) : null}
+      {menuOpen ? (
+        <SuggestionMenu items={slashItems} activeIndex={activeIndex} onPick={pickSlash} />
       ) : null}
       <div className="composer-card dock-composer">
         <span className="plus" aria-hidden>

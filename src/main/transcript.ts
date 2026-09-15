@@ -1,4 +1,4 @@
-import type { TranscriptEvent } from "../shared/types.ts";
+import type { AvailableCommandLike, TranscriptEvent } from "../shared/types.ts";
 
 export function reduceSessionUpdate(
   events: TranscriptEvent[],
@@ -66,6 +66,21 @@ export function reduceSessionUpdate(
     return [...events, event];
   }
 
+  if (kind === "available_commands_update") {
+    const commands = commandsFrom(update.availableCommands);
+    const event: TranscriptEvent = {
+      id: nextId(),
+      kind: "commands",
+      payload: { commands },
+      createdAt: Date.now(),
+    };
+    const last = events[events.length - 1];
+    if (last && last.kind === "commands") {
+      return [...events.slice(0, -1), { ...last, payload: event.payload }];
+    }
+    return [...events, event];
+  }
+
   if (kind === "tool_call") {
     const toolCallId = String(update.toolCallId ?? nextId());
     return [
@@ -129,6 +144,24 @@ function planEntries(entries: unknown): Array<{ content: string; priority?: stri
     });
   }
   return out;
+}
+
+function commandsFrom(raw: unknown): AvailableCommandLike[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const record = entry as Record<string, unknown>;
+    const name = typeof record.name === "string" ? record.name : "";
+    if (!name) return [];
+    const description =
+      typeof record.description === "string" ? record.description : "";
+    const hintSource = record.input as { hint?: unknown } | undefined;
+    const inputHint =
+      hintSource && typeof hintSource.hint === "string"
+        ? hintSource.hint
+        : undefined;
+    return [{ name, description, ...(inputHint ? { inputHint } : {}) }];
+  });
 }
 
 function diffsFromContent(

@@ -105,6 +105,8 @@ new AgentSideConnection((conn) => {
       try {
         if (text.includes("EXIT")) {
           setTimeout(() => process.exit(7), 30);
+        }
+
         if (text.toUpperCase().includes("RICH")) {
           await conn.sessionUpdate({
             sessionId: params.sessionId,
@@ -154,9 +156,21 @@ new AgentSideConnection((conn) => {
               },
             },
           });
+          return { stopReason: "end_turn" };
         }
 
-        return { stopReason: "end_turn" };
+        if (text.toUpperCase().includes("COMMANDS")) {
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "available_commands_update",
+              availableCommands: [
+                { name: "init", description: "Create AGENTS.md" },
+                { name: "review", description: "Review the diff" },
+              ],
+            },
+          });
+          return { stopReason: "end_turn" };
         }
 
         if (text.includes("SLOW")) {
