@@ -354,14 +354,6 @@ input:focus-visible {
   align-items: center;
   margin-left: auto;
   gap: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.group-label:hover .group-label-actions,
-.group-label:focus-within .group-label-actions {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .icon-btn {
@@ -384,7 +376,8 @@ input:focus-visible {
   height: 14px;
 }
 
-.icon-btn:hover:not(.static) {
+.icon-btn:hover:not(.static),
+.icon-btn[aria-expanded="true"] {
   background: var(--hover);
   color: var(--text);
 }
@@ -935,6 +928,10 @@ input:focus-visible {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+}
+
+.menu-end {
+  transform: translateX(-100%);
 }
 
 .menu-item {

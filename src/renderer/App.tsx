@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import type { RelayState } from "../shared/ipc.ts";
 import type { Repo, Session, TranscriptEvent } from "../shared/types.ts";
 import { repoFor } from "../shared/repo.ts";
@@ -45,26 +46,39 @@ type MenuState =
 function Menu({
   x,
   y,
+  align = "start",
   onClose,
+  ignoreRef,
   children,
 }: {
   x: number;
   y: number;
+  align?: "start" | "end";
   onClose: () => void;
+  ignoreRef?: RefObject<HTMLElement | null>;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      if (ignoreRef?.current?.contains(target)) return;
+      onClose();
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [onClose]);
-  return (
-    <div ref={ref} className="menu" style={{ left: x, top: y }} role="menu">
+  }, [onClose, ignoreRef]);
+  return createPortal(
+    <div
+      ref={ref}
+      className={`menu${align === "end" ? " menu-end" : ""}`}
+      style={{ top: y, left: x }}
+      role="menu"
+    >
       {children}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -84,6 +98,7 @@ export function App() {
     () => localStorage.getItem("relay.showArchived") === "1",
   );
   const [menu, setMenu] = useState<MenuState | null>(null);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   const onHome = selectedId === null;
 
@@ -362,17 +377,27 @@ export function App() {
               </span>
               <span className="group-label-actions" onClick={(e) => e.stopPropagation()}>
                 <button
+                  ref={filterBtnRef}
+                  type="button"
                   className="icon-btn"
                   title="Customize Sidebar"
                   aria-label="Customize Sidebar"
+                  aria-expanded={menu?.kind === "filter"}
+                  aria-haspopup="menu"
                   onClick={(e) => {
+                    e.stopPropagation();
+                    if (menu?.kind === "filter") {
+                      setMenu(null);
+                      return;
+                    }
                     const box = e.currentTarget.getBoundingClientRect();
-                    setMenu({ kind: "filter", x: box.right - 220, y: box.bottom + 4 });
+                    setMenu({ kind: "filter", x: box.right, y: box.bottom + 4 });
                   }}
                 >
                   <IconFilter />
                 </button>
                 <button
+                  type="button"
                   className="icon-btn"
                   title="Open Workspace"
                   aria-label="Open Workspace"
@@ -457,7 +482,13 @@ export function App() {
           </div>
         </div>
         {menu?.kind === "filter" && (
-          <Menu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
+          <Menu
+            x={menu.x}
+            y={menu.y}
+            align="end"
+            ignoreRef={filterBtnRef}
+            onClose={() => setMenu(null)}
+          >
             <button
               className="menu-item"
               onClick={() => {
