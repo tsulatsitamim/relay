@@ -33,23 +33,26 @@ function makeSession(overrides: Partial<Session> = {}): Session {
   };
 }
 
-function stateWith(sessions: Session[]): RelayState {
+function stateWith(
+  sessions: Session[],
+  transcripts: RelayState["transcripts"] = {},
+): RelayState {
   return {
     sessions,
     agents: [],
     recents: [],
     repos: [repo],
-    transcripts: {},
+    transcripts,
     permissions: [],
     homeDir: "/tmp",
   };
 }
 
-function mount(sessions: Session[]) {
+function mount(sessions: Session[], transcripts: RelayState["transcripts"] = {}) {
   let listener: ((event: unknown) => void) | null = null;
   const send = vi.fn().mockResolvedValue(undefined);
   const bridge = {
-    getState: vi.fn().mockResolvedValue(stateWith(sessions)),
+    getState: vi.fn().mockResolvedValue(stateWith(sessions, transcripts)),
     subscribe: vi.fn((fn: (event: unknown) => void) => {
       listener = fn;
       return () => {
@@ -118,6 +121,30 @@ describe("App composer session isolation", () => {
     const box = await openSession("Session one");
     fireEvent.change(box, { target: { value: "draft one" } });
     expect(box.value).toBe("draft one");
+
+    fireEvent.click(screen.getByText("Session two"));
+    const next = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    expect(next.value).toBe("");
+    expect(bridge.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("App edit-resend isolation", () => {
+  it("does not leak an edited draft into another session's composer", async () => {
+    const { bridge } = mount(
+      [
+        makeSession({ id: "s1", title: "Session one" }),
+        makeSession({ id: "s2", title: "Session two" }),
+      ],
+      {
+        s1: [{ id: "e1", kind: "user", payload: { text: "hello there" } }],
+      },
+    );
+    await screen.findByText("Session one");
+    const box = await openSession("Session one");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit message" }));
+    await waitFor(() => expect(box.value).toBe("hello there"));
 
     fireEvent.click(screen.getByText("Session two"));
     const next = (await screen.findByRole("textbox")) as HTMLTextAreaElement;

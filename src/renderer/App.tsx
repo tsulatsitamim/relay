@@ -209,7 +209,13 @@ export function App() {
     () => localStorage.getItem("relay.sidebarCollapsed") === "1",
   );
   const [inject, setInject] = useState<{ text: string; nonce: number } | undefined>();
+  const [injectSessionId, setInjectSessionId] = useState<string | null>(null);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
+
+  if (injectSessionId !== selectedId) {
+    setInjectSessionId(selectedId);
+    setInject(undefined);
+  }
 
   const onHome = selectedId === null;
 
