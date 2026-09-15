@@ -105,6 +105,7 @@ new AgentSideConnection((conn) => {
       try {
         if (text.includes("EXIT")) {
           setTimeout(() => process.exit(7), 30);
+          return { stopReason: "end_turn" };
         }
 
         if (text.toUpperCase().includes("RICH")) {

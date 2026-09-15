@@ -176,6 +176,15 @@ describe("SessionManager", () => {
         .transcript(session.id)
         .some((e) => e.kind === "status" && String(e.payload.text).includes("exited")),
     ).toBe(true);
+    expect(
+      sm
+        .transcript(session.id)
+        .some(
+          (e) =>
+            e.kind === "agent_message" &&
+            String(e.payload.text).includes("please EXIT now"),
+        ),
+    ).toBe(false);
   });
 
   it("records attachment names on the user event", async () => {

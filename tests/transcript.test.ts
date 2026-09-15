@@ -176,4 +176,38 @@ describe("reduceSessionUpdate", () => {
       { name: "init", description: "Create AGENTS.md" },
     ]);
   });
+
+  it("ignores non-array and malformed command entries", () => {
+    const nextId = ids();
+    let events = reduceSessionUpdate([], {
+      sessionUpdate: "available_commands_update",
+      availableCommands: "nope",
+    }, nextId);
+    expect(events[events.length - 1].payload.commands).toEqual([]);
+
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "available_commands_update",
+      availableCommands: [null, "x", { name: 42 }, { name: "" }, { name: "ok" }],
+    }, nextId);
+    expect(events[events.length - 1].payload.commands).toEqual([
+      { name: "ok", description: "" },
+    ]);
+  });
+
+  it("coerces non-string descriptions and only lifts string hints", () => {
+    const nextId = ids();
+    const events = reduceSessionUpdate([], {
+      sessionUpdate: "available_commands_update",
+      availableCommands: [
+        { name: "a", description: 42, input: { hint: "file" } },
+        { name: "b" },
+        { name: "c", input: { hint: 7 } },
+      ],
+    }, nextId);
+    expect(events[events.length - 1].payload.commands).toEqual([
+      { name: "a", description: "", inputHint: "file" },
+      { name: "b", description: "" },
+      { name: "c", description: "" },
+    ]);
+  });
 });
