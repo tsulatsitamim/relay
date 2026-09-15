@@ -373,4 +373,41 @@ describe("Composer", () => {
     expect(box.value).toBe("edited draft");
     expect(document.activeElement).toBe(box);
   });
+
+  it("renders mode chips and calls onSetMode when one is clicked", () => {
+    const onSetMode = vi.fn();
+    const { container } = setup({
+      modes: [
+        { id: "build", name: "Build" },
+        { id: "plan", name: "Plan" },
+      ],
+      currentModeId: "build",
+      onSetMode,
+    });
+    const chips = container.querySelectorAll(".mode-chip");
+    expect(chips).toHaveLength(2);
+    expect(chips[0]?.getAttribute("aria-pressed")).toBe("true");
+    expect(chips[1]?.getAttribute("aria-pressed")).toBe("false");
+    expect(chips[0]?.textContent).toBe("Build");
+    fireEvent.click(chips[1]!);
+    expect(onSetMode).toHaveBeenCalledWith("plan");
+  });
+
+  it("labels a mode chip with its id when no name is provided", () => {
+    const { container } = setup({
+      modes: [{ id: "fast" }, { id: "thorough" }],
+      currentModeId: "fast",
+    });
+    const chips = container.querySelectorAll(".mode-chip");
+    expect(chips[0]?.textContent).toBe("fast");
+    expect(chips[0]?.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("hides the mode row when there is only one mode", () => {
+    const { container } = setup({
+      modes: [{ id: "build", name: "Build" }],
+      currentModeId: "build",
+    });
+    expect(container.querySelector(".mode-row")).toBeNull();
+  });
 });

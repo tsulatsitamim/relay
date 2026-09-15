@@ -6,6 +6,7 @@ export type RelayBridge = {
   create: (payload: CreatePayload) => Promise<Session>;
   send: (id: string, text: string, attachments?: PromptAttachment[]) => Promise<void>;
   cancel: (id: string) => Promise<void>;
+  setMode: (sessionId: string, modeId: string) => Promise<void>;
   permission: (requestId: string, optionId: string | null) => Promise<void>;
   restart: (id: string) => Promise<void>;
   delete: (id: string) => Promise<void>;

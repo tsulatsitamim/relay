@@ -7,10 +7,15 @@ import {
   type Client,
   type ContentBlock,
   type RequestPermissionRequest,
+  type SessionModeState,
   type SessionNotification,
   type SessionUpdate,
 } from "@agentclientprotocol/sdk";
-import type { PermissionOptionLike, PromptAttachment } from "../shared/types.ts";
+import type {
+  PermissionOptionLike,
+  PromptAttachment,
+  SessionModeLike,
+} from "../shared/types.ts";
 
 export type PermissionPrompt = {
   toolCallId?: string;
@@ -56,6 +61,14 @@ export function promptBlocks(
   return blocks;
 }
 
+function sessionModes(state: SessionModeState): SessionModeLike[] {
+  return state.availableModes.map((mode) => ({
+    id: mode.id,
+    ...(mode.name ? { name: mode.name } : {}),
+    ...(mode.description ? { description: mode.description } : {}),
+  }));
+}
+
 export class AcpSession {
   private child: ChildProcessWithoutNullStreams | null = null;
   private connection: ClientSideConnection | null = null;
@@ -65,6 +78,7 @@ export class AcpSession {
   private promptInFlight: Promise<{ stopReason: string }> | null = null;
   private stopping = false;
   private exited = false;
+  private modeState: SessionModeState | null = null;
 
   constructor(private readonly opts: AcpSessionOptions) {}
 
@@ -84,10 +98,20 @@ export class AcpSession {
     return this.didResume;
   }
 
+  get modes(): SessionModeLike[] | undefined {
+    return this.modeState ? sessionModes(this.modeState) : undefined;
+  }
+
+  get currentModeId(): string | undefined {
+    return this.modeState?.currentModeId ?? undefined;
+  }
+
   async start(): Promise<{
     acpSessionId: string;
     loadSession: boolean;
     resumed: boolean;
+    modes?: SessionModeLike[];
+    currentModeId?: string;
   }> {
     const child = spawn(this.opts.command, this.opts.args, {
       cwd: this.opts.cwd,
@@ -158,13 +182,14 @@ export class AcpSession {
 
       if (this.opts.resumeSessionId && this.loadSession) {
         try {
-          await connection.loadSession({
+          const loaded = await connection.loadSession({
             sessionId: this.opts.resumeSessionId,
             cwd: this.opts.cwd,
             mcpServers: [],
           });
           this.sessionId = this.opts.resumeSessionId;
           this.didResume = true;
+          this.modeState = loaded.modes ?? null;
           return;
         } catch (err) {
           this.opts.onLog?.(
@@ -179,6 +204,7 @@ export class AcpSession {
       });
       this.sessionId = created.sessionId;
       this.didResume = false;
+      this.modeState = created.modes ?? null;
     })();
 
     await Promise.race([handshake, exitError]);
@@ -192,7 +218,17 @@ export class AcpSession {
       acpSessionId: this.sessionId,
       loadSession: this.loadSession,
       resumed: this.didResume,
+      modes: this.modes,
+      currentModeId: this.currentModeId,
     };
+  }
+
+  async setMode(modeId: string): Promise<void> {
+    if (!this.connection || !this.sessionId) return;
+    await this.connection.setSessionMode({
+      sessionId: this.sessionId,
+      modeId,
+    });
   }
 
   async prompt(

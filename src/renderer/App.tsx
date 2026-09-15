@@ -896,6 +896,9 @@ export function App() {
               commands={commands}
               cwd={selected.workingDirectory}
               inject={inject}
+              modes={selected.modes}
+              currentModeId={selected.currentModeId}
+              onSetMode={(modeId) => void window.relay.setMode(selected.id, modeId)}
             />
           </div>
         ) : (

@@ -21,6 +21,12 @@ export type AgentConfig = {
   env?: Record<string, string>;
 };
 
+export type SessionModeLike = {
+  id: string;
+  name?: string;
+  description?: string;
+};
+
 export type Session = {
   id: string;
   title: string;
@@ -35,6 +41,8 @@ export type Session = {
   lastPromptAt?: number;
   pinned?: boolean;
   archived?: boolean;
+  modes?: SessionModeLike[];
+  currentModeId?: string;
 };
 
 export type PlanEntry = {

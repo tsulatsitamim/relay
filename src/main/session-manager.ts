@@ -257,6 +257,10 @@ export class SessionManager {
     await this.live.get(id)?.cancel();
   }
 
+  async setMode(id: string, modeId: string): Promise<void> {
+    await this.live.get(id)?.setMode(modeId);
+  }
+
   async restart(id: string): Promise<void> {
     const session = this.require(id);
     await this.live.get(id)?.kill();
@@ -320,10 +324,15 @@ export class SessionManager {
       this.loading.delete(session.id);
     }
     this.live.set(session.id, acp);
+    const modePatch: Partial<Session> =
+      started.modes && started.modes.length > 0
+        ? { modes: started.modes, currentModeId: started.currentModeId }
+        : {};
     this.patch(session.id, {
       acpSessionId: started.acpSessionId,
       status: "idle",
       error: started.resumed || !resume ? undefined : undefined,
+      ...modePatch,
     });
     if (resume && !started.resumed) {
       this.append(session.id, {
@@ -360,6 +369,10 @@ export class SessionManager {
 
   private handleUpdate(sessionId: string, update: SessionUpdate): void {
     if (this.loading.has(sessionId)) return;
+    if (update.sessionUpdate === "current_mode_update") {
+      this.patch(sessionId, { currentModeId: update.currentModeId });
+      return;
+    }
     const current = this.events.get(sessionId) ?? [];
     const reduced = reduceSessionUpdate(
       current,

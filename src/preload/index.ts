@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld("relay", {
   send: (id: string, text: string, attachments?: PromptAttachment[]): Promise<void> =>
     ipcRenderer.invoke("relay:send", id, text, attachments),
   cancel: (id: string): Promise<void> => ipcRenderer.invoke("relay:cancel", id),
+  setMode: (sessionId: string, modeId: string): Promise<void> =>
+    ipcRenderer.invoke("relay:setMode", sessionId, modeId),
   permission: (requestId: string, optionId: string | null): Promise<void> =>
     ipcRenderer.invoke("relay:permission", requestId, optionId),
   restart: (id: string): Promise<void> => ipcRenderer.invoke("relay:restart", id),

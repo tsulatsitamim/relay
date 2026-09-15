@@ -48,10 +48,19 @@ function sleep(ms, signal) {
   });
 }
 
+const MODES = [
+  { id: "build", name: "Build" },
+  { id: "plan", name: "Plan" },
+];
+
+function modeState(currentModeId) {
+  return { availableModes: MODES, currentModeId };
+}
+
 const sessions = new Map();
 const store = loadStore();
 for (const [id, record] of Object.entries(store)) {
-  sessions.set(id, { ...record, abort: null });
+  sessions.set(id, { modeId: "build", ...record, abort: null });
 }
 
 const stream = ndJsonStream(
@@ -71,9 +80,9 @@ new AgentSideConnection((conn) => {
 
     async newSession() {
       const sessionId = randomUUID();
-      sessions.set(sessionId, { messages: [], abort: null });
+      sessions.set(sessionId, { messages: [], abort: null, modeId: "build" });
       persist();
-      return { sessionId };
+      return { sessionId, modes: modeState("build") };
     },
 
     async loadSession({ sessionId }) {
@@ -91,6 +100,20 @@ new AgentSideConnection((conn) => {
           },
         });
       }
+      return { modes: modeState(existing.modeId ?? "build") };
+    },
+
+    async setSessionMode({ sessionId, modeId }) {
+      const session = sessions.get(sessionId) ?? store[sessionId];
+      if (session) {
+        session.modeId = modeId;
+        sessions.set(sessionId, session);
+        persist();
+      }
+      await conn.sessionUpdate({
+        sessionId,
+        update: { sessionUpdate: "current_mode_update", currentModeId: modeId },
+      });
       return {};
     },
 
@@ -261,7 +284,7 @@ new AgentSideConnection((conn) => {
 function persist() {
   const data = {};
   for (const [id, session] of sessions) {
-    data[id] = { messages: session.messages };
+    data[id] = { messages: session.messages, modeId: session.modeId ?? "build" };
   }
   saveStore(data);
 }

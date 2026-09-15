@@ -6,7 +6,11 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
-import type { AvailableCommandLike, PromptAttachment } from "../shared/types.ts";
+import type {
+  AvailableCommandLike,
+  PromptAttachment,
+  SessionModeLike,
+} from "../shared/types.ts";
 import { readImageFiles } from "./attachments";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
@@ -26,6 +30,9 @@ type Props = {
   commands?: AvailableCommandLike[];
   cwd?: string;
   inject?: { text: string; nonce: number };
+  modes?: SessionModeLike[];
+  currentModeId?: string;
+  onSetMode?: (modeId: string) => void;
 };
 
 export function Composer({
@@ -39,6 +46,9 @@ export function Composer({
   commands = [],
   cwd,
   inject,
+  modes = [],
+  currentModeId,
+  onSetMode,
 }: Props) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<string[]>([]);
@@ -219,6 +229,21 @@ export function Composer({
 
   return (
     <div className="dock">
+      {modes.length > 1 ? (
+        <div className="mode-row" role="group" aria-label="Session mode">
+          {modes.map((mode) => (
+            <button
+              key={mode.id}
+              type="button"
+              className="mode-chip"
+              aria-pressed={mode.id === currentModeId}
+              onClick={() => onSetMode?.(mode.id)}
+            >
+              {mode.name ?? mode.id}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {queued.length > 0 ? (
         <div className="composer-queued">
           {queued.map((item, index) => (

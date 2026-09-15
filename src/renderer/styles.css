@@ -1951,3 +1951,26 @@ input:focus-visible {
   font-size: var(--font-size-xs);
   color: var(--muted);
 }
+
+.mode-row {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1-5) var(--space-2) 0;
+}
+
+.mode-chip {
+  height: var(--height-xs);
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.mode-chip[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--hover);
+  border-color: var(--muted);
+}

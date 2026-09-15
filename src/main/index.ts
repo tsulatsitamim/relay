@@ -127,6 +127,11 @@ async function main(): Promise<void> {
     await manager.cancel(id);
   });
 
+  ipcMain.handle("relay:setMode", async (_e, id: string, modeId: string) => {
+    logger.info("set mode", { sessionId: id, modeId });
+    await manager.setMode(id, modeId);
+  });
+
   ipcMain.handle("relay:restart", async (_e, id: string) => {
     logger.info("restart", { sessionId: id });
     await manager.restart(id);
