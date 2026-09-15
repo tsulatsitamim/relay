@@ -178,6 +178,24 @@ describe("SessionManager", () => {
     ).toBe(true);
   });
 
+  it("records attachment names on the user event", async () => {
+    const sm = await manager();
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    await sm.send(session.id, "see this", [
+      { name: "shot.png", mimeType: "image/png", data: "AAAA" },
+    ]);
+    const user = sm
+      .transcript(session.id)
+      .find((event) => event.kind === "user" && event.payload.text === "see this");
+    expect(user?.payload.attachments).toEqual([
+      { name: "shot.png", mimeType: "image/png" },
+    ]);
+  });
+
   it("renames a session without bumping recency", async () => {
     const sm = await manager();
     const session = await sm.create({

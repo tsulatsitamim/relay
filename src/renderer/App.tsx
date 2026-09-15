@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { RelayState } from "../shared/ipc.ts";
 import type {
   AvailableCommandLike,
+  PromptAttachment,
   Repo,
   Session,
   TranscriptEvent,
@@ -310,11 +311,15 @@ export function App() {
     void window.relay.permission(requestId, optionId);
   };
 
-  const sendToSession = async (sessionId: string, text: string) => {
+  const sendToSession = async (
+    sessionId: string,
+    text: string,
+    attachments?: PromptAttachment[],
+  ) => {
     setBusy(true);
     setChatError(null);
     try {
-      await window.relay.send(sessionId, text);
+      await window.relay.send(sessionId, text, attachments);
     } catch (err) {
       setChatError({
         sessionId,
@@ -843,7 +848,7 @@ export function App() {
               disabled={busy}
               working={composerLocked}
               onCancel={() => void window.relay.cancel(selected.id)}
-              onSend={(text) => sendToSession(selected.id, text)}
+              onSend={(text, attachments) => sendToSession(selected.id, text, attachments)}
               queued={queued[selected.id] ?? []}
               onQueue={(text) => enqueue(selected.id, text)}
               onRemoveQueued={(index) => removeQueued(selected.id, index)}

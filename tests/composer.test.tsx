@@ -146,4 +146,31 @@ describe("Composer", () => {
     expect(box.value).toBe("look at @src/index.ts ");
     expect(listFiles).toHaveBeenCalledWith("/tmp/repo");
   });
+
+  it("attaches picked images and sends them", async () => {
+    const onSend = vi.fn();
+    const pickImages = vi
+      .fn()
+      .mockResolvedValue([{ name: "shot.png", mimeType: "image/png", data: "AAAA" }]);
+    // @ts-expect-error test shim
+    window.relay = { pickImages };
+    render(<Composer disabled={false} working={false} onSend={onSend} onCancel={noop} />);
+    fireEvent.click(screen.getByLabelText("Attach image"));
+    expect(await screen.findByText("shot.png")).toBeTruthy();
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "look" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith("look", [
+      { name: "shot.png", mimeType: "image/png", data: "AAAA" },
+    ]);
+  });
+
+  it("sends text with no second argument when there are no attachments", () => {
+    const onSend = vi.fn();
+    render(<Composer disabled={false} working={false} onSend={onSend} onCancel={noop} />);
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "plain" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith("plain");
+  });
 });

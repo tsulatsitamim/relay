@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { AcpSession } from "../src/main/acp-session.ts";
+import { AcpSession, promptBlocks } from "../src/main/acp-session.ts";
 import { pickAutoAllowOption } from "../src/main/permission.ts";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type {
@@ -170,5 +170,17 @@ describe("AcpSession", () => {
           u.content.text.includes("echo: remember me"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("promptBlocks", () => {
+  it("builds image content blocks for attachments", () => {
+    const blocks = promptBlocks("look", [
+      { name: "a.png", mimeType: "image/png", data: "AAAA" },
+    ]);
+    expect(blocks).toEqual([
+      { type: "text", text: "look" },
+      { type: "image", mimeType: "image/png", data: "AAAA", uri: null },
+    ]);
   });
 });

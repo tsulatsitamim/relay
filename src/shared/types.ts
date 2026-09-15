@@ -61,6 +61,12 @@ export type TranscriptEvent = {
   createdAt?: number;
 };
 
+export type PromptAttachment = {
+  name: string;
+  mimeType: string;
+  data: string;
+};
+
 export type AvailableCommandLike = {
   name: string;
   description: string;

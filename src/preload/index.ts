@@ -1,13 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
-import type { Repo, Session } from "../shared/types.ts";
+import type { PromptAttachment, Repo, Session } from "../shared/types.ts";
 
 contextBridge.exposeInMainWorld("relay", {
   getState: (): Promise<RelayState> => ipcRenderer.invoke("relay:getState"),
   create: (payload: CreatePayload): Promise<Session> =>
     ipcRenderer.invoke("relay:create", payload),
-  send: (id: string, text: string): Promise<void> =>
-    ipcRenderer.invoke("relay:send", id, text),
+  send: (id: string, text: string, attachments?: PromptAttachment[]): Promise<void> =>
+    ipcRenderer.invoke("relay:send", id, text, attachments),
   cancel: (id: string): Promise<void> => ipcRenderer.invoke("relay:cancel", id),
   permission: (requestId: string, optionId: string | null): Promise<void> =>
     ipcRenderer.invoke("relay:permission", requestId, optionId),
@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:pickDirectory"),
   listFiles: (cwd: string): Promise<string[]> =>
     ipcRenderer.invoke("relay:listFiles", cwd),
+  pickImages: (): Promise<PromptAttachment[]> =>
+    ipcRenderer.invoke("relay:pickImages"),
   addRepo: (): Promise<Repo[]> => ipcRenderer.invoke("relay:addRepo"),
   removeRepo: (path: string): Promise<Repo[]> =>
     ipcRenderer.invoke("relay:removeRepo", path),

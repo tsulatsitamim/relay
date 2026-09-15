@@ -858,7 +858,12 @@ input:focus-visible {
   height: var(--height-xs);
   display: grid;
   place-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
   color: var(--muted);
+  cursor: pointer;
+  font: inherit;
 }
 
 .plus svg {
@@ -1128,6 +1133,27 @@ input:focus-visible {
   letter-spacing: -0.15px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.msg-attachment {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--hover);
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .msg.agent {

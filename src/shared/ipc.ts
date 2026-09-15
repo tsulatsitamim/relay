@@ -1,6 +1,7 @@
 import type {
   AgentConfig,
   PermissionRequest,
+  PromptAttachment,
   Repo,
   Session,
   TranscriptEvent,
@@ -27,4 +28,5 @@ export type CreatePayload = {
   agentId: string;
   cwd: string;
   prompt: string;
+  attachments?: PromptAttachment[];
 };

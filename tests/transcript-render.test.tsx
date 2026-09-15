@@ -16,6 +16,22 @@ describe("Transcript rendering", () => {
     expect(screen.getByText("one")).toBeTruthy();
   });
 
+  it("renders attachment names on user messages", () => {
+    const events: TranscriptEvent[] = [
+      {
+        id: "1",
+        kind: "user",
+        payload: {
+          text: "see this",
+          attachments: [{ name: "shot.png", mimeType: "image/png" }],
+        },
+      },
+    ];
+    render(<Transcript events={events} />);
+    expect(screen.getByText("shot.png")).toBeTruthy();
+    expect(screen.getByText(/see this/)).toBeTruthy();
+  });
+
   it("renders tool calls, thinking and plans through their components", () => {
     const events: TranscriptEvent[] = [
       { id: "1", kind: "thinking", payload: { text: "pondering" } },

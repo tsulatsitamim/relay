@@ -5,11 +5,12 @@ import {
   PROTOCOL_VERSION,
   ndJsonStream,
   type Client,
+  type ContentBlock,
   type RequestPermissionRequest,
   type SessionNotification,
   type SessionUpdate,
 } from "@agentclientprotocol/sdk";
-import type { PermissionOptionLike } from "../shared/types.ts";
+import type { PermissionOptionLike, PromptAttachment } from "../shared/types.ts";
 
 export type PermissionPrompt = {
   toolCallId?: string;
@@ -38,6 +39,22 @@ export type AcpSessionOptions = {
   onExit?: (info: AcpExitInfo) => void;
   onLog?: (line: string) => void;
 };
+
+export function promptBlocks(
+  text: string,
+  attachments: PromptAttachment[] = [],
+): ContentBlock[] {
+  const blocks: ContentBlock[] = [{ type: "text", text }];
+  for (const attachment of attachments) {
+    blocks.push({
+      type: "image",
+      mimeType: attachment.mimeType,
+      data: attachment.data,
+      uri: null,
+    });
+  }
+  return blocks;
+}
 
 export class AcpSession {
   private child: ChildProcessWithoutNullStreams | null = null;
@@ -178,13 +195,16 @@ export class AcpSession {
     };
   }
 
-  async prompt(text: string): Promise<{ stopReason: string }> {
+  async prompt(
+    text: string,
+    attachments: PromptAttachment[] = [],
+  ): Promise<{ stopReason: string }> {
     if (!this.connection || !this.sessionId) {
       throw new Error("session is not started");
     }
     const run = this.connection.prompt({
       sessionId: this.sessionId,
-      prompt: [{ type: "text", text }],
+      prompt: promptBlocks(text, attachments),
     });
     this.promptInFlight = run;
     try {

@@ -3,6 +3,7 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type {
   AgentConfig,
   PermissionRequest,
+  PromptAttachment,
   Repo,
   Session,
   SessionStatus,
@@ -25,6 +26,7 @@ export type CreateSessionInput = {
   agent: AgentConfig;
   cwd: string;
   prompt: string;
+  attachments?: PromptAttachment[];
 };
 
 export type ManagerEvent =
@@ -209,12 +211,20 @@ export class SessionManager {
     this.store.saveSession(session);
     this.store.touchRecent(input.cwd);
     this.events.set(session.id, []);
-    this.append(session.id, { kind: "user", payload: { text: input.prompt } });
+    this.append(session.id, {
+      kind: "user",
+      payload: {
+        text: input.prompt,
+        ...(input.attachments?.length
+          ? { attachments: attachmentMeta(input.attachments) }
+          : {}),
+      },
+    });
     this.emitSessions();
 
     try {
       await this.attach(session, input.agent, false);
-      await this.runPrompt(session.id, input.prompt);
+      await this.runPrompt(session.id, input.prompt, input.attachments);
       return this.require(session.id);
     } catch (err) {
       this.fail(session.id, err);
@@ -222,14 +232,24 @@ export class SessionManager {
     }
   }
 
-  async send(id: string, text: string): Promise<void> {
+  async send(
+    id: string,
+    text: string,
+    attachments: PromptAttachment[] = [],
+  ): Promise<void> {
     const session = this.require(id);
-    this.append(id, { kind: "user", payload: { text } });
+    this.append(id, {
+      kind: "user",
+      payload: {
+        text,
+        ...(attachments.length ? { attachments: attachmentMeta(attachments) } : {}),
+      },
+    });
     if (!this.live.has(id)) {
       const agent = this.agentFor(session);
       await this.attach(session, agent, true);
     }
-    await this.runPrompt(id, text);
+    await this.runPrompt(id, text, attachments);
   }
 
   async cancel(id: string): Promise<void> {
@@ -315,12 +335,16 @@ export class SessionManager {
     }
   }
 
-  private async runPrompt(id: string, text: string): Promise<void> {
+  private async runPrompt(
+    id: string,
+    text: string,
+    attachments: PromptAttachment[] = [],
+  ): Promise<void> {
     const acp = this.live.get(id);
     if (!acp) throw new Error("session process is not running");
     this.patch(id, { status: "working", lastPromptAt: Date.now() });
     try {
-      const result = await acp.prompt(text);
+      const result = await acp.prompt(text, attachments);
       this.patch(id, { status: "idle" });
       if (result.stopReason === "cancelled") {
         this.append(id, {
@@ -420,6 +444,12 @@ export class SessionManager {
     this.seq += 1;
     for (const listener of this.listeners) listener(event);
   }
+}
+
+function attachmentMeta(
+  attachments: PromptAttachment[],
+): { name: string; mimeType: string }[] {
+  return attachments.map((a) => ({ name: a.name, mimeType: a.mimeType }));
 }
 
 export function defaultAgents(fakeAgentPath?: string): AgentConfig[] {

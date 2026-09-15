@@ -9,7 +9,9 @@ import { SessionManager, defaultAgents } from "./session-manager.ts";
 import { createLogger } from "./logger.ts";
 import { repoNameFromPath, withGitBranch } from "./repo-name.ts";
 import { listFiles } from "./file-index.ts";
+import { readAttachment } from "./attachments.ts";
 import type { CreatePayload } from "../shared/ipc.ts";
+import type { PromptAttachment } from "../shared/types.ts";
 
 function fakeAgentPath(): string | undefined {
   const candidates = [
@@ -108,13 +110,17 @@ async function main(): Promise<void> {
       agent,
       cwd: payload.cwd || homedir(),
       prompt: payload.prompt,
+      attachments: payload.attachments,
     });
   });
 
-  ipcMain.handle("relay:send", async (_e, id: string, text: string) => {
-    logger.info("prompt", { sessionId: id });
-    await manager.send(id, text);
-  });
+  ipcMain.handle(
+    "relay:send",
+    async (_e, id: string, text: string, attachments?: PromptAttachment[]) => {
+      logger.info("prompt", { sessionId: id });
+      await manager.send(id, text, attachments);
+    },
+  );
 
   ipcMain.handle("relay:cancel", async (_e, id: string) => {
     logger.info("cancel", { sessionId: id });
@@ -145,6 +151,27 @@ async function main(): Promise<void> {
   ipcMain.handle("relay:listFiles", (_e, cwd: string) => {
     if (!cwd) return [];
     return listFiles(cwd);
+  });
+
+  ipcMain.handle("relay:pickImages", async (event) => {
+    const win =
+      BrowserWindow.fromWebContents(event.sender) ??
+      BrowserWindow.getFocusedWindow();
+    if (!win) return [];
+    const result = await dialog.showOpenDialog(win, {
+      properties: ["openFile", "multiSelections"],
+      filters: [
+        {
+          name: "Images",
+          extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"],
+        },
+      ],
+    });
+    if (result.canceled) return [];
+    return result.filePaths
+      .map(readAttachment)
+      .filter((a): a is PromptAttachment => a !== null)
+      .slice(0, 8);
   });
 
   ipcMain.handle("relay:addRepo", async (event) => {

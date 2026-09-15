@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import type { AvailableCommandLike } from "../shared/types.ts";
+import type { AvailableCommandLike, PromptAttachment } from "../shared/types.ts";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
 
@@ -9,7 +9,7 @@ const maxComposerHeight = 176;
 type Props = {
   disabled: boolean;
   working: boolean;
-  onSend: (text: string) => Promise<void>;
+  onSend: (text: string, attachments?: PromptAttachment[]) => void | Promise<void>;
   onCancel: () => void;
   queued?: string[];
   onQueue?: (text: string) => void;
@@ -31,9 +31,10 @@ export function Composer({
 }: Props) {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<PromptAttachment[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const field = useRef<HTMLTextAreaElement>(null);
-  const canSubmit = Boolean(text.trim()) && !disabled;
+  const canSubmit = (Boolean(text.trim()) || attachments.length > 0) && !disabled;
   const slashMatch = /^\/([^\s\n]*)$/.exec(text);
   const slashItems = slashMatch
     ? commands
@@ -96,14 +97,22 @@ export function Composer({
 
   async function submit() {
     const value = text.trim();
-    if (!value || disabled) return;
+    if (disabled) return;
+    if (!value && attachments.length === 0) return;
     if (working) {
+      if (!value) return;
       onQueue?.(value);
       setText("");
       return;
     }
+    const outgoing = attachments;
     setText("");
-    void onSend(value);
+    setAttachments([]);
+    if (outgoing.length === 0) {
+      void onSend(value);
+    } else {
+      void onSend(value, outgoing);
+    }
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -174,6 +183,24 @@ export function Composer({
           ))}
         </div>
       ) : null}
+      {attachments.length > 0 ? (
+        <div className="composer-queued">
+          {attachments.map((attachment, index) => (
+            <span className="queued-chip" key={`${index}-${attachment.name}`}>
+              <span className="queued-text">{attachment.name}</span>
+              <button
+                className="queued-remove"
+                aria-label="Remove attachment"
+                onClick={() =>
+                  setAttachments((prev) => prev.filter((_, i) => i !== index))
+                }
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
       {slashMenuOpen ? (
         <SuggestionMenu items={slashItems} activeIndex={activeIndex} onPick={pickSlash} />
       ) : mentionMenuOpen ? (
@@ -184,9 +211,18 @@ export function Composer({
         />
       ) : null}
       <div className="composer-card dock-composer">
-        <span className="plus" aria-hidden>
+        <button
+          type="button"
+          className="plus"
+          aria-label="Attach image"
+          onClick={() => {
+            void window.relay.pickImages().then((picked) => {
+              if (picked.length > 0) setAttachments((prev) => [...prev, ...picked]);
+            });
+          }}
+        >
           <IconCirclePlus size={16} />
-        </span>
+        </button>
         <div className="dock-field">
           {text === "" && (
             <span className="dock-placeholder">

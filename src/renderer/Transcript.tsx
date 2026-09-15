@@ -16,7 +16,23 @@ function EventRow({ event }: { event: TranscriptEvent }) {
   if (event.kind === "commands") return null;
 
   if (event.kind === "user") {
-    return <div className="msg user">{String(event.payload.text ?? "")}</div>;
+    const attachments = event.payload.attachments as
+      | { name: string }[]
+      | undefined;
+    return (
+      <div className="msg user">
+        {String(event.payload.text ?? "")}
+        {attachments?.length ? (
+          <div className="msg-attachments">
+            {attachments.map((a) => (
+              <span className="msg-attachment" key={a.name}>
+                {a.name}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   if (event.kind === "agent_message") {
