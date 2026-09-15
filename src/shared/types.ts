@@ -65,6 +65,7 @@ export type PromptAttachment = {
   name: string;
   mimeType: string;
   data: string;
+  thumb?: string;
 };
 
 export type AvailableCommandLike = {

@@ -188,9 +188,11 @@ describe("Composer", () => {
     const box = screen.getByRole("textbox");
     fireEvent.change(box, { target: { value: "look" } });
     fireEvent.keyDown(box, { key: "Enter" });
-    expect(onSend).toHaveBeenCalledWith("look", [
-      { name: "shot.png", mimeType: "image/png", data: "AAAA" },
-    ]);
+    await waitFor(() =>
+      expect(onSend).toHaveBeenCalledWith("look", [
+        { name: "shot.png", mimeType: "image/png", data: "AAAA" },
+      ]),
+    );
   });
 
   it("sends text with no second argument when there are no attachments", () => {

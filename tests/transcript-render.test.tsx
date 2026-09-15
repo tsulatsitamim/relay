@@ -56,6 +56,44 @@ describe("Transcript rendering", () => {
     spy.mockRestore();
   });
 
+  it("renders a thumbnail image for user attachments that carry a thumb", () => {
+    const events: TranscriptEvent[] = [
+      {
+        id: "1",
+        kind: "user",
+        payload: {
+          text: "see this",
+          attachments: [
+            {
+              name: "a.png",
+              mimeType: "image/png",
+              thumb: "data:image/jpeg;base64,xyz",
+            },
+          ],
+        },
+      },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    const img = container.querySelector("img.msg-thumb") as HTMLImageElement | null;
+    expect(img).toBeTruthy();
+    expect(img?.getAttribute("src")).toBe("data:image/jpeg;base64,xyz");
+  });
+
+  it("omits the thumbnail image when an attachment has no thumb", () => {
+    const events: TranscriptEvent[] = [
+      {
+        id: "1",
+        kind: "user",
+        payload: {
+          text: "see this",
+          attachments: [{ name: "a.png", mimeType: "image/png" }],
+        },
+      },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    expect(container.querySelector("img.msg-thumb")).toBeNull();
+  });
+
   it("renders tool calls, thinking and plans through their components", () => {
     const events: TranscriptEvent[] = [
       { id: "1", kind: "thinking", payload: { text: "pondering" } },

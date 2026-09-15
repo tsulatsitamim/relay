@@ -17,7 +17,7 @@ function EventRow({ event }: { event: TranscriptEvent }) {
 
   if (event.kind === "user") {
     const attachments = event.payload.attachments as
-      | { name: string }[]
+      | { name: string; thumb?: string }[]
       | undefined;
     return (
       <div className="msg user">
@@ -26,6 +26,9 @@ function EventRow({ event }: { event: TranscriptEvent }) {
           <div className="msg-attachments">
             {attachments.map((a, index) => (
               <span className="msg-attachment" key={`${index}-${a.name}`}>
+                {a.thumb ? (
+                  <img className="msg-thumb" src={a.thumb} alt={a.name} />
+                ) : null}
                 {a.name}
               </span>
             ))}

@@ -205,6 +205,33 @@ describe("SessionManager", () => {
     ]);
   });
 
+  it("stores attachment thumbnails on the user event without the raw data", async () => {
+    const sm = await manager();
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    await sm.send(session.id, "see this", [
+      {
+        name: "shot.png",
+        mimeType: "image/png",
+        data: "QQ==",
+        thumb: "data:image/jpeg;base64,xyz",
+      },
+    ]);
+    const user = sm
+      .transcript(session.id)
+      .find((event) => event.kind === "user" && event.payload.text === "see this");
+    expect(user?.payload.attachments).toEqual([
+      {
+        name: "shot.png",
+        mimeType: "image/png",
+        thumb: "data:image/jpeg;base64,xyz",
+      },
+    ]);
+  });
+
   it("renames a session without bumping recency", async () => {
     const sm = await manager();
     const session = await sm.create({

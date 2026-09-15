@@ -10,6 +10,7 @@ import type { AvailableCommandLike, PromptAttachment } from "../shared/types.ts"
 import { readImageFiles } from "./attachments";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
+import { withThumbs } from "./thumbs";
 
 const lineHeight = 24;
 const maxComposerHeight = 176;
@@ -145,14 +146,15 @@ export function Composer({
       setText("");
       return;
     }
-    const outgoing = attachments;
+    if (attachments.length === 0) {
+      setText("");
+      void onSend(value);
+      return;
+    }
+    const outgoing = await withThumbs(attachments);
     setText("");
     setAttachments([]);
-    if (outgoing.length === 0) {
-      void onSend(value);
-    } else {
-      void onSend(value, outgoing);
-    }
+    void onSend(value, outgoing);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {

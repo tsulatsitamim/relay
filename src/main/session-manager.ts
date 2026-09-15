@@ -448,8 +448,12 @@ export class SessionManager {
 
 function attachmentMeta(
   attachments: PromptAttachment[],
-): { name: string; mimeType: string }[] {
-  return attachments.map((a) => ({ name: a.name, mimeType: a.mimeType }));
+): { name: string; mimeType: string; thumb?: string }[] {
+  return attachments.map((a) => ({
+    name: a.name,
+    mimeType: a.mimeType,
+    ...(a.thumb ? { thumb: a.thumb } : {}),
+  }));
 }
 
 export function defaultAgents(fakeAgentPath?: string): AgentConfig[] {
