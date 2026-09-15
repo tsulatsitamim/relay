@@ -900,7 +900,11 @@ export function App() {
               inject={inject}
               modes={selected.modes}
               currentModeId={selected.currentModeId}
-              onSetMode={(modeId) => void window.relay.setMode(selected.id, modeId)}
+              onSetMode={(modeId) =>
+                void window.relay
+                  .setMode(selected.id, modeId)
+                  .catch((err) => console.error(err))
+              }
             />
           </div>
         ) : (

@@ -410,4 +410,56 @@ describe("Composer", () => {
     });
     expect(container.querySelector(".mode-row")).toBeNull();
   });
+
+  it("disables mode chips while working", () => {
+    const onSetMode = vi.fn();
+    const { container } = setup({
+      working: true,
+      modes: [
+        { id: "build", name: "Build" },
+        { id: "plan", name: "Plan" },
+      ],
+      currentModeId: "build",
+      onSetMode,
+    });
+    const chips = container.querySelectorAll<HTMLButtonElement>(".mode-chip");
+    expect(chips[0]?.disabled).toBe(true);
+    expect(chips[1]?.disabled).toBe(true);
+    fireEvent.click(chips[1]!);
+    expect(onSetMode).not.toHaveBeenCalled();
+  });
+
+  it("does not re-fire when the active mode chip is clicked", () => {
+    const onSetMode = vi.fn();
+    const { container } = setup({
+      modes: [
+        { id: "build", name: "Build" },
+        { id: "plan", name: "Plan" },
+      ],
+      currentModeId: "build",
+      onSetMode,
+    });
+    fireEvent.click(container.querySelectorAll<HTMLButtonElement>(".mode-chip")[0]!);
+    expect(onSetMode).not.toHaveBeenCalled();
+  });
+
+  it("sends only once when a second submit lands during attachment thumbnails", async () => {
+    const onSend = vi.fn().mockResolvedValue(undefined);
+    const pickImages = vi
+      .fn()
+      .mockResolvedValue([{ name: "shot.png", mimeType: "image/png", data: "AAAA" }]);
+    // @ts-expect-error test shim
+    window.relay = { pickImages };
+    render(<Composer disabled={false} working={false} onSend={onSend} onCancel={noop} />);
+    fireEvent.click(screen.getByLabelText("Attach image"));
+    expect(await screen.findByText("shot.png")).toBeTruthy();
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "look" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1));
+    expect(onSend).toHaveBeenCalledWith("look", [
+      { name: "shot.png", mimeType: "image/png", data: "AAAA" },
+    ]);
+  });
 });

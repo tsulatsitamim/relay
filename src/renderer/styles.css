@@ -1172,12 +1172,16 @@ input:focus-visible {
   position: absolute;
   top: -10px;
   right: 4px;
-  display: none;
+  display: inline-flex;
   gap: 2px;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.msg:hover .msg-actions {
-  display: inline-flex;
+.msg:hover .msg-actions,
+.msg:focus-within .msg-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .msg-action {

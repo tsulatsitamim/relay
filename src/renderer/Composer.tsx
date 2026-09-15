@@ -56,6 +56,7 @@ export function Composer({
   const [activeIndex, setActiveIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
+  const submitting = useRef(false);
   const canSubmit = (Boolean(text.trim()) || attachments.length > 0) && !disabled;
   const slashMatch = /^\/([^\s\n]*)$/.exec(text);
   const slashItems = slashMatch
@@ -157,6 +158,7 @@ export function Composer({
   }
 
   async function submit() {
+    if (submitting.current) return;
     const value = text.trim();
     if (disabled) return;
     if (!value && attachments.length === 0) return;
@@ -166,15 +168,20 @@ export function Composer({
       setText("");
       return;
     }
-    if (attachments.length === 0) {
+    submitting.current = true;
+    try {
+      if (attachments.length === 0) {
+        setText("");
+        void onSend(value);
+        return;
+      }
+      const outgoing = await withThumbs(attachments);
       setText("");
-      void onSend(value);
-      return;
+      setAttachments([]);
+      void onSend(value, outgoing);
+    } finally {
+      submitting.current = false;
     }
-    const outgoing = await withThumbs(attachments);
-    setText("");
-    setAttachments([]);
-    void onSend(value, outgoing);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -236,8 +243,12 @@ export function Composer({
               key={mode.id}
               type="button"
               className="mode-chip"
+              disabled={disabled || working}
               aria-pressed={mode.id === currentModeId}
-              onClick={() => onSetMode?.(mode.id)}
+              onClick={() => {
+                if (mode.id === currentModeId) return;
+                onSetMode?.(mode.id);
+              }}
             >
               {mode.name ?? mode.id}
             </button>
