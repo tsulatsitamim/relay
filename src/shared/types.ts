@@ -63,6 +63,7 @@ export type TranscriptEvent = {
     | "tool_call"
     | "diff"
     | "commands"
+    | "usage"
     | "status"
     | "error";
   payload: Record<string, unknown>;

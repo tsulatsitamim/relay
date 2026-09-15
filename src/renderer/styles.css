@@ -974,6 +974,12 @@ input:focus-visible {
   -webkit-app-region: drag;
 }
 
+.thread-status {
+  flex-shrink: 0;
+  color: var(--working);
+  font-size: var(--font-size-sm);
+}
+
 .thread-err {
   flex-shrink: 0;
   color: var(--danger);
@@ -1222,6 +1228,11 @@ input:focus-visible {
 .msg.error {
   color: var(--muted);
   font-size: var(--font-size-sm);
+}
+
+.msg.usage {
+  color: var(--faint);
+  font-size: var(--font-size-xs);
 }
 
 .msg.error {

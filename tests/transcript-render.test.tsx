@@ -145,4 +145,23 @@ describe("Transcript rendering", () => {
     render(<Transcript events={events} />);
     expect(screen.queryByRole("button", { name: "Edit message" })).toBeNull();
   });
+
+  it("renders a usage line with tokens and cost", () => {
+    const events: TranscriptEvent[] = [
+      {
+        id: "1",
+        kind: "usage",
+        payload: { used: 1500, size: 8000, costAmount: 0.0123, costCurrency: "USD" },
+      },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    const usage = container.querySelector(".msg.usage");
+    expect(usage?.textContent).toBe("1.5k / 8.0k tokens · USD0.0123");
+  });
+
+  it("renders nothing for an empty usage payload", () => {
+    const events: TranscriptEvent[] = [{ id: "1", kind: "usage", payload: {} }];
+    const { container } = render(<Transcript events={events} />);
+    expect(container.querySelector(".msg.usage")).toBeNull();
+  });
 });

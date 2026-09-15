@@ -81,6 +81,25 @@ export function reduceSessionUpdate(
     return [...events, event];
   }
 
+  if (kind === "usage_update") {
+    const payload: Record<string, unknown> = {};
+    if (typeof update.used === "number") payload.used = update.used;
+    if (typeof update.size === "number") payload.size = update.size;
+    const cost = update.cost as { amount?: unknown; currency?: unknown } | undefined;
+    if (cost && typeof cost === "object") {
+      if (typeof cost.amount === "number") payload.costAmount = cost.amount;
+      if (typeof cost.currency === "string") payload.costCurrency = cost.currency;
+    }
+    const last = events[events.length - 1];
+    if (last?.kind === "usage") {
+      return [...events.slice(0, -1), { ...last, payload }];
+    }
+    return [
+      ...events,
+      { id: nextId(), kind: "usage", payload, createdAt: Date.now() },
+    ];
+  }
+
   if (kind === "tool_call") {
     const toolCallId = String(update.toolCallId ?? nextId());
     return [

@@ -12,6 +12,7 @@ import { repoFor } from "../shared/repo.ts";
 import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
+import { WorkingStatus } from "./WorkingStatus";
 import { ErrorBanner } from "./ErrorBanner";
 import { nextQueued, pruneQueued } from "./queue";
 import { PermissionCard } from "./PermissionCard";
@@ -846,6 +847,7 @@ export function App() {
           <div className="thread">
             <header className="thread-head">
               <span className="thread-name">{selected.title}</span>
+              <WorkingStatus status={selected.status} since={selected.lastPromptAt} />
               {selected.error ? <span className="thread-err">{selected.error}</span> : null}
               {canRestart ? (
                 <button

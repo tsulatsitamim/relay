@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PlanEntry, TranscriptEvent } from "../shared/types.ts";
 import { DiffBlock } from "./DiffBlock";
+import { formatUsage } from "./format";
 import { Markdown } from "./Markdown";
 import { PlanBlock } from "./PlanBlock";
 import { ThinkingBlock } from "./ThinkingBlock";
@@ -79,6 +80,19 @@ function EventRow({
 
   if (event.kind === "thinking") {
     return <ThinkingBlock text={String(event.payload.text ?? "")} />;
+  }
+
+  if (event.kind === "usage") {
+    const line = formatUsage(
+      event.payload as {
+        used?: number;
+        size?: number;
+        costAmount?: number;
+        costCurrency?: string;
+      },
+    );
+    if (!line) return null;
+    return <div className="msg usage">{line}</div>;
   }
 
   if (event.kind === "plan") {

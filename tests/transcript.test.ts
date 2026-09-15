@@ -210,4 +210,51 @@ describe("reduceSessionUpdate", () => {
       { name: "c", description: "" },
     ]);
   });
+
+  it("records a usage update with sanitized numbers and cost", () => {
+    const events = reduceSessionUpdate([], {
+      sessionUpdate: "usage_update",
+      used: 1234,
+      size: 8000,
+      cost: { amount: 0.0123, currency: "USD" },
+    }, ids());
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      kind: "usage",
+      payload: { used: 1234, size: 8000, costAmount: 0.0123, costCurrency: "USD" },
+    });
+  });
+
+  it("drops non-numeric usage fields and non-string currency", () => {
+    const events = reduceSessionUpdate([], {
+      sessionUpdate: "usage_update",
+      used: "lots",
+      size: 42,
+      cost: { amount: "free", currency: 7 },
+    }, ids());
+
+    expect(events[events.length - 1].payload).toEqual({ size: 42 });
+  });
+
+  it("replaces the previous usage event instead of stacking snapshots", () => {
+    const nextId = ids();
+    let events = reduceSessionUpdate([], {
+      sessionUpdate: "usage_update",
+      used: 10,
+      size: 100,
+    }, nextId);
+    const firstId = events[events.length - 1]?.id;
+
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "usage_update",
+      used: 55,
+      size: 100,
+    }, nextId);
+
+    const usage = events.filter((event) => event.kind === "usage");
+    expect(usage).toHaveLength(1);
+    expect(usage[0]?.id).toBe(firstId);
+    expect(usage[0]?.payload).toEqual({ used: 55, size: 100 });
+  });
 });
