@@ -1845,6 +1845,14 @@ input:focus-visible {
   white-space: nowrap;
 }
 
+.attach-thumb {
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
 .queued-remove {
   border: none;
   background: transparent;

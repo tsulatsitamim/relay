@@ -1,5 +1,13 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
 import type { AvailableCommandLike, PromptAttachment } from "../shared/types.ts";
+import { readImageFiles } from "./attachments";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
 
@@ -104,6 +112,29 @@ export function Composer({
     setText((prev) => prev.replace(/@([^\s@]*)$/, () => `@${item.id} `));
   }
 
+  async function addFiles(files: ArrayLike<File> | File[]) {
+    const picked = await readImageFiles(files);
+    if (picked.length) setAttachments((prev) => [...prev, ...picked]);
+  }
+
+  function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    const files = Array.from(e.clipboardData?.files ?? []);
+    if (files.length === 0) return;
+    e.preventDefault();
+    void addFiles(files);
+  }
+
+  function onDragOver(e: DragEvent<HTMLDivElement>) {
+    if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+  }
+
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    const files = Array.from(e.dataTransfer.files ?? []);
+    if (files.length === 0) return;
+    e.preventDefault();
+    void addFiles(files);
+  }
+
   async function submit() {
     const value = text.trim();
     if (disabled) return;
@@ -196,6 +227,11 @@ export function Composer({
         <div className="composer-queued">
           {attachments.map((attachment, index) => (
             <span className="queued-chip" key={`${index}-${attachment.name}`}>
+              <img
+                className="attach-thumb"
+                src={`data:${attachment.mimeType};base64,${attachment.data}`}
+                alt={attachment.name}
+              />
               <span className="queued-text">{attachment.name}</span>
               <button
                 className="queued-remove"
@@ -219,7 +255,11 @@ export function Composer({
           onPick={pickMention}
         />
       ) : null}
-      <div className="composer-card dock-composer">
+      <div
+        className="composer-card dock-composer"
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+      >
         <button
           type="button"
           className="plus"
@@ -244,6 +284,7 @@ export function Composer({
             disabled={disabled}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
+            onPaste={onPaste}
             rows={1}
           />
         </div>

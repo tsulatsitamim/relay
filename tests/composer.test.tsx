@@ -6,7 +6,7 @@ import { Composer } from "../src/renderer/Composer";
 function setup(overrides: Partial<React.ComponentProps<typeof Composer>> = {}) {
   const onSend = vi.fn().mockResolvedValue(undefined);
   const onCancel = vi.fn();
-  render(
+  const { container } = render(
     <Composer
       disabled={false}
       working={false}
@@ -15,7 +15,12 @@ function setup(overrides: Partial<React.ComponentProps<typeof Composer>> = {}) {
       {...overrides}
     />,
   );
-  return { onSend, onCancel, field: screen.getByRole("textbox") as HTMLTextAreaElement };
+  return {
+    onSend,
+    onCancel,
+    container,
+    field: screen.getByRole("textbox") as HTMLTextAreaElement,
+  };
 }
 
 afterEach(() => {
@@ -313,5 +318,38 @@ describe("Composer", () => {
     expect(onSend).not.toHaveBeenCalled();
     expect(box.value).toBe("look");
     expect(screen.getByText("shot.png")).toBeTruthy();
+  });
+
+  it("adds a thumbnail chip when an image is pasted", async () => {
+    const { container, field } = setup();
+    const file = new File([new Uint8Array([1, 2, 3])], "pasted.png", {
+      type: "image/png",
+    });
+    fireEvent.paste(field, { clipboardData: { files: [file], types: ["Files"] } });
+    await waitFor(() => expect(screen.getByText("pasted.png")).toBeTruthy());
+    const thumb = container.querySelector(".attach-thumb") as HTMLImageElement;
+    expect(thumb).toBeTruthy();
+    expect(thumb.getAttribute("src")).toBe("data:image/png;base64,AQID");
+  });
+
+  it("adds a thumbnail chip when an image is dropped", async () => {
+    const { container } = setup();
+    const file = new File([new Uint8Array([4, 5, 6])], "dropped.png", {
+      type: "image/png",
+    });
+    fireEvent.drop(container.querySelector(".composer-card")!, {
+      dataTransfer: { files: [file], types: ["Files"] },
+    });
+    await waitFor(() => expect(screen.getByText("dropped.png")).toBeTruthy());
+    expect(container.querySelector(".attach-thumb")).toBeTruthy();
+  });
+
+  it("lets a text-only paste through without attaching", () => {
+    const { container, field } = setup();
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.assign(event, { clipboardData: { files: [], types: [] } });
+    field.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(container.querySelector(".attach-thumb")).toBeNull();
   });
 });

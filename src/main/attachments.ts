@@ -1,6 +1,9 @@
 import { readFileSync, statSync } from "node:fs";
 import { basename, extname } from "node:path";
+import { MAX_ATTACHMENT_BYTES } from "../shared/attachments.ts";
 import type { PromptAttachment } from "../shared/types.ts";
+
+export { MAX_ATTACHMENT_BYTES } from "../shared/attachments.ts";
 
 const MIME: Record<string, string> = {
   png: "image/png",
@@ -11,8 +14,6 @@ const MIME: Record<string, string> = {
   bmp: "image/bmp",
   svg: "image/svg+xml",
 };
-
-export const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 
 export function mimeForExt(ext: string): string | null {
   return MIME[ext.replace(/^\./, "").toLowerCase()] ?? null;
