@@ -7,6 +7,7 @@ import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
 import { ErrorBanner } from "./ErrorBanner";
+import { nextQueued } from "./queue";
 import { PermissionCard } from "./PermissionCard";
 import { SessionRow } from "./SessionRow";
 import { matchesSession } from "./search.ts";
@@ -190,6 +191,8 @@ export function App() {
   );
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [queued, setQueued] = useState<Record<string, string[]>>({});
+  const flushing = useRef<Set<string>>(new Set());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("relay.sidebarCollapsed") === "1",
   );
@@ -307,6 +310,35 @@ export function App() {
       setBusy(false);
     }
   };
+
+  const enqueue = (sessionId: string, text: string) => {
+    setQueued((prev) => ({
+      ...prev,
+      [sessionId]: [...(prev[sessionId] ?? []), text],
+    }));
+  };
+
+  const removeQueued = (sessionId: string, index: number) => {
+    setQueued((prev) => ({
+      ...prev,
+      [sessionId]: (prev[sessionId] ?? []).filter((_, i) => i !== index),
+    }));
+  };
+
+  useEffect(() => {
+    for (const session of state.sessions) {
+      const next = nextQueued(queued[session.id] ?? [], session.status);
+      if (!next || flushing.current.has(session.id)) continue;
+      flushing.current.add(session.id);
+      setQueued((prev) => ({
+        ...prev,
+        [session.id]: (prev[session.id] ?? []).slice(1),
+      }));
+      void sendToSession(session.id, next).finally(() => {
+        flushing.current.delete(session.id);
+      });
+    }
+  }, [state.sessions, queued]);
 
   const activeChatError =
     chatError && selected && chatError.sessionId === selected.id ? chatError : null;
@@ -793,10 +825,13 @@ export function App() {
               />
             ) : null}
             <Composer
-              disabled={composerLocked || busy}
+              disabled={busy}
               working={composerLocked}
               onCancel={() => void window.relay.cancel(selected.id)}
               onSend={(text) => sendToSession(selected.id, text)}
+              queued={queued[selected.id] ?? []}
+              onQueue={(text) => enqueue(selected.id, text)}
+              onRemoveQueued={(index) => removeQueued(selected.id, index)}
             />
           </div>
         ) : (

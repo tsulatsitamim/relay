@@ -9,12 +9,23 @@ type Props = {
   working: boolean;
   onSend: (text: string) => Promise<void>;
   onCancel: () => void;
+  queued?: string[];
+  onQueue?: (text: string) => void;
+  onRemoveQueued?: (index: number) => void;
 };
 
-export function Composer({ disabled, working, onSend, onCancel }: Props) {
+export function Composer({
+  disabled,
+  working,
+  onSend,
+  onCancel,
+  queued = [],
+  onQueue,
+  onRemoveQueued,
+}: Props) {
   const [text, setText] = useState("");
   const field = useRef<HTMLTextAreaElement>(null);
-  const canSend = Boolean(text.trim()) && !disabled && !working;
+  const canSubmit = Boolean(text.trim()) && !disabled;
 
   useEffect(() => {
     const el = field.current;
@@ -28,9 +39,14 @@ export function Composer({ disabled, working, onSend, onCancel }: Props) {
 
   async function submit() {
     const value = text.trim();
-    if (!value || disabled || working) return;
+    if (!value || disabled) return;
+    if (working) {
+      onQueue?.(value);
+      setText("");
+      return;
+    }
     setText("");
-    await onSend(value);
+    void onSend(value);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -41,6 +57,22 @@ export function Composer({ disabled, working, onSend, onCancel }: Props) {
 
   return (
     <div className="dock">
+      {queued.length > 0 ? (
+        <div className="composer-queued">
+          {queued.map((item, index) => (
+            <span className="queued-chip" key={`${index}-${item}`}>
+              <span className="queued-text">{item}</span>
+              <button
+                className="queued-remove"
+                aria-label="Remove queued message"
+                onClick={() => onRemoveQueued?.(index)}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="composer-card dock-composer">
         <span className="plus" aria-hidden>
           <IconCirclePlus size={16} />
@@ -71,12 +103,12 @@ export function Composer({ disabled, working, onSend, onCancel }: Props) {
           </button>
         ) : (
           <button
-            className={`send-orb ${canSend ? "send" : "mic"}`}
-            disabled={!canSend}
+            className={`send-orb ${canSubmit ? "send" : "mic"}`}
+            disabled={!canSubmit}
             onClick={() => void submit()}
-            aria-label={canSend ? "Send" : "Voice"}
+            aria-label={canSubmit ? "Send" : "Voice"}
           >
-            {canSend ? <IconSend /> : <IconMic />}
+            {canSubmit ? <IconSend /> : <IconMic />}
           </button>
         )}
       </div>

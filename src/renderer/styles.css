@@ -1765,3 +1765,42 @@ input:focus-visible {
   padding: 1px var(--space-1);
   outline: none;
 }
+
+.composer-queued {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1-5) var(--space-2) 0;
+}
+
+.queued-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 2px var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--hover);
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+}
+
+.queued-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queued-remove {
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.queued-remove:hover {
+  color: var(--text);
+}

@@ -19,6 +19,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof Composer>> = {}) {
 }
 
 afterEach(cleanup);
+const noop = () => {};
 describe("Composer", () => {
   it("sends on Enter", () => {
     const { onSend, field } = setup();
@@ -65,5 +66,41 @@ describe("Composer", () => {
   it("shows the mic orb when idle and empty", () => {
     setup();
     expect(screen.getByRole("button", { name: "Voice" })).toBeTruthy();
+  });
+
+  it("enqueues instead of sending while working", () => {
+    const onSend = vi.fn();
+    const onQueue = vi.fn();
+    render(
+      <Composer
+        disabled={false}
+        working
+        onSend={onSend}
+        onCancel={noop}
+        onQueue={onQueue}
+      />,
+    );
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "queue me" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onQueue).toHaveBeenCalledWith("queue me");
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("renders queued chips with a remove control", () => {
+    const onRemoveQueued = vi.fn();
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={vi.fn()}
+        onCancel={noop}
+        queued={["first", "second"]}
+        onRemoveQueued={onRemoveQueued}
+      />,
+    );
+    expect(screen.getByText("first")).toBeTruthy();
+    fireEvent.click(screen.getAllByLabelText("Remove queued message")[1]);
+    expect(onRemoveQueued).toHaveBeenCalledWith(1);
   });
 });
