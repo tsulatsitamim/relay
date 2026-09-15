@@ -28,8 +28,7 @@ function createWindow(): BrowserWindow {
     minHeight: 520,
     title: "Relay",
     backgroundColor: "#F4F4F2",
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 16, y: 14 },
+    titleBarStyle: "hidden",
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(dir, "../preload/index.mjs"),
@@ -181,7 +180,20 @@ async function main(): Promise<void> {
     clipboard.writeText(JSON.stringify(live, null, 2));
   });
 
+  ipcMain.handle("relay:windowControl", (event, action: "min" | "max" | "close") => {
+    const win =
+      BrowserWindow.fromWebContents(event.sender) ??
+      BrowserWindow.getFocusedWindow();
+    if (!win) return;
+    if (action === "min") win.minimize();
+    else if (action === "max") {
+      if (win.isMaximized()) win.unmaximize();
+      else win.maximize();
+    } else win.close();
+  });
+
   const win = createWindow();
+  if (process.platform === "darwin") win.setWindowButtonVisibility(false);
   windows.add(win);
 
   app.on("before-quit", (e) => {

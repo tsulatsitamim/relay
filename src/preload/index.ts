@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:setArchived", id, archived),
   copyDebug: (id: string): Promise<void> =>
     ipcRenderer.invoke("relay:copyDebug", id),
+  windowControl: (action: "min" | "max" | "close"): Promise<void> =>
+    ipcRenderer.invoke("relay:windowControl", action),
   subscribe: (listener: (event: RelayEvent) => void) => {
     const handler = (_e: unknown, event: RelayEvent) => listener(event);
     ipcRenderer.on("relay:event", handler);

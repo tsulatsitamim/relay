@@ -14,6 +14,7 @@ export type RelayBridge = {
   setPinned: (id: string, pinned: boolean) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
   copyDebug: (id: string) => Promise<void>;
+  windowControl: (action: "min" | "max" | "close") => Promise<void>;
   subscribe: (listener: (event: RelayEvent) => void) => () => void;
 };
 

@@ -11,6 +11,8 @@ import {
   IconArchive,
   IconAutomations,
   IconCheck,
+  IconArrowLeft,
+  IconArrowRight,
   IconChevron,
   IconCustomize,
   IconFilter,
@@ -19,6 +21,7 @@ import {
   IconFolderPlus,
   IconMore,
   IconOut,
+  IconPanelLeft,
   IconPen,
   IconPencil,
   IconPin,
@@ -75,6 +78,86 @@ function Menu({
   );
 }
 
+function WindowLights() {
+  return (
+    <span className="traffic-lights">
+      <button
+        type="button"
+        className="traffic-btn close"
+        title="Close"
+        aria-label="Close"
+        onClick={() => void window.relay.windowControl("close")}
+      />
+      <button
+        type="button"
+        className="traffic-btn min"
+        title="Minimize"
+        aria-label="Minimize"
+        onClick={() => void window.relay.windowControl("min")}
+      />
+      <button
+        type="button"
+        className="traffic-btn max"
+        title="Maximize"
+        aria-label="Maximize"
+        onClick={() => void window.relay.windowControl("max")}
+      />
+    </span>
+  );
+}
+
+function TitlebarChrome({
+  collapsed,
+  onToggle,
+  prevChatId,
+  nextChatId,
+  onSelect,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+  prevChatId: string | null;
+  nextChatId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <>
+      <WindowLights />
+      <button
+        type="button"
+        className="icon-btn"
+        title={collapsed ? "Show Sidebar" : "Hide Sidebar"}
+        aria-label={collapsed ? "Show Sidebar" : "Hide Sidebar"}
+        onClick={onToggle}
+      >
+        <IconPanelLeft />
+      </button>
+      <span className="titlebar-spacer" />
+      <span className="canvas-tools-nav">
+        <button
+          type="button"
+          className="icon-btn"
+          title="Go Back"
+          aria-label="Go Back"
+          disabled={!prevChatId}
+          onClick={() => prevChatId && onSelect(prevChatId)}
+        >
+          <IconArrowLeft />
+        </button>
+        <button
+          type="button"
+          className="icon-btn"
+          title="Go Forward"
+          aria-label="Go Forward"
+          disabled={!nextChatId}
+          onClick={() => nextChatId && onSelect(nextChatId)}
+        >
+          <IconArrowRight />
+        </button>
+      </span>
+    </>
+  );
+}
+
 export function App() {
   const [state, setState] = useState<RelayState>(emptyState);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -91,6 +174,9 @@ export function App() {
     () => localStorage.getItem("relay.showArchived") === "1",
   );
   const [menu, setMenu] = useState<MenuState | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem("relay.sidebarCollapsed") === "1",
+  );
   const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   const onHome = selectedId === null;
@@ -128,6 +214,10 @@ export function App() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setSearching((v) => !v);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        toggleSidebar();
       }
       if (e.key === "Escape") {
         const current = state.sessions.find((s) => s.id === selectedId);
@@ -178,6 +268,27 @@ export function App() {
     repo,
     sessions: sessionsByRepo.get(repo.path) ?? [],
   }));
+  const orderedChats = [
+    ...pinned,
+    ...grouped.flatMap(({ sessions }) => sessions),
+    ...ungrouped,
+  ];
+  const chatIndex = orderedChats.findIndex((session) => session.id === selectedId);
+  const prevChatId = chatIndex > 0 ? orderedChats[chatIndex - 1]!.id : null;
+  const nextChatId =
+    chatIndex === -1
+      ? (orderedChats[0]?.id ?? null)
+      : chatIndex < orderedChats.length - 1
+        ? orderedChats[chatIndex + 1]!.id
+        : null;
+
+  function toggleSidebar() {
+    setSidebarCollapsed((v) => {
+      const next = !v;
+      localStorage.setItem("relay.sidebarCollapsed", next ? "1" : "0");
+      return next;
+    });
+  }
 
   function toggleRepo(path: string) {
     setCollapsedRepos((prev) => {
@@ -258,9 +369,17 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
-        <div className="traffic" />
+        <div className="traffic">
+          <TitlebarChrome
+            collapsed={false}
+            onToggle={toggleSidebar}
+            prevChatId={prevChatId}
+            nextChatId={nextChatId}
+            onSelect={setSelectedId}
+          />
+        </div>
         <div className="nav">
           <button
             className={`nav-item ${onHome && !searching ? "active" : ""}`}
@@ -536,9 +655,21 @@ export function App() {
 
       <section className="canvas">
         <header className="canvas-tools">
-          <span />
+          {sidebarCollapsed ? (
+            <span className="canvas-tools-left">
+              <TitlebarChrome
+                collapsed
+                onToggle={toggleSidebar}
+                prevChatId={prevChatId}
+                nextChatId={nextChatId}
+                onSelect={setSelectedId}
+              />
+            </span>
+          ) : (
+            <span />
+          )}
           <span className="canvas-tools-right">
-            <span className="ide-link">
+            <span className="ide-link" aria-disabled="true">
               IDE
               <IconOut />
             </span>

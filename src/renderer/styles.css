@@ -42,19 +42,19 @@
   --height: 28px;
   --height-lg: 32px;
   --height-sm: 24px;
-  --height-xs: 20px;
+  --height-xs: 22px;
   --sidebar-width: 260px;
   --sidebar-inset: var(--space-2);
   --sidebar-item-inset: var(--space-1);
   --row-pad-y: var(--space-1-25);
-  --row-icon-gap: var(--space-1-5);
+  --row-icon-gap: var(--space-2);
   --row-stack-gap: 1px;
   --group-gap: var(--space-3);
-  --icon: 14px;
+  --icon: 16px;
   --icon-box: var(--height-xs);
-  --icon-action: 13px;
+  --icon-action: 14px;
   --icon-action-box: var(--height-xs);
-  --titlebar: 40px;
+  --titlebar: 44px;
   --composer-max-width: 640px;
   --composer-messages-padding-inline: 12px;
   --conversation-font-size: var(--font-size-lg);
@@ -70,6 +70,7 @@ body,
 #root {
   height: 100%;
   margin: 0;
+  overflow: hidden;
   background: var(--chrome);
   color: var(--text);
   font-family: var(--font);
@@ -110,6 +111,15 @@ input:focus-visible {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100%;
+  overflow: hidden;
+}
+
+.app.sidebar-collapsed {
+  grid-template-columns: 1fr;
+}
+
+.app.sidebar-collapsed .sidebar {
+  display: none;
 }
 
 .sidebar {
@@ -131,8 +141,76 @@ input:focus-visible {
 
 .traffic {
   height: var(--titlebar);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2) 0 16px;
   -webkit-app-region: drag;
   flex-shrink: 0;
+}
+
+.traffic-lights {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.traffic-btn {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  padding: 0;
+  border: 0.5px solid rgb(0 0 0 / 18%);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.traffic-btn.close {
+  background: #ff5f57;
+}
+
+.traffic-btn.min {
+  background: #febc2e;
+}
+
+.traffic-btn.max {
+  background: #28c840;
+}
+
+.traffic-btn::after {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: rgb(0 0 0 / 55%);
+  opacity: 0;
+}
+
+.traffic-lights:hover .traffic-btn::after {
+  opacity: 1;
+}
+
+.traffic-btn.close::after {
+  content: "×";
+}
+
+.traffic-btn.min::after {
+  content: "−";
+}
+
+.traffic-btn.max::after {
+  content: "+";
+}
+
+.titlebar-spacer {
+  flex: 1;
+  min-width: var(--space-2);
+  -webkit-app-region: drag;
 }
 
 .nav {
@@ -230,10 +308,13 @@ input:focus-visible {
   color: var(--row-fg);
 }
 
-.nav-item:disabled,
+.nav-item:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
 .row-item.disabled {
   cursor: default;
-  opacity: 1;
 }
 
 .row-item.muted,
@@ -353,7 +434,7 @@ input:focus-visible {
   display: flex;
   align-items: center;
   margin-left: auto;
-  gap: 1px;
+  gap: var(--space-1);
 }
 
 .icon-btn {
@@ -372,24 +453,24 @@ input:focus-visible {
 
 .icon-btn svg {
   display: block;
-  width: 14px;
-  height: 14px;
+  width: var(--icon);
+  height: var(--icon);
 }
 
-.icon-btn:hover:not(.static),
+.icon-btn:hover:not(.static):not(:disabled),
 .icon-btn[aria-expanded="true"] {
   background: var(--hover);
   color: var(--text);
 }
 
-.icon-btn.static {
+.icon-btn.static,
+.icon-btn:disabled {
   cursor: default;
-  pointer-events: none;
+  opacity: 0.7;
 }
 
-.canvas-tools-right .icon-btn {
-  width: 24px;
-  height: 24px;
+.icon-btn:disabled {
+  pointer-events: none;
 }
 
 .repo-group {
@@ -547,22 +628,52 @@ input:focus-visible {
   right: 0;
   height: var(--titlebar);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-3-5) 0;
+  padding: 0 var(--space-2);
   -webkit-app-region: drag;
   z-index: 2;
   pointer-events: none;
 }
 
+.canvas-tools-left,
 .canvas-tools-right {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-0-5);
   -webkit-app-region: no-drag;
   pointer-events: auto;
+}
+
+.canvas-tools-left {
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.canvas-tools-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  -webkit-app-region: no-drag;
+}
+
+.traffic .icon-btn,
+.canvas-tools-left .icon-btn,
+.canvas-tools-right .icon-btn {
+  width: 24px;
+  height: 24px;
+  -webkit-app-region: no-drag;
+}
+
+.canvas-tools-right {
+  gap: var(--space-2);
   color: var(--muted);
   font-size: var(--font-size-sm);
+}
+
+.app.sidebar-collapsed .canvas-tools {
+  padding-left: 16px;
 }
 
 .ide-link {

@@ -1,6 +1,8 @@
 import type { LucideProps } from "lucide-react";
 import {
   Archive,
+  ArrowLeft,
+  ArrowRight,
   ArrowUp,
   Blocks,
   Bot,
@@ -15,6 +17,7 @@ import {
   ListFilter,
   Mic,
   Monitor,
+  PanelLeft,
   Pencil,
   Pin,
   Plus,
@@ -25,9 +28,8 @@ import {
   Trash2,
 } from "lucide-react";
 
-/** Cursor leading icons are 14px; group/row actions are 13px. */
 const sidebar: LucideProps = {
-  size: 14,
+  size: 16,
   strokeWidth: 1.75,
   "aria-hidden": true,
 };
@@ -44,11 +46,14 @@ export const IconAutomations = icon(Bot);
 export const IconCustomize = icon(Blocks);
 export const IconFolder = icon(Folder);
 export const IconFolderOpen = icon(FolderOpen);
-export const IconPlus = icon(Plus, { size: 13, strokeWidth: 1.75 });
-export const IconFolderPlus = icon(FolderPlus, { size: 14, strokeWidth: 1.75 });
-export const IconFilter = icon(ListFilter, { size: 14, strokeWidth: 1.75 });
-export const IconChevron = icon(ChevronDown, { size: 13, strokeWidth: 2 });
+export const IconPlus = icon(Plus, { size: 14, strokeWidth: 1.75 });
+export const IconFolderPlus = icon(FolderPlus);
+export const IconFilter = icon(ListFilter);
+export const IconChevron = icon(ChevronDown, { size: 14, strokeWidth: 2 });
 export const IconChevronRight = icon(ChevronRight, { size: 14, strokeWidth: 2 });
+export const IconArrowLeft = icon(ArrowLeft, { size: 16, strokeWidth: 1.75 });
+export const IconArrowRight = icon(ArrowRight, { size: 16, strokeWidth: 1.75 });
+export const IconPanelLeft = icon(PanelLeft);
 export const IconMonitor = icon(Monitor, { size: 14 });
 export const IconMic = icon(Mic, { size: 14 });
 export const IconSend = icon(ArrowUp, { size: 14, strokeWidth: 2.25 });
