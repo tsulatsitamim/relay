@@ -187,7 +187,12 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<
-    { sessionId: string; message: string; prompt: string } | null
+    {
+      sessionId: string;
+      message: string;
+      prompt: string;
+      attachments?: PromptAttachment[];
+    } | null
   >(null);
   const [reposCollapsed, setReposCollapsed] = useState(false);
   const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
@@ -199,6 +204,7 @@ export function App() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [queued, setQueued] = useState<Record<string, string[]>>({});
   const flushing = useRef<Set<string>>(new Set());
+  const [flushTick, setFlushTick] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("relay.sidebarCollapsed") === "1",
   );
@@ -325,6 +331,7 @@ export function App() {
         sessionId,
         message: err instanceof Error ? err.message : String(err),
         prompt: text,
+        attachments,
       });
     } finally {
       setBusy(false);
@@ -356,9 +363,10 @@ export function App() {
       }));
       void sendToSession(session.id, next).finally(() => {
         flushing.current.delete(session.id);
+        setFlushTick((tick) => tick + 1);
       });
     }
-  }, [state.sessions, queued]);
+  }, [state.sessions, queued, flushTick]);
 
   const activeChatError =
     chatError && selected && chatError.sessionId === selected.id ? chatError : null;
@@ -841,10 +849,17 @@ export function App() {
             {activeChatError ? (
               <ErrorBanner
                 message={activeChatError.message}
-                onRetry={() => void sendToSession(activeChatError.sessionId, activeChatError.prompt)}
+                onRetry={() =>
+                  void sendToSession(
+                    activeChatError.sessionId,
+                    activeChatError.prompt,
+                    activeChatError.attachments,
+                  )
+                }
               />
             ) : null}
             <Composer
+              key={selected.id}
               disabled={busy}
               working={composerLocked}
               onCancel={() => void window.relay.cancel(selected.id)}
