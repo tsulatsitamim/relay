@@ -1,21 +1,33 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { RelayState } from "../shared/ipc.ts";
 import type { Repo, Session, TranscriptEvent } from "../shared/types.ts";
+import { repoFor } from "../shared/repo.ts";
 import { timeAgo } from "../shared/time.ts";
 import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
 import {
+  IconArchive,
   IconAutomations,
+  IconCheck,
   IconChevron,
   IconCustomize,
+  IconFilter,
   IconFolder,
+  IconFolderOpen,
+  IconFolderPlus,
   IconMore,
   IconOut,
   IconPen,
+  IconPencil,
+  IconPin,
   IconPlus,
+  IconRedo,
   IconSearch,
+  IconTrash,
 } from "./icons";
+
+const shortcutMod = navigator.platform.includes("Mac") ? "⌘" : "Ctrl+";
 
 const emptyState: RelayState = {
   sessions: [],
@@ -26,6 +38,36 @@ const emptyState: RelayState = {
   homeDir: "",
 };
 
+type MenuState =
+  | { kind: "filter"; x: number; y: number }
+  | { kind: "repo"; x: number; y: number; path: string };
+
+function Menu({
+  x,
+  y,
+  onClose,
+  children,
+}: {
+  x: number;
+  y: number;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [onClose]);
+  return (
+    <div ref={ref} className="menu" style={{ left: x, top: y }} role="menu">
+      {children}
+    </div>
+  );
+}
+
 export function App() {
   const [state, setState] = useState<RelayState>(emptyState);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -35,6 +77,13 @@ export function App() {
   const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reposCollapsed, setReposCollapsed] = useState(false);
+  const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
+  const [collapsedRepos, setCollapsedRepos] = useState<Set<string>>(() => new Set());
+  const [showArchived, setShowArchived] = useState(
+    () => localStorage.getItem("relay.showArchived") === "1",
+  );
+  const [menu, setMenu] = useState<MenuState | null>(null);
 
   const onHome = selectedId === null;
 
@@ -65,7 +114,12 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
         e.preventDefault();
+        setSearching(false);
         setSelectedId(null);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearching((v) => !v);
       }
       if (e.key === "Escape") {
         const current = state.sessions.find((s) => s.id === selectedId);
@@ -93,13 +147,38 @@ export function App() {
   );
 
   const q = query.trim().toLowerCase();
-  const chats = state.sessions.filter((session) => session.title.toLowerCase().includes(q));
-  const repoPaths = new Set(state.repos.map((repo) => repo.path));
-  const ungrouped = chats.filter((session) => !repoPaths.has(session.workingDirectory));
+  const chats = state.sessions.filter((session) => {
+    if (q && !session.title.toLowerCase().includes(q)) return false;
+    if (!showArchived && session.archived) return false;
+    return true;
+  });
+  const pinned = chats.filter((session) => session.pinned);
+  const sessionsByRepo = new Map<string, Session[]>();
+  const ungrouped: Session[] = [];
+  for (const session of chats) {
+    if (session.pinned) continue;
+    const repo = repoFor(session.workingDirectory, state.repos);
+    if (!repo) {
+      ungrouped.push(session);
+      continue;
+    }
+    const list = sessionsByRepo.get(repo.path) ?? [];
+    list.push(session);
+    sessionsByRepo.set(repo.path, list);
+  }
   const grouped = state.repos.map((repo) => ({
     repo,
-    sessions: chats.filter((session) => session.workingDirectory === repo.path),
+    sessions: sessionsByRepo.get(repo.path) ?? [],
   }));
+
+  function toggleRepo(path: string) {
+    setCollapsedRepos((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
 
   async function refresh() {
     const next = await window.relay.getState();
@@ -114,16 +193,59 @@ export function App() {
     }
   }
 
-  function ChatRow({ session, nested }: { session: Session; nested?: boolean }) {
+  function ChatRow({ session }: { session: Session }) {
+    const active = session.id === selectedId;
     return (
-      <button
-        className={`row-item ${nested ? "nested" : ""} ${session.id === selectedId ? "active" : ""}`}
+      <div
+        className={`row-item ${active ? "active" : ""} ${session.archived ? "muted" : ""}`}
+        role="button"
+        tabIndex={0}
+        data-has-actions="true"
+        data-active={active || undefined}
         onClick={() => setSelectedId(session.id)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setSelectedId(session.id);
+          }
+        }}
       >
-        <span className={`dot ${session.status}`} />
-        <span className="label">{session.title}</span>
-        <span className="when">{timeAgo(session.updatedAt)}</span>
-      </button>
+        <span className="cell-icon">
+          {session.archived ? (
+            <IconArchive className="status-icon" />
+          ) : (
+            <span className={`dot ${session.status}`} />
+          )}
+        </span>
+        <span className="cell-content">{session.title}</span>
+        <span className="row-end">
+          <span className="row-actions">
+            <button
+              className={`row-action ${session.pinned ? "on" : ""}`}
+              title={session.pinned ? "Unpin" : "Pin"}
+              aria-label={session.pinned ? "Unpin" : "Pin"}
+              onClick={(e) => {
+                e.stopPropagation();
+                void window.relay.setPinned(session.id, !session.pinned);
+              }}
+            >
+              <IconPin />
+            </button>
+            <button
+              className={`row-action ${session.archived ? "on" : ""}`}
+              title={session.archived ? "Unarchive" : "Archive"}
+              aria-label={session.archived ? "Unarchive" : "Archive"}
+              onClick={(e) => {
+                e.stopPropagation();
+                void window.relay.setArchived(session.id, !session.archived);
+              }}
+            >
+              {session.archived ? <IconRedo /> : <IconArchive />}
+            </button>
+          </span>
+          <span className="when">{timeAgo(session.updatedAt)}</span>
+        </span>
+      </div>
     );
   }
 
@@ -134,36 +256,44 @@ export function App() {
         <div className="nav">
           <button
             className={`nav-item ${onHome && !searching ? "active" : ""}`}
+            data-active={onHome && !searching ? true : undefined}
             onClick={() => {
               setSearching(false);
               setSelectedId(null);
             }}
           >
-            <span className="nav-icon">
+            <span className="cell-icon">
               <IconPen />
             </span>
-            New Chat
+            <span className="cell-content">New Chat</span>
+            <span className="row-end">
+              <span className="kbd-badge">{shortcutMod}N</span>
+            </span>
           </button>
           <button
             className={`nav-item ${searching ? "active" : ""}`}
+            data-active={searching || undefined}
             onClick={() => setSearching((v) => !v)}
           >
-            <span className="nav-icon">
+            <span className="cell-icon">
               <IconSearch />
             </span>
-            Search
+            <span className="cell-content">Search</span>
+            <span className="row-end">
+              <span className="kbd-badge">{shortcutMod}K</span>
+            </span>
           </button>
           <button className="nav-item" type="button" disabled>
-            <span className="nav-icon">
+            <span className="cell-icon">
               <IconAutomations />
             </span>
-            Automations
+            <span className="cell-content">Automations</span>
           </button>
           <button className="nav-item" type="button" disabled>
-            <span className="nav-icon">
+            <span className="cell-icon">
               <IconCustomize />
             </span>
-            Customize
+            <span className="cell-content">Customize</span>
           </button>
         </div>
         {searching && (
@@ -178,62 +308,207 @@ export function App() {
         )}
 
         <div className="sidebar-scroll">
-          {ungrouped.length > 0 && (
-            <div className="list">
-              {ungrouped.map((session) => (
-                <ChatRow key={session.id} session={session} />
-              ))}
+          {pinned.length > 0 && (
+            <div className={`section ${pinnedCollapsed ? "collapsed" : ""}`}>
+              <div
+                className="group-label"
+                role="button"
+                tabIndex={0}
+                aria-expanded={!pinnedCollapsed}
+                onClick={() => setPinnedCollapsed((v) => !v)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setPinnedCollapsed((v) => !v);
+                  }
+                }}
+              >
+                <span className="group-label-main">
+                  <span className="group-label-title">Pinned</span>
+                  <span className="group-label-chevron">
+                    <IconChevron />
+                  </span>
+                </span>
+              </div>
+              {!pinnedCollapsed && (
+                <div className="list">
+                  {pinned.map((session) => (
+                    <ChatRow key={session.id} session={session} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          <div className="section">
-            <div className="section-head">
-              <span>Repositories</span>
-              <span className="section-actions">
-                <span className="icon-btn static" aria-hidden>
+          <div className={`section ${reposCollapsed ? "collapsed" : ""}`}>
+            <div
+              className="group-label"
+              role="button"
+              tabIndex={0}
+              aria-expanded={!reposCollapsed}
+              onClick={() => setReposCollapsed((v) => !v)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setReposCollapsed((v) => !v);
+                }
+              }}
+            >
+              <span className="group-label-main">
+                <span className="group-label-title">Repositories</span>
+                <span className="group-label-chevron">
                   <IconChevron />
                 </span>
+              </span>
+              <span className="group-label-actions" onClick={(e) => e.stopPropagation()}>
                 <button
                   className="icon-btn"
-                  title="Add repository"
+                  title="Customize Sidebar"
+                  aria-label="Customize Sidebar"
+                  onClick={(e) => {
+                    const box = e.currentTarget.getBoundingClientRect();
+                    setMenu({ kind: "filter", x: box.right - 220, y: box.bottom + 4 });
+                  }}
+                >
+                  <IconFilter />
+                </button>
+                <button
+                  className="icon-btn"
+                  title="Open Workspace"
+                  aria-label="Open Workspace"
                   onClick={async () => {
                     const repos = await window.relay.addRepo();
                     await setRepos(repos);
                     if (repos[0] && !repoPath) setRepoPath(repos[0].path);
                   }}
                 >
-                  <IconPlus />
+                  <IconFolderPlus />
                 </button>
               </span>
             </div>
-            <div className="list">
-              {state.repos.length === 0 && <div className="blank">No repositories</div>}
-              {grouped.map(({ repo, sessions }) => (
-                <div key={repo.path} className="repo-group">
-                  <button
-                    className={`row-item ${repo.path === repoPath && onHome ? "active" : ""}`}
-                    onClick={() => {
-                      setRepoPath(repo.path);
-                      setSelectedId(null);
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      void window.relay.removeRepo(repo.path).then(setRepos);
-                    }}
-                  >
-                    <IconFolder />
-                    <span className="label">{repo.name}</span>
-                    <span className="when" />
-                  </button>
-                  {sessions.map((session) => (
-                    <ChatRow key={session.id} session={session} nested />
-                  ))}
-                  {sessions.length === 0 && <div className="blank nested">No agents yet</div>}
-                </div>
-              ))}
-            </div>
+            {!reposCollapsed && (
+              <div className="list">
+                {state.repos.length === 0 && ungrouped.length === 0 && (
+                  <div className="row-item muted disabled">
+                    <span className="cell-icon" />
+                    <span className="cell-content">No repositories</span>
+                  </div>
+                )}
+                {grouped.map(({ repo, sessions }) => {
+                  const collapsed = collapsedRepos.has(repo.path);
+                  return (
+                    <div key={repo.path} className={`repo-group ${collapsed ? "collapsed" : ""}`}>
+                      <button
+                        className="repo-row"
+                        data-section-head=""
+                        data-has-actions="true"
+                        aria-expanded={!collapsed}
+                        onClick={() => toggleRepo(repo.path)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          setMenu({ kind: "repo", x: e.clientX, y: e.clientY, path: repo.path });
+                        }}
+                      >
+                        <span className="cell-icon repo-icon">
+                          <span className="icon-default">
+                            {collapsed ? <IconFolder /> : <IconFolderOpen />}
+                          </span>
+                          <span className="icon-hover">
+                            <IconChevron />
+                          </span>
+                        </span>
+                        <span className="cell-content">{repo.name}</span>
+                        <span className="row-end">
+                          <span className="row-actions">
+                            <button
+                              className="row-action"
+                              title="New Chat"
+                              aria-label="New Chat"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRepoPath(repo.path);
+                                setSearching(false);
+                                setSelectedId(null);
+                              }}
+                            >
+                              <IconPlus />
+                            </button>
+                          </span>
+                        </span>
+                      </button>
+                      {!collapsed &&
+                        sessions.map((session) => (
+                          <ChatRow key={session.id} session={session} />
+                        ))}
+                      {!collapsed && sessions.length === 0 && (
+                        <div className="row-item muted disabled">
+                          <span className="cell-icon" />
+                          <span className="cell-content">No agents yet</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {ungrouped.map((session) => (
+                  <ChatRow key={session.id} session={session} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
+        {menu?.kind === "filter" && (
+          <Menu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
+            <button
+              className="menu-item"
+              onClick={() => {
+                setShowArchived((v) => {
+                  const next = !v;
+                  localStorage.setItem("relay.showArchived", next ? "1" : "0");
+                  return next;
+                });
+              }}
+            >
+              Archived
+              {showArchived ? <IconCheck className="menu-check" /> : <span className="menu-slot" />}
+            </button>
+            <button
+              className="menu-item"
+              onClick={() => {
+                setCollapsedRepos(new Set(state.repos.map((repo) => repo.path)));
+                setMenu(null);
+              }}
+            >
+              Collapse All
+            </button>
+          </Menu>
+        )}
+        {menu?.kind === "repo" && (
+          <Menu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
+            <button className="menu-item" type="button" disabled>
+              <IconPencil />
+              Edit Workspace
+            </button>
+            <button
+              className="menu-item danger"
+              onClick={async () => {
+                const path = menu.path;
+                const selectedGone =
+                  selectedId !== null &&
+                  repoFor(
+                    state.sessions.find((session) => session.id === selectedId)?.workingDirectory ?? "",
+                    state.repos,
+                  )?.path === path;
+                const repos = await window.relay.removeRepo(path);
+                await setRepos(repos);
+                if (selectedGone) setSelectedId(null);
+                setMenu(null);
+              }}
+            >
+              <IconTrash />
+              Remove from Sidebar
+            </button>
+          </Menu>
+        )}
       </aside>
 
       <section className="canvas">

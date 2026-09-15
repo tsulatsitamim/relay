@@ -153,9 +153,17 @@ async function main(): Promise<void> {
     return manager.repos().map(withGitBranch);
   });
 
-  ipcMain.handle("relay:removeRepo", (_e, path: string) => {
-    manager.removeRepo(path);
+  ipcMain.handle("relay:removeRepo", async (_e, path: string) => {
+    await manager.removeRepo(path);
     return manager.repos().map(withGitBranch);
+  });
+
+  ipcMain.handle("relay:setPinned", (_e, id: string, pinned: boolean) => {
+    manager.setPinned(id, pinned);
+  });
+
+  ipcMain.handle("relay:setArchived", (_e, id: string, archived: boolean) => {
+    manager.setArchived(id, archived);
   });
 
   ipcMain.handle("relay:copyDebug", (_e, id: string) => {

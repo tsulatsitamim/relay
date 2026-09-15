@@ -5,6 +5,7 @@ import { AcpSession } from "./acp-session.ts";
 import type { Store } from "./db.ts";
 import { reduceSessionUpdate } from "./transcript.ts";
 import { titleFromPrompt } from "./title.ts";
+import { repoFor } from "../shared/repo.ts";
 
 export type CreateSessionInput = {
   agent: AgentConfig;
@@ -59,8 +60,24 @@ export class SessionManager {
     this.store.addRepo(repo);
   }
 
-  removeRepo(path: string): void {
+  async removeRepo(path: string): Promise<void> {
+    const repos = this.store.listRepos();
+    const sessions = this.list().filter(
+      (session) => repoFor(session.workingDirectory, repos)?.path === path,
+    );
+    for (const session of sessions) {
+      await this.delete(session.id);
+    }
     this.store.removeRepo(path);
+    this.emitSessions();
+  }
+
+  setPinned(id: string, pinned: boolean): Session {
+    return this.patch(id, { pinned }, false);
+  }
+
+  setArchived(id: string, archived: boolean): Session {
+    return this.patch(id, archived ? { archived: true, pinned: false } : { archived: false }, false);
   }
 
   saveAgents(agents: AgentConfig[]): void {
@@ -264,9 +281,13 @@ export class SessionManager {
     };
   }
 
-  private patch(id: string, patch: Partial<Session>): Session {
+  private patch(id: string, patch: Partial<Session>, touch = true): Session {
     const session = this.require(id);
-    const next = { ...session, ...patch, updatedAt: Date.now() };
+    const next = {
+      ...session,
+      ...patch,
+      updatedAt: touch ? Date.now() : session.updatedAt,
+    };
     this.store.saveSession(next);
     this.emitSessions();
     return next;

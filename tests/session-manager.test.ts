@@ -98,4 +98,42 @@ describe("SessionManager", () => {
       ),
     ).toBe(true);
   });
+
+  it("pins a session without bumping recency and removeRepo deletes its chats", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "relay-db-"));
+    const store = await openStore(join(dir, "relay.db"));
+    store.addRepo({ path: "/tmp/relay", name: "relay", addedAt: 1 });
+    store.saveSession({
+      id: "s1",
+      title: "inside",
+      agentConfigId: "a",
+      agentName: "A",
+      workingDirectory: "/tmp/relay",
+      status: "idle",
+      createdAt: 1,
+      updatedAt: 10,
+    });
+    store.saveSession({
+      id: "s2",
+      title: "outside",
+      agentConfigId: "a",
+      agentName: "A",
+      workingDirectory: "/tmp/other",
+      status: "idle",
+      createdAt: 1,
+      updatedAt: 10,
+    });
+    const sm = new SessionManager(store);
+    managers.push(sm);
+
+    sm.setPinned("s1", true);
+    expect(sm.get("s1")).toMatchObject({ pinned: true, updatedAt: 10 });
+
+    sm.setArchived("s1", true);
+    expect(sm.get("s1")).toMatchObject({ archived: true, pinned: false });
+
+    await sm.removeRepo("/tmp/relay");
+    expect(sm.repos().map((r) => r.path)).toEqual([]);
+    expect(sm.list().map((s) => s.id)).toEqual(["s2"]);
+  });
 });

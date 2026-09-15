@@ -11,6 +11,8 @@ export type RelayBridge = {
   pickDirectory: () => Promise<string | null>;
   addRepo: () => Promise<Repo[]>;
   removeRepo: (path: string) => Promise<Repo[]>;
+  setPinned: (id: string, pinned: boolean) => Promise<void>;
+  setArchived: (id: string, archived: boolean) => Promise<void>;
   copyDebug: (id: string) => Promise<void>;
   subscribe: (listener: (event: RelayEvent) => void) => () => void;
 };

@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld("relay", {
   addRepo: (): Promise<Repo[]> => ipcRenderer.invoke("relay:addRepo"),
   removeRepo: (path: string): Promise<Repo[]> =>
     ipcRenderer.invoke("relay:removeRepo", path),
+  setPinned: (id: string, pinned: boolean): Promise<void> =>
+    ipcRenderer.invoke("relay:setPinned", id, pinned),
+  setArchived: (id: string, archived: boolean): Promise<void> =>
+    ipcRenderer.invoke("relay:setArchived", id, archived),
   copyDebug: (id: string): Promise<void> =>
     ipcRenderer.invoke("relay:copyDebug", id),
   subscribe: (listener: (event: RelayEvent) => void) => {

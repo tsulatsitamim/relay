@@ -33,6 +33,8 @@ export type Session = {
   createdAt: number;
   updatedAt: number;
   lastPromptAt?: number;
+  pinned?: boolean;
+  archived?: boolean;
 };
 
 export type TranscriptEvent = {
