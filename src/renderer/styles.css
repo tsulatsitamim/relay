@@ -1176,6 +1176,7 @@ input:focus-visible {
   gap: 2px;
   opacity: 0;
   pointer-events: none;
+  user-select: none;
 }
 
 .msg:hover .msg-actions,

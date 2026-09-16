@@ -13,6 +13,11 @@ describe("formatTokens", () => {
     expect(formatTokens(1234)).toBe("1.2k");
     expect(formatTokens(12500)).toBe("12.5k");
   });
+
+  it("abbreviates millions with one decimal", () => {
+    expect(formatTokens(1000000)).toBe("1.0M");
+    expect(formatTokens(1500000)).toBe("1.5M");
+  });
 });
 
 describe("formatUsage", () => {
