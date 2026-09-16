@@ -15,8 +15,8 @@
   --danger: oklch(0.518 0.196 14.313);
   --ok: oklch(0.479 0.116 156.327);
   --working: oklch(0.567 0.123 69.543);
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
   --font-size: 13px;
   --font-size-lg: 14px;
   --font-size-sm: 12px;
@@ -57,15 +57,21 @@
   --titlebar: 44px;
   --composer-max-width: 768px;
   --composer-messages-padding-inline: 12px;
-  --conversation-font-size: 15px;
-  --conversation-line-height: 22px;
+  --conversation-font-size: 14px;
+  --conversation-line-height: 1.625;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html,
+html {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-size: 16px;
+}
+
 body,
 #root {
   height: 100%;
@@ -797,7 +803,7 @@ input:focus-visible {
   caret-color: var(--text);
   font-size: var(--font-size-lg);
   line-height: 24px;
-  letter-spacing: -0.15px;
+  letter-spacing: normal;
 }
 
 .composer-mirror {
@@ -810,7 +816,7 @@ input:focus-visible {
   color: var(--text);
   font-size: var(--font-size-lg);
   line-height: 24px;
-  letter-spacing: -0.15px;
+  letter-spacing: normal;
 }
 
 .dock-field .composer-mirror {
@@ -854,7 +860,7 @@ input:focus-visible {
   pointer-events: none;
   color: var(--faint);
   font-size: var(--font-size-lg);
-  letter-spacing: -0.15px;
+  letter-spacing: normal;
   line-height: 1;
 }
 
@@ -1040,9 +1046,12 @@ input:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  margin-top: -10px;
   padding: var(--space-1) 0;
-  color: var(--working);
-  font-size: var(--font-size-sm);
+  color: var(--muted);
+  font-size: var(--conversation-font-size);
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--line);
 }
 
 @keyframes working-dot {
@@ -1196,12 +1205,20 @@ input:focus-visible {
   overflow: auto;
   width: min(var(--composer-max-width), calc(100% - (var(--composer-messages-padding-inline) * 2)));
   margin: 0 auto;
-  padding: var(--space-5) var(--space-3);
-  scrollbar-gutter: stable;
+  padding: var(--space-5) 12px;
+  scrollbar-gutter: stable both-edges;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
+
+@media (min-width: 640px) {
+  .transcript {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
 
 .transcript::-webkit-scrollbar {
   width: 8px;
@@ -1341,15 +1358,15 @@ input:focus-visible {
 .msg.user {
   align-self: flex-end;
   width: fit-content;
-  max-width: min(560px, 86%);
+  max-width: 80%;
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: var(--radius-xl);
+  border-radius: 18px;
   box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
-  padding: 8px 12px;
+  padding: 12px;
   font-size: var(--conversation-font-size);
   line-height: var(--conversation-line-height);
-  letter-spacing: -0.15px;
+  letter-spacing: normal;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -1386,8 +1403,9 @@ input:focus-visible {
 }
 
 .msg-time {
-  color: var(--faint);
-  font-size: var(--font-size-xs);
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
   user-select: none;
 }
@@ -1411,7 +1429,7 @@ input:focus-visible {
   font: inherit;
   font-size: var(--conversation-font-size);
   line-height: var(--conversation-line-height);
-  letter-spacing: -0.15px;
+  letter-spacing: normal;
   padding: var(--space-1-5) var(--space-2);
   outline: none;
 }
@@ -1429,7 +1447,7 @@ input:focus-visible {
 .msg-action {
   height: 20px;
   padding: 0 6px;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--muted);
   background: var(--card);
   border: 1px solid var(--line);
@@ -1465,8 +1483,8 @@ input:focus-visible {
 .msg.agent {
   max-width: 100%;
   font-size: var(--conversation-font-size);
-  line-height: 1.6;
-  letter-spacing: -0.15px;
+  line-height: var(--conversation-line-height);
+  letter-spacing: normal;
   word-break: break-word;
 }
 
@@ -1499,40 +1517,74 @@ input:focus-visible {
 }
 
 .markdown p {
-  margin: 0 0 12px;
+  margin: 0.65rem 0;
   line-height: inherit;
 }
 
 .markdown h1,
 .markdown h2,
 .markdown h3,
-.markdown h4 {
-  margin: 16px 0 8px;
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: 0.65rem 0;
   font-weight: 600;
-  letter-spacing: -0.2px;
   line-height: 1.3;
 }
 
 .markdown h1 {
-  font-size: 18px;
+  font-size: 1.25rem;
 }
 
 .markdown h2 {
-  font-size: 16px;
+  font-size: 1.125rem;
 }
 
 .markdown h3 {
-  font-size: 14px;
+  font-size: 1rem;
+}
+
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-size: 0.875rem;
 }
 
 .markdown ul,
 .markdown ol {
-  margin: 0 0 10px;
-  padding-left: 20px;
+  margin: 0.65rem 0;
+  padding-left: 1.25rem;
 }
 
-.markdown li {
-  margin: 2px 0;
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+  font-variant-numeric: tabular-nums;
+}
+
+.markdown ul ul,
+.markdown ul ol {
+  list-style-type: circle;
+}
+
+.markdown ul ul ul,
+.markdown ul ol ul {
+  list-style-type: square;
+}
+
+.markdown ol ol {
+  list-style-type: lower-alpha;
+}
+
+.markdown ol ol ol {
+  list-style-type: lower-roman;
+}
+
+.markdown li + li {
+  margin-top: 0.25rem;
 }
 
 .markdown a {
@@ -1540,7 +1592,8 @@ input:focus-visible {
   text-decoration: none;
 }
 
-.markdown a:hover {
+.markdown a:hover,
+.markdown a:focus {
   text-decoration: underline;
 }
 
@@ -1551,8 +1604,9 @@ input:focus-visible {
 }
 
 .markdown blockquote {
-  margin: 0 0 10px;
-  padding: 2px 0 2px 12px;
+  margin: 0.65rem 0;
+  padding-block: 2px;
+  padding-left: 0.8rem;
   border-left: 2px solid var(--line);
   color: var(--muted);
 }
@@ -1565,28 +1619,28 @@ input:focus-visible {
 
 .markdown code {
   font-family: var(--mono);
-  font-size: 0.92em;
+  font-size: 12px;
   background: var(--hover);
-  padding: 1px 4px;
-  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  border-radius: 6px;
 }
 
 .table-scroll {
   max-width: 100%;
-  margin: 0 0 10px;
+  margin: 0.65rem 0;
   overflow-x: auto;
 }
 
 .markdown table {
   border-collapse: collapse;
-  font-size: var(--font-size-sm);
+  font-size: 12px;
   width: 100%;
 }
 
 .markdown th,
 .markdown td {
   border: 1px solid var(--line);
-  padding: 4px 8px;
+  padding: 7px 12px;
   text-align: left;
 }
 
@@ -1596,9 +1650,9 @@ input:focus-visible {
 }
 
 .code-block {
-  margin: 0 0 10px;
+  margin: 0.65rem 0;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 12px;
   overflow: hidden;
   background: color-mix(in srgb, var(--base) 4%, var(--card));
 }
@@ -1637,10 +1691,10 @@ input:focus-visible {
 
 .code-body {
   margin: 0;
-  padding: 10px 12px;
+  padding: 13px 14px;
   overflow: auto;
   font-family: var(--mono);
-  font-size: var(--font-size-sm);
+  font-size: 13px;
   line-height: 1.5;
 }
 
