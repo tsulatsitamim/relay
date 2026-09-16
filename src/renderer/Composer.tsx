@@ -1,23 +1,12 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ClipboardEvent,
-  type DragEvent,
-  type KeyboardEvent,
-} from "react";
 import type {
   AvailableCommandLike,
   PromptAttachment,
   SessionModeLike,
 } from "../shared/types.ts";
-import { readImageFiles } from "./attachments";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
 import { withThumbs } from "./thumbs";
-
-const lineHeight = 24;
-const maxComposerHeight = 176;
+import { useComposerInput } from "./useComposerInput";
 
 type Props = {
   disabled: boolean;
@@ -50,133 +39,59 @@ export function Composer({
   currentModeId,
   onSetMode,
 }: Props) {
-  const [text, setText] = useState("");
-  const [files, setFiles] = useState<string[]>([]);
-  const [attachments, setAttachments] = useState<PromptAttachment[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [dismissed, setDismissed] = useState(false);
-  const field = useRef<HTMLTextAreaElement>(null);
-  const submitting = useRef(false);
-  const canSubmit = (Boolean(text.trim()) || attachments.length > 0) && !disabled;
-  const slashMatch = /^\/([^\s\n]*)$/.exec(text);
-  const slashItems = slashMatch
-    ? commands
-        .filter((c) => c.name.toLowerCase().includes(slashMatch[1].toLowerCase()))
-        .map((c) => ({ id: c.name, label: `/${c.name}`, detail: c.description }))
-    : [];
-  const mentionMatch = /(?:^|\s)@([^\s@]*)$/.exec(text);
-  const mentionQuery = mentionMatch ? mentionMatch[1] : null;
-  const mentionItems = files.map((file) => ({ id: file, label: file }));
-  const slashMenuOpen = slashItems.length > 0 && !dismissed;
-  const mentionMenuOpen = !slashMenuOpen && mentionItems.length > 0 && !dismissed;
-
-  useEffect(() => {
-    const el = field.current;
-    if (!el) return;
-    el.style.height = `${lineHeight}px`;
-    const next = el.scrollHeight;
-    if (next > lineHeight) {
-      el.style.height = `${Math.min(next, maxComposerHeight)}px`;
-    }
-  }, [text]);
-
-  useEffect(() => {
-    if (inject) {
-      setText(inject.text);
-      setDismissed(false);
-      field.current?.focus();
-    }
-  }, [inject?.nonce]);
-
-  useEffect(() => {
-    if (mentionQuery === null || !cwd) {
-      setFiles([]);
-      return;
-    }
-    let cancelled = false;
-    const handle = setTimeout(() => {
-      void window.relay
-        .listFiles(cwd, mentionQuery)
-        .then((all) => {
-          if (cancelled) return;
-          setFiles(
-            all
-              .filter((file) =>
-                file.toLowerCase().includes(mentionQuery.toLowerCase()),
-              )
-              .slice(0, 8),
-          );
-        })
-        .catch(() => {
-          if (!cancelled) setFiles([]);
-        });
-    }, 120);
-    return () => {
-      cancelled = true;
-      clearTimeout(handle);
-    };
-  }, [mentionQuery, cwd]);
-
-  useEffect(() => {
-    setActiveIndex(0);
-    setDismissed(false);
-  }, [text]);
-
-  function pickSlash(index: number) {
-    const item = slashItems[index];
-    if (!item) return;
-    setText(`/${item.id} `);
-  }
-
-  function pickMention(index: number) {
-    const item = mentionItems[index];
-    if (!item) return;
-    setText((prev) => prev.replace(/@([^\s@]*)$/, () => `@${item.id} `));
-  }
-
-  async function addFiles(files: ArrayLike<File> | File[]) {
-    const picked = await readImageFiles(files);
-    if (picked.length) setAttachments((prev) => [...prev, ...picked]);
-  }
-
-  function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
-    const files = Array.from(e.clipboardData?.files ?? []);
-    if (files.length === 0) return;
-    e.preventDefault();
-    void addFiles(files);
-  }
-
-  function onDragOver(e: DragEvent<HTMLDivElement>) {
-    if (e.dataTransfer.types.includes("Files")) e.preventDefault();
-  }
-
-  function onDrop(e: DragEvent<HTMLDivElement>) {
-    const files = Array.from(e.dataTransfer.files ?? []);
-    if (files.length === 0) return;
-    e.preventDefault();
-    void addFiles(files);
-  }
+  const {
+    field,
+    text,
+    setText,
+    attachments,
+    setAttachments,
+    commandBadge,
+    setCommandBadge,
+    menu,
+    activeIndex,
+    pick,
+    onKeyDown,
+    onPaste,
+    onDragOver,
+    onDrop,
+    modeMenuOpen,
+    toggleModeMenu,
+    currentMode,
+    buildPrompt,
+    reset,
+    hasContent,
+    submitting,
+  } = useComposerInput({
+    commands,
+    cwd,
+    modes,
+    currentModeId,
+    onSetMode,
+    inject,
+    onEnter: () => void submit(),
+  });
+  const canSubmit = hasContent && !disabled;
 
   async function submit() {
     if (submitting.current) return;
-    const value = text.trim();
+    const value = buildPrompt();
     if (disabled) return;
     if (!value && attachments.length === 0) return;
     if (working) {
       if (attachments.length > 0 || !value) return;
       onQueue?.(value);
-      setText("");
+      reset();
       return;
     }
     submitting.current = true;
     try {
       if (attachments.length === 0) {
-        setText("");
+        reset();
         void onSend(value);
         return;
       }
       const outgoing = await withThumbs(attachments);
-      setText("");
+      reset();
       setAttachments([]);
       void onSend(value, outgoing);
     } finally {
@@ -184,77 +99,8 @@ export function Composer({
     }
   }
 
-  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (slashMenuOpen) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setActiveIndex((i) => (i + 1) % slashItems.length);
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setActiveIndex((i) => (i - 1 + slashItems.length) % slashItems.length);
-        return;
-      }
-      if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        pickSlash(activeIndex);
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setDismissed(true);
-        return;
-      }
-    }
-    if (mentionMenuOpen) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setActiveIndex((i) => (i + 1) % mentionItems.length);
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setActiveIndex((i) => (i - 1 + mentionItems.length) % mentionItems.length);
-        return;
-      }
-      if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        pickMention(activeIndex);
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setDismissed(true);
-        return;
-      }
-    }
-    if (e.key !== "Enter" || e.shiftKey) return;
-    e.preventDefault();
-    void submit();
-  }
-
   return (
     <div className="dock">
-      {modes.length > 1 ? (
-        <div className="mode-row" role="group" aria-label="Session mode">
-          {modes.map((mode) => (
-            <button
-              key={mode.id}
-              type="button"
-              className="mode-chip"
-              disabled={disabled || working}
-              aria-pressed={mode.id === currentModeId}
-              onClick={() => {
-                if (mode.id === currentModeId) return;
-                onSetMode?.(mode.id);
-              }}
-            >
-              {mode.name ?? mode.id}
-            </button>
-          ))}
-        </div>
-      ) : null}
       {queued.length > 0 ? (
         <div className="composer-queued">
           {queued.map((item, index) => (
@@ -294,20 +140,38 @@ export function Composer({
           ))}
         </div>
       ) : null}
-      {slashMenuOpen ? (
-        <SuggestionMenu items={slashItems} activeIndex={activeIndex} onPick={pickSlash} />
-      ) : mentionMenuOpen ? (
-        <SuggestionMenu
-          items={mentionItems}
-          activeIndex={activeIndex}
-          onPick={pickMention}
-        />
+      {menu ? (
+        <SuggestionMenu items={menu.items} activeIndex={activeIndex} onPick={pick} />
       ) : null}
-      <div
-        className="composer-card dock-composer"
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-      >
+      <div className="composer-card dock-composer" onDragOver={onDragOver} onDrop={onDrop}>
+        {modes.length > 1 || commandBadge !== null ? (
+          <div className="composer-badges">
+            {modes.length > 1 ? (
+              <button
+                type="button"
+                className="mode-badge"
+                disabled={disabled || working}
+                aria-expanded={modeMenuOpen}
+                onClick={toggleModeMenu}
+              >
+                {currentMode?.name ?? currentModeId ?? "mode"}
+              </button>
+            ) : null}
+            {commandBadge !== null ? (
+              <span className="command-badge">
+                <span className="badge-text">/{commandBadge}</span>
+                <button
+                  type="button"
+                  className="badge-remove"
+                  aria-label={`Remove /${commandBadge}`}
+                  onClick={() => setCommandBadge(null)}
+                >
+                  ×
+                </button>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <button
           type="button"
           className="plus"
@@ -337,12 +201,7 @@ export function Composer({
           />
         </div>
         {working ? (
-          <button
-            className="send-orb stop"
-            onClick={onCancel}
-            aria-label="Stop"
-            title="Stop"
-          >
+          <button className="send-orb stop" onClick={onCancel} aria-label="Stop" title="Stop">
             <IconStop />
           </button>
         ) : (

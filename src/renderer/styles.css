@@ -796,6 +796,7 @@ input:focus-visible {
 
 .dock .dock-composer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) 10px var(--space-2) 12px;
@@ -1968,25 +1969,61 @@ input:focus-visible {
   color: var(--muted);
 }
 
-.mode-row {
+.composer-badges {
+  flex-basis: 100%;
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1-5) var(--space-2) 0;
+  padding-bottom: var(--space-1-5);
 }
 
-.mode-chip {
+.mode-badge {
   height: var(--height-xs);
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
-  color: var(--muted);
-  background: transparent;
+  color: var(--text);
+  background: var(--hover);
   border: 1px solid var(--line);
   border-radius: 999px;
   cursor: pointer;
 }
 
-.mode-chip[aria-pressed="true"] {
-  color: var(--text);
+.mode-badge:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.command-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  height: var(--height-xs);
+  padding: 0 var(--space-1-5) 0 var(--space-2);
+  border-radius: 999px;
   background: var(--hover);
-  border-color: var(--muted);
+  border: 1px solid var(--line);
+  font-size: var(--font-size-xs);
+  color: var(--text);
+}
+
+.badge-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge-remove {
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.badge-remove:hover {
+  color: var(--text);
 }

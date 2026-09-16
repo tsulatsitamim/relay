@@ -112,9 +112,9 @@ describe("Composer", () => {
     expect(onRemoveQueued).toHaveBeenCalledWith(1);
   });
 
-  it("offers slash commands and picks one", () => {
+  it("offers slash commands and turns a picked one into a badge", () => {
     const onSend = vi.fn();
-    render(
+    const { container } = render(
       <Composer
         disabled={false}
         working={false}
@@ -130,7 +130,8 @@ describe("Composer", () => {
     fireEvent.change(box, { target: { value: "/in" } });
     expect(screen.getByText("/init")).toBeTruthy();
     fireEvent.keyDown(box, { key: "Enter" });
-    expect(box.value).toBe("/init ");
+    expect(box.value).toBe("");
+    expect(container.querySelector(".command-badge")?.textContent).toContain("/init");
     expect(onSend).not.toHaveBeenCalled();
   });
 
@@ -374,7 +375,7 @@ describe("Composer", () => {
     expect(document.activeElement).toBe(box);
   });
 
-  it("renders mode chips and calls onSetMode when one is clicked", () => {
+  it("shows a mode badge that opens the mode list on click", () => {
     const onSetMode = vi.fn();
     const { container } = setup({
       modes: [
@@ -384,34 +385,38 @@ describe("Composer", () => {
       currentModeId: "build",
       onSetMode,
     });
-    const chips = container.querySelectorAll(".mode-chip");
-    expect(chips).toHaveLength(2);
-    expect(chips[0]?.getAttribute("aria-pressed")).toBe("true");
-    expect(chips[1]?.getAttribute("aria-pressed")).toBe("false");
-    expect(chips[0]?.textContent).toBe("Build");
-    fireEvent.click(chips[1]!);
+    expect(container.querySelector(".mode-row")).toBeNull();
+    expect(container.querySelector(".mode-badge")?.textContent).toBe("Build");
+    expect(screen.queryByRole("listbox")).toBeNull();
+
+    fireEvent.click(container.querySelector(".mode-badge")!);
+    const plan = screen
+      .getAllByRole("option")
+      .find((option) => option.textContent?.includes("Plan"));
+    expect(plan).toBeTruthy();
+    fireEvent.click(plan!);
+
     expect(onSetMode).toHaveBeenCalledWith("plan");
+    expect(screen.queryByRole("listbox")).toBeNull();
   });
 
-  it("labels a mode chip with its id when no name is provided", () => {
+  it("labels the mode badge with its id when no name is provided", () => {
     const { container } = setup({
       modes: [{ id: "fast" }, { id: "thorough" }],
       currentModeId: "fast",
     });
-    const chips = container.querySelectorAll(".mode-chip");
-    expect(chips[0]?.textContent).toBe("fast");
-    expect(chips[0]?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector(".mode-badge")?.textContent).toBe("fast");
   });
 
-  it("hides the mode row when there is only one mode", () => {
+  it("hides the mode badge when there is only one mode", () => {
     const { container } = setup({
       modes: [{ id: "build", name: "Build" }],
       currentModeId: "build",
     });
-    expect(container.querySelector(".mode-row")).toBeNull();
+    expect(container.querySelector(".mode-badge")).toBeNull();
   });
 
-  it("disables mode chips while working", () => {
+  it("disables the mode badge while working", () => {
     const onSetMode = vi.fn();
     const { container } = setup({
       working: true,
@@ -422,14 +427,13 @@ describe("Composer", () => {
       currentModeId: "build",
       onSetMode,
     });
-    const chips = container.querySelectorAll<HTMLButtonElement>(".mode-chip");
-    expect(chips[0]?.disabled).toBe(true);
-    expect(chips[1]?.disabled).toBe(true);
-    fireEvent.click(chips[1]!);
+    const badge = container.querySelector<HTMLButtonElement>(".mode-badge")!;
+    expect(badge.disabled).toBe(true);
+    fireEvent.click(badge);
     expect(onSetMode).not.toHaveBeenCalled();
   });
 
-  it("does not re-fire when the active mode chip is clicked", () => {
+  it("does not switch modes when the current one is picked", () => {
     const onSetMode = vi.fn();
     const { container } = setup({
       modes: [
@@ -439,8 +443,123 @@ describe("Composer", () => {
       currentModeId: "build",
       onSetMode,
     });
-    fireEvent.click(container.querySelectorAll<HTMLButtonElement>(".mode-chip")[0]!);
+    fireEvent.click(container.querySelector(".mode-badge")!);
+    const active = screen
+      .getAllByRole("option")
+      .find((option) => option.textContent?.includes("Build"))!;
+    fireEvent.click(active);
     expect(onSetMode).not.toHaveBeenCalled();
+  });
+
+  const commands = [
+    { name: "init", description: "guided setup" },
+    { name: "review", description: "review changes" },
+  ];
+
+  it("offers commands and other modes in one slash menu", () => {
+    setup({
+      commands,
+      modes: [
+        { id: "build", name: "Build" },
+        { id: "plan", name: "Plan" },
+      ],
+      currentModeId: "build",
+    });
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "/" } });
+    const labels = screen.getAllByRole("option").map((option) => option.textContent ?? "");
+    expect(labels.some((label) => label.includes("/init"))).toBe(true);
+    expect(labels.some((label) => label.includes("Plan"))).toBe(true);
+    expect(labels.some((label) => label.includes("Build"))).toBe(false);
+  });
+
+  it("turns a picked command into a badge and clears the input", () => {
+    const { container } = setup({ commands });
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "/ini" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(box.value).toBe("");
+    expect(container.querySelector(".command-badge")?.textContent).toContain("/init");
+  });
+
+  it("picks a command with Tab", () => {
+    const { container } = setup({ commands });
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "/rev" } });
+    fireEvent.keyDown(box, { key: "Tab" });
+    expect(container.querySelector(".command-badge")?.textContent).toContain("/review");
+  });
+
+  it("prepends the command badge to the sent prompt and clears it", () => {
+    const onSend = vi.fn().mockResolvedValue(undefined);
+    const { container } = setup({ commands, onSend });
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "/ini" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.change(box, { target: { value: "hello" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    expect(onSend).toHaveBeenCalledWith("/init hello");
+    expect(container.querySelectorAll(".command-badge")).toHaveLength(0);
+  });
+
+  it("sends a badge-only prompt", () => {
+    const onSend = vi.fn().mockResolvedValue(undefined);
+    setup({ commands, onSend });
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "/ini" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith("/init");
+  });
+
+  it("keeps a single badge when the same command is picked twice", () => {
+    const { container } = setup({ commands });
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "/ini" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.change(box, { target: { value: "/ini" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(container.querySelectorAll(".command-badge")).toHaveLength(1);
+  });
+
+  it("replaces the badge when a different command is picked", () => {
+    const onSend = vi.fn().mockResolvedValue(undefined);
+    const { container } = setup({ commands, onSend });
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "/ini" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.change(box, { target: { value: "/rev" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    const badges = container.querySelectorAll(".command-badge");
+    expect(badges).toHaveLength(1);
+    expect(badges[0]?.textContent).toContain("/review");
+
+    fireEvent.change(box, { target: { value: "hello" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onSend).toHaveBeenCalledWith("/review hello");
+  });
+
+  it("removes a badge with its remove button", () => {
+    const { container } = setup({ commands });
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "/ini" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.click(screen.getByLabelText("Remove /init"));
+    expect(container.querySelectorAll(".command-badge")).toHaveLength(0);
+  });
+
+  it("queues command badges while working", () => {
+    const onQueue = vi.fn();
+    const { container } = setup({ commands, working: true, onQueue });
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "/ini" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.change(box, { target: { value: "hello" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onQueue).toHaveBeenCalledWith("/init hello");
+    expect(container.querySelectorAll(".command-badge")).toHaveLength(0);
   });
 
   it("sends only once when a second submit lands during attachment thumbnails", async () => {
