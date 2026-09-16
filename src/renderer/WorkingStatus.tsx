@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
 type Props = {
   active: boolean;
@@ -6,19 +6,28 @@ type Props = {
   variant?: "head" | "row";
 };
 
+function formatLabel(since?: number): string {
+  const secs = since ? Math.max(0, Math.floor((Date.now() - since) / 1000)) : 0;
+  return `Working · ${secs}s`;
+}
+
 export function WorkingStatus({ active, since, variant = "head" }: Props) {
-  const [, tick] = useState(0);
+  const labelRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!active) return;
-    const timer = setInterval(() => tick((value) => value + 1), 1000);
+    const update = () => {
+      const node = labelRef.current;
+      if (node) node.textContent = formatLabel(since);
+    };
+    update();
+    const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
-  }, [active]);
+  }, [active, since]);
 
   if (!active) return null;
 
-  const secs = since ? Math.max(0, Math.floor((Date.now() - since) / 1000)) : 0;
-  const label = `Working · ${secs}s`;
+  const label = formatLabel(since);
   const dots = (
     <span className="dots" aria-hidden="true">
       <i />
@@ -31,7 +40,7 @@ export function WorkingStatus({ active, since, variant = "head" }: Props) {
     return (
       <div className="working-row">
         {dots}
-        <span>{label}</span>
+        <span ref={labelRef}>{label}</span>
       </div>
     );
   }
@@ -39,7 +48,7 @@ export function WorkingStatus({ active, since, variant = "head" }: Props) {
   return (
     <span className="thread-status">
       {dots}
-      {label}
+      <span ref={labelRef}>{label}</span>
     </span>
   );
 }

@@ -1065,6 +1065,7 @@ export function App() {
             <Transcript
               events={events}
               activeEventId={findOpen ? activeMatchId : null}
+              streaming={working}
               onEditUser={(text, eventId) => {
                 pendingTruncate.current = eventId;
                 setInject({ text, nonce: Date.now(), fromEventId: eventId });

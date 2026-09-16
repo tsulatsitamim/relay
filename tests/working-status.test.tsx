@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { WorkingStatus } from "../src/renderer/WorkingStatus.tsx";
 
@@ -38,5 +38,28 @@ describe("WorkingStatus", () => {
     const { container } = render(<WorkingStatus active since={Date.now()} />);
     expect(container.querySelector(".working-row")).toBeNull();
     expect(container.querySelector(".thread-status")).toBeTruthy();
+  });
+
+  it("advances the label through a ref without re-rendering", () => {
+    vi.useFakeTimers();
+    try {
+      const base = Date.now();
+      vi.setSystemTime(base);
+      let renders = 0;
+      function Probe() {
+        renders += 1;
+        return <WorkingStatus active since={base} />;
+      }
+      render(<Probe />);
+      const label = screen.getByText("Working · 0s");
+      const rendersAfterMount = renders;
+
+      vi.advanceTimersByTime(3000);
+
+      expect(label.textContent).toBe("Working · 3s");
+      expect(renders).toBe(rendersAfterMount);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

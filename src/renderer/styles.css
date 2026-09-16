@@ -1025,6 +1025,7 @@ input:focus-visible {
   border-radius: 50%;
   background: currentColor;
   animation: working-dot 1.2s ease-in-out infinite;
+  animation-play-state: var(--visible-animation-state, running);
 }
 
 .dots i:nth-child(2) {
@@ -1220,8 +1221,26 @@ input:focus-visible {
   flex-direction: column;
   padding: 14px 0;
   margin: -14px 0;
+  scroll-margin-top: 16px;
   content-visibility: auto;
   contain-intrinsic-size: auto 108px;
+}
+
+.transcript[data-streaming] .msg-row {
+  transition: opacity 600ms ease;
+}
+
+@starting-style {
+  .transcript[data-streaming] .msg-row {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transcript[data-streaming] .msg-row {
+    opacity: 1;
+    transition: none;
+  }
 }
 
 .msg-row:empty {
@@ -1644,6 +1663,7 @@ input:focus-visible {
 
 .tool-running .tool-status svg {
   animation: relay-spin 1s linear infinite;
+  animation-play-state: var(--visible-animation-state, running);
 }
 
 .tool-dot {
@@ -1829,6 +1849,7 @@ input:focus-visible {
 
 .plan-item.in-progress .plan-status svg {
   animation: relay-spin 1s linear infinite;
+  animation-play-state: var(--visible-animation-state, running);
 }
 
 .plan-item.completed .plan-text {

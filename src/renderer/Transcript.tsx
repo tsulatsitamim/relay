@@ -8,8 +8,9 @@ import { PlanBlock } from "./PlanBlock";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
 import { IconArrowDown } from "./icons";
-import { isNearBottom } from "./scroll";
+import { isNearBottom, nextFollowMode, type FollowMode } from "./scroll";
 import { buildRows } from "./transcript-rows";
+import { useVisibleAnimation } from "./visible-animation";
 
 type Props = {
   events: TranscriptEvent[];
@@ -20,6 +21,7 @@ type Props = {
   onOpenDiff?: (path: string) => void | Promise<unknown>;
   footer?: ReactNode;
   activeEventId?: string | null;
+  streaming?: boolean;
 };
 
 function EventRow({
@@ -162,6 +164,49 @@ function EventRow({
   return <div className="msg status">{String(event.payload.text ?? "")}</div>;
 }
 
+function MessageRow({
+  event,
+  time,
+  isActive,
+  isLast,
+  onEditUser,
+  onRegenerate,
+  reviewedDiffIds,
+  onToggleReviewed,
+  onOpenDiff,
+}: {
+  event: TranscriptEvent;
+  time: string | null;
+  isActive: boolean;
+  isLast: boolean;
+  onEditUser?: (text: string, eventId: string) => void;
+  onRegenerate?: (agentEventId: string) => void;
+  reviewedDiffIds?: Set<string>;
+  onToggleReviewed?: (eventId: string) => void;
+  onOpenDiff?: (path: string) => void | Promise<unknown>;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useVisibleAnimation(ref);
+  return (
+    <div
+      ref={ref}
+      className={`msg-row${isActive ? " find-active" : ""}`}
+      data-event-id={event.id}
+    >
+      <EventRow
+        event={event}
+        time={time}
+        onEditUser={onEditUser}
+        onRegenerate={onRegenerate}
+        reviewedDiffIds={reviewedDiffIds}
+        onToggleReviewed={onToggleReviewed}
+        onOpenDiff={onOpenDiff}
+        isLast={isLast}
+      />
+    </div>
+  );
+}
+
 export function Transcript({
   events,
   onEditUser,
@@ -171,20 +216,48 @@ export function Transcript({
   onOpenDiff,
   footer,
   activeEventId,
+  streaming = false,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [stick, setStick] = useState(true);
+  const [mode, setMode] = useState<FollowMode>("following");
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const seenEventIds = useRef<Set<string>>(new Set(events.map((event) => event.id)));
+  const suppressScroll = useRef(false);
   const rows = useMemo(() => buildRows(events), [events]);
   const lastAgentId = events.reduce<string | null>(
     (last, event) => (event.kind === "agent_message" ? event.id : last),
     null,
   );
 
+  function resumeScrollTracking() {
+    suppressScroll.current = true;
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => {
+        suppressScroll.current = false;
+      });
+    } else {
+      suppressScroll.current = false;
+    }
+  }
+
   useEffect(() => {
-    if (!stick) return;
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [events, stick]);
+    if (!el) return;
+    const newest = events[events.length - 1];
+    if (newest && newest.kind === "user" && !seenEventIds.current.has(newest.id)) {
+      seenEventIds.current.add(newest.id);
+      const row = el.querySelector(`[data-event-id="${newest.id}"]`);
+      if (row instanceof HTMLElement) {
+        resumeScrollTracking();
+        row.scrollIntoView?.({ block: "start" });
+      }
+      setMode((current) => nextFollowMode(current, "jump-to-latest"));
+      return;
+    }
+    if (modeRef.current !== "following") return;
+    el.scrollTop = el.scrollHeight;
+  }, [events]);
 
   useEffect(() => {
     if (!activeEventId) return;
@@ -197,19 +270,22 @@ export function Transcript({
   function onScroll() {
     const el = scrollRef.current;
     if (!el) return;
-    setStick(
-      isNearBottom({
-        scrollTop: el.scrollTop,
-        scrollHeight: el.scrollHeight,
-        clientHeight: el.clientHeight,
-      }),
+    if (suppressScroll.current) return;
+    const near = isNearBottom({
+      scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    });
+    setMode((current) =>
+      nextFollowMode(current, near ? "near-bottom" : "scrolled-up"),
     );
   }
 
   function jumpToLatest() {
     const el = scrollRef.current;
+    resumeScrollTracking();
     if (el) el.scrollTop = el.scrollHeight;
-    setStick(true);
+    setMode((current) => nextFollowMode(current, "jump-to-latest"));
   }
 
   return (
@@ -220,6 +296,7 @@ export function Transcript({
         role="log"
         aria-live="polite"
         aria-relevant="additions"
+        data-streaming={streaming ? "" : undefined}
         onScroll={onScroll}
       >
         {rows.map(({ event, time, day, showSeparator }) => {
@@ -228,27 +305,23 @@ export function Transcript({
               {showSeparator ? (
                 <div className="day-separator">{day}</div>
               ) : null}
-              <div
-                className={`msg-row${event.id === activeEventId ? " find-active" : ""}`}
-                data-event-id={event.id}
-              >
-                <EventRow
-                  event={event}
-                  time={time}
-                  onEditUser={onEditUser}
-                  onRegenerate={onRegenerate}
-                  reviewedDiffIds={reviewedDiffIds}
-                  onToggleReviewed={onToggleReviewed}
-                  onOpenDiff={onOpenDiff}
-                  isLast={event.id === lastAgentId}
-                />
-              </div>
+              <MessageRow
+                event={event}
+                time={time}
+                isActive={event.id === activeEventId}
+                isLast={event.id === lastAgentId}
+                onEditUser={onEditUser}
+                onRegenerate={onRegenerate}
+                reviewedDiffIds={reviewedDiffIds}
+                onToggleReviewed={onToggleReviewed}
+                onOpenDiff={onOpenDiff}
+              />
             </Fragment>
           );
         })}
         {footer}
       </div>
-      {!stick && events.length > 0 ? (
+      {mode === "free" && events.length > 0 ? (
         <button
           type="button"
           className="jump-latest"

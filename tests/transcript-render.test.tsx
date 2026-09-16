@@ -248,4 +248,16 @@ describe("Transcript rendering", () => {
     expect(container.querySelectorAll(".day-separator")).toHaveLength(1);
     expect(container.querySelectorAll(".msg-time")).toHaveLength(2);
   });
+
+  it("marks the transcript as streaming only while the session is working", () => {
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "a" } },
+    ];
+    const { container, rerender } = render(<Transcript events={events} />);
+    const log = container.querySelector(".transcript");
+    expect(log?.hasAttribute("data-streaming")).toBe(false);
+
+    rerender(<Transcript events={events} streaming />);
+    expect(log?.hasAttribute("data-streaming")).toBe(true);
+  });
 });
