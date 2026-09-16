@@ -260,6 +260,23 @@ export class SessionManager {
     await this.runPrompt(id, text, attachments);
   }
 
+  async truncate(id: string, fromEventId: string): Promise<TranscriptEvent[]> {
+    this.require(id);
+    const current = this.events.get(id) ?? [];
+    const index = current.findIndex((event) => event.id === fromEventId);
+    if (index === -1) throw new Error(`unknown transcript event ${fromEventId}`);
+    const target = current[index]!;
+    const seq =
+      target.seq ??
+      this.store.listEvents(id).find((event) => event.id === fromEventId)?.seq;
+    if (seq == null) throw new Error(`unknown transcript event ${fromEventId}`);
+    const trimmed = current.slice(0, index);
+    this.events.set(id, trimmed);
+    this.store.deleteEventsFrom(id, seq);
+    this.emit({ type: "transcript", sessionId: id, events: trimmed });
+    return trimmed;
+  }
+
   async cancel(id: string): Promise<void> {
     this.patch(id, { status: "cancelling" });
     await this.live.get(id)?.cancel();

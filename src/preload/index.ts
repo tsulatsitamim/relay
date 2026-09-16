@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
-import type { PromptAttachment, Repo, Session } from "../shared/types.ts";
+import type { PromptAttachment, Repo, Session, TranscriptEvent } from "../shared/types.ts";
 
 contextBridge.exposeInMainWorld("relay", {
   getState: (): Promise<RelayState> => ipcRenderer.invoke("relay:getState"),
@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld("relay", {
   send: (id: string, text: string, attachments?: PromptAttachment[]): Promise<void> =>
     ipcRenderer.invoke("relay:send", id, text, attachments),
   cancel: (id: string): Promise<void> => ipcRenderer.invoke("relay:cancel", id),
+  truncate: (id: string, fromEventId: string): Promise<TranscriptEvent[]> =>
+    ipcRenderer.invoke("relay:truncate", id, fromEventId),
   setMode: (sessionId: string, modeId: string): Promise<void> =>
     ipcRenderer.invoke("relay:setMode", sessionId, modeId),
   permission: (requestId: string, optionId: string | null): Promise<void> =>

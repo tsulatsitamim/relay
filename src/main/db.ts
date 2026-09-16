@@ -105,6 +105,14 @@ export class Store {
     return events;
   }
 
+  deleteEventsFrom(sessionId: string, seq: number): void {
+    this.db.run("DELETE FROM events WHERE session_id = ? AND seq >= ?", [
+      sessionId,
+      seq,
+    ]);
+    this.flush();
+  }
+
   nextSeq(sessionId: string): number {
     const stmt = this.db.prepare(
       "SELECT COALESCE(MAX(seq), 0) as m FROM events WHERE session_id = ?",

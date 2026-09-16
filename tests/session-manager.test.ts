@@ -301,6 +301,48 @@ describe("SessionManager", () => {
     ]);
   });
 
+  it("truncates the in-memory and stored transcript from an event", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "relay-db-"));
+    const store = await openStore(join(dir, "relay.db"));
+    const sm = new SessionManager(store);
+    managers.push(sm);
+
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "first turn",
+    });
+    await waitFor(() =>
+      sm.get(session.id)?.status === "idle" ? true : null,
+    );
+    await sm.send(session.id, "second turn");
+    await waitFor(
+      () =>
+        sm.transcript(session.id).filter((e) => e.kind === "agent_message")
+          .length >= 2
+          ? true
+          : null,
+    );
+
+    const before = sm.transcript(session.id);
+    const target = before.find((e) => e.kind === "agent_message")!;
+    const index = before.findIndex((e) => e.id === target.id);
+    const expected = before.slice(0, index).map((e) => e.id);
+
+    const trimmed = await sm.truncate(session.id, target.id);
+
+    expect(trimmed.map((e) => e.id)).toEqual(expected);
+    expect(sm.transcript(session.id).map((e) => e.id)).toEqual(expected);
+    expect(store.listEvents(session.id).map((e) => e.id)).toEqual(expected);
+    expect(
+      sm.transcript(session.id).some((e) => e.kind === "agent_message"),
+    ).toBe(false);
+
+    await expect(sm.truncate(session.id, "missing")).rejects.toThrow(
+      /unknown transcript event/,
+    );
+  });
+
   it("renames a session without bumping recency", async () => {
     const sm = await manager();
     const session = await sm.create({

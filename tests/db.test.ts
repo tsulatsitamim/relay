@@ -70,6 +70,34 @@ describe("Store", () => {
     ]);
   });
 
+  it("deletes an event and every later event of the same session", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
+    const store = await openStore(file);
+    for (const seq of [1, 2, 3, 4]) {
+      store.appendEvent({
+        id: `e${seq}`,
+        sessionId: "sess-1",
+        seq,
+        kind: "user",
+        payload: { text: `m${seq}` },
+        createdAt: seq,
+      });
+    }
+    store.appendEvent({
+      id: "other",
+      sessionId: "sess-2",
+      seq: 1,
+      kind: "user",
+      payload: { text: "other" },
+      createdAt: 1,
+    });
+
+    store.deleteEventsFrom("sess-1", 3);
+
+    expect(store.listEvents("sess-1").map((e) => e.id)).toEqual(["e1", "e2"]);
+    expect(store.listEvents("sess-2").map((e) => e.id)).toEqual(["other"]);
+  });
+
   it("deletes a session and its events", async () => {
     const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
     const store = await openStore(file);

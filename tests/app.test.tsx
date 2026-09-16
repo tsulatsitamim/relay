@@ -55,6 +55,7 @@ function mount(
 ) {
   let listener: ((event: unknown) => void) | null = null;
   const send = vi.fn().mockResolvedValue(undefined);
+  const truncate = vi.fn().mockResolvedValue([]);
   const bridge = {
     getState: vi.fn().mockResolvedValue(stateWith(sessions, transcripts)),
     subscribe: vi.fn((fn: (event: unknown) => void) => {
@@ -64,6 +65,7 @@ function mount(
       };
     }),
     send,
+    truncate,
     cancel: vi.fn().mockResolvedValue(undefined),
     permission: vi.fn().mockResolvedValue(undefined),
     restart: vi.fn().mockResolvedValue(undefined),
@@ -85,6 +87,7 @@ function mount(
   return {
     bridge,
     send,
+    truncate,
     emit: (event: unknown) => listener?.(event),
   };
 }
@@ -285,6 +288,60 @@ describe("App edit-resend isolation", () => {
     const next = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
     expect(next.value).toBe("");
     expect(bridge.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("App regenerate", () => {
+  it("truncates the last agent message then resends the last user text", async () => {
+    const { send, truncate } = mount([makeSession()], {
+      s1: [
+        { id: "u1", kind: "user", payload: { text: "first question" } },
+        { id: "a1", kind: "agent_message", payload: { text: "first answer" } },
+        { id: "u2", kind: "user", payload: { text: "second question" } },
+        { id: "a2", kind: "agent_message", payload: { text: "second answer" } },
+      ],
+    });
+    await openSession("Session one");
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate answer" }));
+
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    expect(truncate).toHaveBeenCalledWith("s1", "a2");
+    expect(send.mock.calls[0]?.slice(0, 2)).toEqual(["s1", "second question"]);
+    expect(truncate.mock.invocationCallOrder[0]).toBeLessThan(
+      send.mock.invocationCallOrder[0]!,
+    );
+  });
+});
+
+describe("App edit resend", () => {
+  it("truncates from the edited user event before resending", async () => {
+    const { send, truncate } = mount([makeSession()], {
+      s1: [
+        { id: "u1", kind: "user", payload: { text: "original" } },
+        { id: "a1", kind: "agent_message", payload: { text: "answer" } },
+      ],
+    });
+    const box = await openSession("Session one");
+    fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
+    await waitFor(() => expect(box.value).toBe("original"));
+    fireEvent.change(box, { target: { value: "edited" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    expect(truncate).toHaveBeenCalledWith("s1", "u1");
+    expect(send.mock.calls[0]?.slice(0, 2)).toEqual(["s1", "edited"]);
+  });
+
+  it("does not truncate a plain send", async () => {
+    const { send, truncate } = mount([makeSession()], {
+      s1: [{ id: "u1", kind: "user", payload: { text: "original" } }],
+    });
+    const box = await openSession("Session one");
+    fireEvent.change(box, { target: { value: "plain" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    expect(truncate).not.toHaveBeenCalled();
   });
 });
 

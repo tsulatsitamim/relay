@@ -136,7 +136,30 @@ describe("Transcript rendering", () => {
     ];
     render(<Transcript events={events} onEditUser={onEditUser} />);
     fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
-    expect(onEditUser).toHaveBeenCalledWith("try again");
+    expect(onEditUser).toHaveBeenCalledWith("try again", "1");
+  });
+
+  it("offers regenerate only on the last agent message", () => {
+    const onRegenerate = vi.fn();
+    const events: TranscriptEvent[] = [
+      { id: "u1", kind: "user", payload: { text: "q1" } },
+      { id: "a1", kind: "agent_message", payload: { text: "one" } },
+      { id: "u2", kind: "user", payload: { text: "q2" } },
+      { id: "a2", kind: "agent_message", payload: { text: "two" } },
+    ];
+    render(<Transcript events={events} onRegenerate={onRegenerate} />);
+    const buttons = screen.getAllByRole("button", { name: "Regenerate answer" });
+    expect(buttons).toHaveLength(1);
+    fireEvent.click(buttons[0]!);
+    expect(onRegenerate).toHaveBeenCalledWith("a2");
+  });
+
+  it("omits regenerate when onRegenerate is not provided", () => {
+    const events: TranscriptEvent[] = [
+      { id: "a1", kind: "agent_message", payload: { text: "one" } },
+    ];
+    render(<Transcript events={events} />);
+    expect(screen.queryByRole("button", { name: "Regenerate answer" })).toBeNull();
   });
 
   it("omits the edit action when onEditUser is not provided", () => {

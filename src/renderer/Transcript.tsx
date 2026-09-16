@@ -13,7 +13,8 @@ import { formatDay, formatTime } from "./time";
 
 type Props = {
   events: TranscriptEvent[];
-  onEditUser?: (text: string) => void;
+  onEditUser?: (text: string, eventId: string) => void;
+  onRegenerate?: (agentEventId: string) => void;
   footer?: ReactNode;
   activeEventId?: string | null;
 };
@@ -21,9 +22,13 @@ type Props = {
 function EventRow({
   event,
   onEditUser,
+  onRegenerate,
+  isLast,
 }: {
   event: TranscriptEvent;
-  onEditUser?: (text: string) => void;
+  onEditUser?: (text: string, eventId: string) => void;
+  onRegenerate?: (agentEventId: string) => void;
+  isLast?: boolean;
 }) {
   if (event.kind === "commands") return null;
 
@@ -42,7 +47,7 @@ function EventRow({
               type="button"
               className="msg-action"
               aria-label="Edit message"
-              onClick={() => onEditUser(String(event.payload.text ?? ""))}
+              onClick={() => onEditUser(String(event.payload.text ?? ""), event.id)}
             >
               Edit
             </button>
@@ -82,6 +87,16 @@ function EventRow({
           >
             Copy
           </button>
+          {isLast && onRegenerate ? (
+            <button
+              type="button"
+              className="msg-action"
+              aria-label="Regenerate answer"
+              onClick={() => onRegenerate(event.id)}
+            >
+              Regenerate
+            </button>
+          ) : null}
         </div>
         <Markdown text={String(event.payload.text ?? "")} />
       </div>
@@ -130,9 +145,13 @@ function EventRow({
   return <div className="msg status">{String(event.payload.text ?? "")}</div>;
 }
 
-export function Transcript({ events, onEditUser, footer, activeEventId }: Props) {
+export function Transcript({ events, onEditUser, onRegenerate, footer, activeEventId }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stick, setStick] = useState(true);
+  const lastAgentId = events.reduce<string | null>(
+    (last, event) => (event.kind === "agent_message" ? event.id : last),
+    null,
+  );
 
   useEffect(() => {
     if (!stick) return;
@@ -190,7 +209,12 @@ export function Transcript({ events, onEditUser, footer, activeEventId }: Props)
                 className={`msg-row${event.id === activeEventId ? " find-active" : ""}`}
                 data-event-id={event.id}
               >
-                <EventRow event={event} onEditUser={onEditUser} />
+                <EventRow
+                  event={event}
+                  onEditUser={onEditUser}
+                  onRegenerate={onRegenerate}
+                  isLast={event.id === lastAgentId}
+                />
               </div>
             </Fragment>
           );

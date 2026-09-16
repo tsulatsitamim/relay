@@ -219,7 +219,10 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("relay.sidebarCollapsed") === "1",
   );
-  const [inject, setInject] = useState<{ text: string; nonce: number } | undefined>();
+  const [inject, setInject] = useState<
+    { text: string; nonce: number; fromEventId?: string } | undefined
+  >();
+  const pendingTruncate = useRef<string | null>(null);
   const [injectSessionId, setInjectSessionId] = useState<string | null>(null);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -309,6 +312,7 @@ export function App() {
     setFindOpen(false);
     setFindQuery("");
     setFindIndex(0);
+    pendingTruncate.current = null;
   }, [selectedId]);
 
   const selected = useMemo(
@@ -394,6 +398,11 @@ export function App() {
     text: string,
     attachments?: PromptAttachment[],
   ) => {
+    const fromEventId = pendingTruncate.current;
+    if (fromEventId) {
+      pendingTruncate.current = null;
+      await window.relay.truncate(sessionId, fromEventId).catch(() => undefined);
+    }
     const turns = promptTurns(
       text,
       commandList.map((command) => command.name),
@@ -424,7 +433,28 @@ export function App() {
     }
   };
 
+  const regenerate = (agentEventId: string) => {
+    if (!selected || working) return;
+    const index = events.findIndex((event) => event.id === agentEventId);
+    if (index === -1) return;
+    let found: string | null = null;
+    for (let i = index - 1; i >= 0; i -= 1) {
+      const event = events[i]!;
+      if (event.kind === "user") {
+        found = String(event.payload.text ?? "");
+        break;
+      }
+    }
+    if (found === null) return;
+    const prompt = found;
+    void (async () => {
+      await window.relay.truncate(selected.id, agentEventId);
+      await sendToSession(selected.id, prompt);
+    })();
+  };
+
   const enqueue = (sessionId: string, text: string) => {
+    pendingTruncate.current = null;
     setQueued((prev) => ({
       ...prev,
       [sessionId]: [...(prev[sessionId] ?? []), text],
@@ -961,7 +991,11 @@ export function App() {
             <Transcript
               events={events}
               activeEventId={findOpen ? activeMatchId : null}
-              onEditUser={(text) => setInject({ text, nonce: Date.now() })}
+              onEditUser={(text, eventId) => {
+                pendingTruncate.current = eventId;
+                setInject({ text, nonce: Date.now(), fromEventId: eventId });
+              }}
+              onRegenerate={regenerate}
               footer={
                 <WorkingStatus
                   active={working}

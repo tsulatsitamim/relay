@@ -33,7 +33,7 @@ export type ComposerMenu =
 type Options = {
   commands?: AvailableCommandLike[];
   cwd?: string;
-  inject?: { text: string; nonce: number };
+  inject?: { text: string; nonce: number; fromEventId?: string };
   onEnter: () => void;
 };
 

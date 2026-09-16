@@ -20,7 +20,7 @@ type Props = {
   onClearQueued?: () => void;
   commands?: AvailableCommandLike[];
   cwd?: string;
-  inject?: { text: string; nonce: number };
+  inject?: { text: string; nonce: number; fromEventId?: string };
 };
 
 export function Composer({
