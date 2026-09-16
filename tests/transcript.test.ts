@@ -27,6 +27,35 @@ describe("reduceSessionUpdate", () => {
     });
   });
 
+  it("strips harness message-id tags from agent text", () => {
+    const nextId = ids();
+    let events: TranscriptEvent[] = [];
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: "Hello\n\n<dcp-message-id>m0006</dcp-message-id>",
+      },
+    }, nextId);
+
+    expect(events[0]?.payload.text).toBe("Hello\n\n");
+  });
+
+  it("strips a harness tag split across two chunks", () => {
+    const nextId = ids();
+    let events: TranscriptEvent[] = [];
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "Hi\n\n<dcp-message-id>m0" },
+    }, nextId);
+    events = reduceSessionUpdate(events, {
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "012</dcp-message-id>" },
+    }, nextId);
+
+    expect(events[0]?.payload.text).toBe("Hi\n\n");
+  });
+
   it("creates a tool card and updates its status", () => {
     const nextId = ids();
     let events: TranscriptEvent[] = [];

@@ -13,17 +13,21 @@ export function reduceSessionUpdate(
     const last = events[events.length - 1];
     if (last?.kind === "agent_message") {
       const prev = String(last.payload.text ?? "");
+      const next = stripHarnessTags(prev + text);
+      if (next === prev) return events;
       return [
         ...events.slice(0, -1),
-        { ...last, payload: { ...last.payload, text: prev + text } },
+        { ...last, payload: { ...last.payload, text: next } },
       ];
     }
+    const clean = stripHarnessTags(text);
+    if (!clean) return events;
     return [
       ...events,
       {
         id: nextId(),
         kind: "agent_message",
-        payload: { text },
+        payload: { text: clean },
         createdAt: Date.now(),
       },
     ];
@@ -147,6 +151,12 @@ function textFromContent(content: unknown): string {
   const c = content as { type?: string; text?: string };
   if (c.type === "text" && typeof c.text === "string") return c.text;
   return "";
+}
+
+const HARNESS_TAG = /<dcp-[a-z-]+>[\s\S]*?<\/dcp-[a-z-]+>/g;
+
+function stripHarnessTags(text: string): string {
+  return text.replace(HARNESS_TAG, "");
 }
 
 function planEntries(entries: unknown): Array<{ content: string; priority?: string; status?: string }> {
