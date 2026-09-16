@@ -32,6 +32,13 @@ const components: Components = {
       </a>
     );
   },
+  img({ node: _node, src, alt, ...rest }) {
+    return (
+      <a href={src} target="_blank" rel="noreferrer">
+        <img className="md-img" loading="lazy" src={src} alt={alt ?? ""} {...rest} />
+      </a>
+    );
+  },
 };
 
 export function Markdown({ text }: Props) {

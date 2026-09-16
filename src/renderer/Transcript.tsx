@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { PlanEntry, TranscriptEvent } from "../shared/types.ts";
 import { DiffBlock } from "./DiffBlock";
@@ -9,6 +9,7 @@ import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
 import { IconArrowDown } from "./icons";
 import { isNearBottom } from "./scroll";
+import { formatDay, formatTime } from "./time";
 
 type Props = {
   events: TranscriptEvent[];
@@ -31,6 +32,9 @@ function EventRow({
       | undefined;
     return (
       <div className="msg user">
+        {event.createdAt != null ? (
+          <span className="msg-time">{formatTime(event.createdAt)}</span>
+        ) : null}
         {onEditUser ? (
           <div className="msg-actions">
             <button
@@ -63,6 +67,9 @@ function EventRow({
   if (event.kind === "agent_message") {
     return (
       <div className="msg agent">
+        {event.createdAt != null ? (
+          <span className="msg-time">{formatTime(event.createdAt)}</span>
+        ) : null}
         <div className="msg-actions">
           <button
             type="button"
@@ -155,11 +162,27 @@ export function Transcript({ events, onEditUser, footer }: Props) {
       <div
         ref={scrollRef}
         className={`transcript${events.length === 0 ? " empty" : ""}`}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
         onScroll={onScroll}
       >
-        {events.map((event) => (
-          <EventRow key={event.id} event={event} onEditUser={onEditUser} />
-        ))}
+        {events.map((event, index) => {
+          const day = event.createdAt != null ? formatDay(event.createdAt) : null;
+          const previous = index > 0 ? events[index - 1] : undefined;
+          const previousDay =
+            previous?.createdAt != null ? formatDay(previous.createdAt) : null;
+          return (
+            <Fragment key={event.id}>
+              {day != null && day !== previousDay ? (
+                <div className="day-separator">{day}</div>
+              ) : null}
+              <div className="msg-row">
+                <EventRow event={event} onEditUser={onEditUser} />
+              </div>
+            </Fragment>
+          );
+        })}
         {footer}
       </div>
       {!stick && events.length > 0 ? (

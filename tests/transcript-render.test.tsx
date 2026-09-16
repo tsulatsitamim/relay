@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Transcript } from "../src/renderer/Transcript.tsx";
+import { formatDay, formatTime } from "../src/renderer/time.ts";
 import type { TranscriptEvent } from "../src/shared/types.ts";
 
 afterEach(() => {
@@ -163,5 +164,53 @@ describe("Transcript rendering", () => {
     const events: TranscriptEvent[] = [{ id: "1", kind: "usage", payload: {} }];
     const { container } = render(<Transcript events={events} />);
     expect(container.querySelector(".msg.usage")).toBeNull();
+  });
+
+  it("wraps each event row in a containment container", () => {
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "a" } },
+      { id: "2", kind: "agent_message", payload: { text: "b" } },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    const rows = container.querySelectorAll(".transcript > .msg-row");
+    expect(rows).toHaveLength(2);
+  });
+
+  it("announces new transcript content politely to assistive tech", () => {
+    const { container } = render(<Transcript events={[]} />);
+    const log = container.querySelector(".transcript");
+    expect(log?.getAttribute("role")).toBe("log");
+    expect(log?.getAttribute("aria-live")).toBe("polite");
+    expect(log?.getAttribute("aria-relevant")).toBe("additions");
+  });
+
+  it("shows per-message times and day separators when events carry createdAt", () => {
+    const day1 = new Date(2026, 0, 2, 9, 5).getTime();
+    const day2 = new Date(2026, 0, 3, 9, 5).getTime();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "hi" }, createdAt: day1 },
+      { id: "2", kind: "agent_message", payload: { text: "yo" }, createdAt: day2 },
+    ];
+    const { container } = render(<Transcript events={events} />);
+
+    const times = container.querySelectorAll(".msg-time");
+    expect(times).toHaveLength(2);
+    expect(times[0].textContent).toBe(formatTime(day1));
+    expect(times[1].textContent).toBe(formatTime(day2));
+
+    const separators = container.querySelectorAll(".day-separator");
+    expect(separators).toHaveLength(2);
+    expect(separators[0].textContent).toBe(formatDay(day1));
+    expect(separators[1].textContent).toBe(formatDay(day2));
+  });
+
+  it("omits message times and day separators for events without createdAt", () => {
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "hi" } },
+      { id: "2", kind: "agent_message", payload: { text: "yo" } },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    expect(container.querySelectorAll(".msg-time")).toHaveLength(0);
+    expect(container.querySelectorAll(".day-separator")).toHaveLength(0);
   });
 });

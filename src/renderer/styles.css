@@ -1167,6 +1167,25 @@ input:focus-visible {
   background: color-mix(in srgb, var(--base) 18%, transparent);
 }
 
+.msg-row {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 0;
+  margin: -14px 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 108px;
+}
+
+.msg-row:empty {
+  display: none;
+}
+
+.day-separator {
+  align-self: center;
+  color: var(--faint);
+  font-size: var(--font-size-xs);
+}
+
 .jump-latest {
   position: absolute;
   left: 50%;
@@ -1227,6 +1246,23 @@ input:focus-visible {
 .msg:focus-within .msg-actions {
   opacity: 1;
   pointer-events: auto;
+}
+
+.msg-time {
+  position: absolute;
+  bottom: -10px;
+  right: 4px;
+  color: var(--faint);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.msg:hover .msg-time,
+.msg:focus-within .msg-time {
+  opacity: 1;
 }
 
 .msg-action {
@@ -1345,6 +1381,12 @@ input:focus-visible {
 
 .markdown a:hover {
   text-decoration: underline;
+}
+
+.markdown img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
 }
 
 .markdown blockquote {

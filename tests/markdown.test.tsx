@@ -32,6 +32,19 @@ describe("Markdown", () => {
     expect(screen.getByText("npm test").tagName).toBe("CODE");
   });
 
+  it("renders images lazily inside a new-tab link", () => {
+    const { container } = render(
+      <Markdown text={"![shot](https://example.com/a.png)"} />,
+    );
+    const img = container.querySelector("img.md-img") as HTMLImageElement | null;
+    expect(img).toBeTruthy();
+    expect(img?.getAttribute("loading")).toBe("lazy");
+    const link = img?.closest("a");
+    expect(link?.getAttribute("target")).toBe("_blank");
+    expect(link?.getAttribute("rel")).toBe("noreferrer");
+    expect(link?.getAttribute("href")).toBe("https://example.com/a.png");
+  });
+
   it("renders a fenced code block with a language label and copy button", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

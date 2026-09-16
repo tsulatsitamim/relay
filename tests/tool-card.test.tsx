@@ -46,6 +46,49 @@ describe("ToolCallCard", () => {
     expect(screen.getByText("Input")).toBeTruthy();
   });
 
+  it("collapses when a running tool completes", () => {
+    const { rerender } = render(
+      <ToolCallCard
+        toolCall={{ title: "Reading files", status: "in_progress", rawInput: { q: 1 } }}
+      />,
+    );
+    expect(screen.getByText("Input")).toBeTruthy();
+
+    rerender(
+      <ToolCallCard
+        toolCall={{ title: "Reading files", status: "completed", rawInput: { q: 1 } }}
+      />,
+    );
+
+    expect(screen.queryByText("Input")).toBeNull();
+  });
+
+  it("keeps a user-expanded card open after the tool completes", async () => {
+    const { rerender } = render(
+      <ToolCallCard
+        toolCall={{ title: "Reading files", status: "pending", rawInput: { q: 1 } }}
+      />,
+    );
+    expect(screen.queryByText("Input")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: /Reading files/i }));
+    expect(screen.getByText("Input")).toBeTruthy();
+
+    rerender(
+      <ToolCallCard
+        toolCall={{ title: "Reading files", status: "in_progress", rawInput: { q: 1 } }}
+      />,
+    );
+    expect(screen.getByText("Input")).toBeTruthy();
+
+    rerender(
+      <ToolCallCard
+        toolCall={{ title: "Reading files", status: "completed", rawInput: { q: 1 } }}
+      />,
+    );
+    expect(screen.getByText("Input")).toBeTruthy();
+  });
+
   it("shows the locations the tool touched", () => {
     render(
       <ToolCallCard

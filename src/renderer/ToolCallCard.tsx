@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconChevronRight, IconSpinner, IconWarning } from "./icons";
 import { prettyValue, toolStatusMeta } from "./toolFormat";
 
@@ -15,10 +15,23 @@ export type ToolCallData = {
 export function ToolCallCard({ toolCall }: { toolCall: ToolCallData }) {
   const { tone, label } = toolStatusMeta(toolCall.status);
   const [open, setOpen] = useState(tone === "running" || tone === "error");
+  const userToggled = useRef(false);
+  const previousTone = useRef(tone);
 
   useEffect(() => {
-    if (tone === "running") setOpen(true);
+    if (previousTone.current === tone) return;
+    previousTone.current = tone;
+    if (tone === "running") {
+      setOpen(true);
+      return;
+    }
+    if (!userToggled.current) setOpen(false);
   }, [tone]);
+
+  function toggle() {
+    userToggled.current = true;
+    setOpen((value) => !value);
+  }
 
   const input = prettyValue(toolCall.rawInput);
   const output = prettyValue(toolCall.rawOutput);
@@ -29,7 +42,7 @@ export function ToolCallCard({ toolCall }: { toolCall: ToolCallData }) {
         type="button"
         className="tool-head"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
       >
         <span className="tool-status" aria-hidden>
           {tone === "running" ? (
