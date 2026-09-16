@@ -1219,6 +1219,128 @@ input:focus-visible {
   }
 }
 
+.minimap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 72px;
+  display: none;
+  pointer-events: none;
+  z-index: 5;
+  outline: none;
+}
+
+@media (pointer: fine) {
+  .minimap {
+    display: block;
+  }
+}
+
+.minimap:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--base) 40%, transparent);
+  outline-offset: -2px;
+  border-radius: var(--radius);
+}
+
+.minimap-strip {
+  position: absolute;
+  left: 0;
+  pointer-events: auto;
+}
+
+.minimap-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+}
+
+.minimap-tick {
+  position: absolute;
+  left: 12px;
+  height: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--base) 22%, transparent);
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.minimap-tick.crossing {
+  background: color-mix(in srgb, var(--base) 46%, transparent);
+}
+
+.minimap-tick.active,
+.minimap-tick:hover {
+  background: color-mix(in srgb, var(--base) 72%, transparent);
+}
+
+.minimap-step {
+  position: absolute;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--tertiary);
+  cursor: pointer;
+}
+
+.minimap-step:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.minimap-step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.minimap-step.up svg {
+  transform: rotate(180deg);
+}
+
+.minimap-preview {
+  position: absolute;
+  left: calc(100% + 8px);
+  width: 260px;
+  max-width: 40vw;
+  padding: var(--space-2) var(--space-2-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.minimap-preview-prompt {
+  color: var(--text);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.minimap-preview-reply {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  margin-top: var(--space-0-5);
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
 
 .transcript::-webkit-scrollbar {
   width: 8px;

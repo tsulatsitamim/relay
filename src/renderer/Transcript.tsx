@@ -8,6 +8,8 @@ import { PlanBlock } from "./PlanBlock";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
 import { IconArrowDown } from "./icons";
+import { MinimapRail } from "./MinimapRail";
+import { buildTurns, jumpTop } from "./minimap";
 import { isNearBottom, nextFollowMode, type FollowMode } from "./scroll";
 import { buildRows } from "./transcript-rows";
 import { useVisibleAnimation } from "./visible-animation";
@@ -213,6 +215,7 @@ function MessageRow({
   time,
   isActive,
   streamingRow,
+  userTurn,
   onEditUser,
   reviewedDiffIds,
   onToggleReviewed,
@@ -222,6 +225,7 @@ function MessageRow({
   time: string | null;
   isActive: boolean;
   streamingRow?: boolean;
+  userTurn?: number;
   onEditUser?: (text: string, eventId: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
@@ -234,6 +238,7 @@ function MessageRow({
       ref={ref}
       className={`msg-row${isActive ? " find-active" : ""}`}
       data-event-id={event.id}
+      data-user-turn={userTurn}
       data-streaming-row={streamingRow ? "" : undefined}
     >
       <EventRow
@@ -273,6 +278,15 @@ export function Transcript({
     streamingSinceRef.current = null;
   }
   const rows = useMemo(() => buildRows(events), [events]);
+  const turns = useMemo(() => buildTurns(events), [events]);
+  const turnIndexByEventId = useMemo(() => {
+    const map = new Map<string, number>();
+    let index = 0;
+    for (const event of events) {
+      if (event.kind === "user") map.set(event.id, index++);
+    }
+    return map;
+  }, [events]);
 
   function resumeScrollTracking() {
     suppressScroll.current = true;
@@ -332,6 +346,20 @@ export function Transcript({
     setMode((current) => nextFollowMode(current, "jump-to-latest"));
   }
 
+  function jumpToTurn(index: number) {
+    const el = scrollRef.current;
+    if (!el) return;
+    const row = el.querySelector<HTMLElement>(`[data-user-turn="${index}"]`);
+    if (!row) return;
+    const top =
+      row.getBoundingClientRect().top -
+      el.getBoundingClientRect().top +
+      el.scrollTop;
+    resumeScrollTracking();
+    el.scrollTop = jumpTop(top);
+    setMode("free");
+  }
+
   return (
     <div className="transcript-wrap">
       <div
@@ -353,6 +381,7 @@ export function Transcript({
                 event={event}
                 time={time}
                 isActive={event.id === activeEventId}
+                userTurn={turnIndexByEventId.get(event.id)}
                 streamingRow={
                   streamingSinceRef.current !== null &&
                   index >= streamingSinceRef.current
@@ -378,6 +407,7 @@ export function Transcript({
           <span>Latest</span>
         </button>
       ) : null}
+      <MinimapRail turns={turns} scrollRef={scrollRef} onJump={jumpToTurn} />
     </div>
   );
 }
