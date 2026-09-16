@@ -1924,6 +1924,8 @@ input:focus-visible {
 }
 
 .suggest {
+  width: min(var(--composer-max-width), 100%);
+  min-width: 0;
   margin-bottom: var(--space-2);
   padding: var(--space-1);
   max-height: 240px;
