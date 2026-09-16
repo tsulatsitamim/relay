@@ -1047,8 +1047,14 @@ export function App() {
               activeEventId={findOpen ? activeMatchId : null}
               streaming={working}
               onEditUser={(text, eventId) => {
+                if (working) {
+                  pendingTruncate.current = eventId;
+                  setInject({ text, nonce: Date.now(), fromEventId: eventId });
+                  return;
+                }
                 pendingTruncate.current = eventId;
-                setInject({ text, nonce: Date.now(), fromEventId: eventId });
+                setInject(undefined);
+                void sendToSession(selected.id, text);
               }}
               reviewedDiffIds={reviewedDiffs}
               onToggleReviewed={toggleDiffReviewed}

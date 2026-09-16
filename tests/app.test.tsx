@@ -276,7 +276,7 @@ describe("App edit-resend isolation", () => {
   it("does not leak an edited draft into another session's composer", async () => {
     const { bridge } = mount(
       [
-        makeSession({ id: "s1", title: "Session one" }),
+        makeSession({ id: "s1", title: "Session one", status: "working" }),
         makeSession({ id: "s2", title: "Session two" }),
       ],
       {
@@ -318,7 +318,7 @@ describe("App regenerate removal", () => {
 });
 
 describe("App edit resend", () => {
-  it("truncates from the edited user event before resending", async () => {
+  it("truncates and resends immediately when an inline edit is saved on an idle session", async () => {
     const { send, truncate } = mount([makeSession()], {
       s1: [
         { id: "u1", kind: "user", payload: { text: "original" } },
@@ -333,12 +333,28 @@ describe("App edit resend", () => {
     })) as HTMLTextAreaElement;
     fireEvent.change(edit, { target: { value: "edited" } });
     fireEvent.keyDown(edit, { key: "Enter" });
-    await waitFor(() => expect(box.value).toBe("edited"));
-    fireEvent.keyDown(box, { key: "Enter" });
 
     await waitFor(() => expect(send).toHaveBeenCalled());
     expect(truncate).toHaveBeenCalledWith("s1", "u1");
     expect(send.mock.calls[0]?.slice(0, 2)).toEqual(["s1", "edited"]);
+    await waitFor(() => expect(box.value).toBe(""));
+  });
+
+  it("holds an inline edit in the composer without sending when the session is working", async () => {
+    const { send, truncate } = mount([makeSession({ status: "working" })], {
+      s1: [{ id: "u1", kind: "user", payload: { text: "original" } }],
+    });
+    const box = await openSession("Session one");
+    fireEvent.click(document.querySelector(".msg.user")!);
+    const edit = (await screen.findByRole("textbox", {
+      name: "Edit message text",
+    })) as HTMLTextAreaElement;
+    fireEvent.change(edit, { target: { value: "edited later" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save edit" }));
+
+    await waitFor(() => expect(box.value).toBe("edited later"));
+    expect(truncate).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("does not truncate a plain send", async () => {
