@@ -375,102 +375,18 @@ describe("Composer", () => {
     expect(document.activeElement).toBe(box);
   });
 
-  it("shows a mode badge that opens the mode list on click", () => {
-    const onSetMode = vi.fn();
-    const { container } = setup({
-      modes: [
-        { id: "build", name: "Build" },
-        { id: "plan", name: "Plan" },
-      ],
-      currentModeId: "build",
-      onSetMode,
-    });
-    expect(container.querySelector(".mode-row")).toBeNull();
-    expect(container.querySelector(".mode-badge")?.textContent).toBe("Build");
-    expect(screen.queryByRole("listbox")).toBeNull();
-
-    fireEvent.click(container.querySelector(".mode-badge")!);
-    const plan = screen
-      .getAllByRole("option")
-      .find((option) => option.textContent?.includes("Plan"));
-    expect(plan).toBeTruthy();
-    fireEvent.click(plan!);
-
-    expect(onSetMode).toHaveBeenCalledWith("plan");
-    expect(screen.queryByRole("listbox")).toBeNull();
-  });
-
-  it("labels the mode badge with its id when no name is provided", () => {
-    const { container } = setup({
-      modes: [{ id: "fast" }, { id: "thorough" }],
-      currentModeId: "fast",
-    });
-    expect(container.querySelector(".mode-badge")?.textContent).toBe("fast");
-  });
-
-  it("hides the mode badge when there is only one mode", () => {
-    const { container } = setup({
-      modes: [{ id: "build", name: "Build" }],
-      currentModeId: "build",
-    });
-    expect(container.querySelector(".mode-badge")).toBeNull();
-  });
-
-  it("disables the mode badge while working", () => {
-    const onSetMode = vi.fn();
-    const { container } = setup({
-      working: true,
-      modes: [
-        { id: "build", name: "Build" },
-        { id: "plan", name: "Plan" },
-      ],
-      currentModeId: "build",
-      onSetMode,
-    });
-    const badge = container.querySelector<HTMLButtonElement>(".mode-badge")!;
-    expect(badge.disabled).toBe(true);
-    fireEvent.click(badge);
-    expect(onSetMode).not.toHaveBeenCalled();
-  });
-
-  it("does not switch modes when the current one is picked", () => {
-    const onSetMode = vi.fn();
-    const { container } = setup({
-      modes: [
-        { id: "build", name: "Build" },
-        { id: "plan", name: "Plan" },
-      ],
-      currentModeId: "build",
-      onSetMode,
-    });
-    fireEvent.click(container.querySelector(".mode-badge")!);
-    const active = screen
-      .getAllByRole("option")
-      .find((option) => option.textContent?.includes("Build"))!;
-    fireEvent.click(active);
-    expect(onSetMode).not.toHaveBeenCalled();
-  });
-
   const commands = [
     { name: "init", description: "guided setup" },
     { name: "review", description: "review changes" },
   ];
 
-  it("offers commands and other modes in one slash menu", () => {
-    setup({
-      commands,
-      modes: [
-        { id: "build", name: "Build" },
-        { id: "plan", name: "Plan" },
-      ],
-      currentModeId: "build",
-    });
+  it("offers commands in the slash menu", () => {
+    setup({ commands });
     const box = screen.getByRole("textbox");
     fireEvent.change(box, { target: { value: "/" } });
     const labels = screen.getAllByRole("option").map((option) => option.textContent ?? "");
     expect(labels.some((label) => label.includes("/init"))).toBe(true);
-    expect(labels.some((label) => label.includes("Plan"))).toBe(true);
-    expect(labels.some((label) => label.includes("Build"))).toBe(false);
+    expect(labels.some((label) => label.includes("/review"))).toBe(true);
   });
 
   it("inserts the picked command into the input", () => {

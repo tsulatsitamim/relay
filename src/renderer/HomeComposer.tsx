@@ -7,7 +7,7 @@ import type {
   Repo,
 } from "../shared/types.ts";
 import { ComposerMirror } from "./ComposerMirror";
-import { IconChevron, IconCirclePlus, IconMic, IconMonitor, IconSend } from "./icons";
+import { IconChevron, IconCirclePlus, IconMic, IconSend } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
 import { withThumbs } from "./thumbs";
 import { useComposerInput } from "./useComposerInput";
@@ -133,18 +133,9 @@ export function HomeComposer({
         {selected?.branch ? (
           <>
             <span className="sep">/</span>
-            <span className="chip static">
-              {selected.branch}
-              <IconChevron />
-            </span>
+            <span className="chip static">{selected.branch}</span>
           </>
         ) : null}
-        <span className="sep">/</span>
-        <span className="chip static">
-          <IconMonitor />
-          This Mac
-          <IconChevron />
-        </span>
       </div>
 
       {attachments.length > 0 ? (
@@ -190,7 +181,7 @@ export function HomeComposer({
             ref={field}
             value={text}
             disabled={busy}
-            placeholder="Plan, Build, / for skills, @ for context"
+            placeholder="/ untuk skill, @ untuk konteks"
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
@@ -233,17 +224,7 @@ export function HomeComposer({
           </button>
         </div>
       </form>
-      <div className="pills">
-        <button type="button" className="pill" tabIndex={-1}>
-          Plan New Idea
-          <kbd>Tab</kbd>
-        </button>
-        <button type="button" className="pill" tabIndex={-1}>
-          Multitask
-        </button>
-      </div>
       {error && <div className="err">{error}</div>}
-      <div className="hint">Ask Relay to find a prior conversation, or summarize across conversations</div>
     </div>
   );
 }

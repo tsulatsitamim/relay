@@ -9,7 +9,6 @@ import {
 import type {
   AvailableCommandLike,
   PromptAttachment,
-  SessionModeLike,
 } from "../shared/types.ts";
 import { readImageFiles } from "./attachments";
 import { leadingCommands } from "./commands";
@@ -29,15 +28,11 @@ function slashQuery(text: string, commands: AvailableCommandLike[]): string | nu
 export type ComposerMenu =
   | { kind: "slash"; items: Suggestion[] }
   | { kind: "mention"; items: Suggestion[] }
-  | { kind: "mode"; items: Suggestion[] }
   | null;
 
 type Options = {
   commands?: AvailableCommandLike[];
   cwd?: string;
-  modes?: SessionModeLike[];
-  currentModeId?: string;
-  onSetMode?: (modeId: string) => void;
   inject?: { text: string; nonce: number };
   onEnter: () => void;
 };
@@ -45,9 +40,6 @@ type Options = {
 export function useComposerInput({
   commands = [],
   cwd,
-  modes = [],
-  currentModeId,
-  onSetMode,
   inject,
   onEnter,
 }: Options) {
@@ -56,30 +48,16 @@ export function useComposerInput({
   const [files, setFiles] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
-  const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const submitting = useRef(false);
   const enter = useRef(onEnter);
   enter.current = onEnter;
 
-  const currentMode = modes.find((mode) => mode.id === currentModeId);
-  const modeItems: Suggestion[] = modes.map((mode) => ({
-    id: `mode:${mode.id}`,
-    label: mode.name ?? mode.id,
-    detail: "mode",
-  }));
   const slashMatch = slashQuery(text, commands);
   const slashItems: Suggestion[] = slashMatch !== null
-    ? [
-        ...modeItems.filter(
-          (item) =>
-            item.id !== `mode:${currentModeId}` &&
-            item.label.toLowerCase().includes(slashMatch.toLowerCase()),
-        ),
-        ...commands
-          .filter((c) => c.name.toLowerCase().includes(slashMatch.toLowerCase()))
-          .map((c) => ({ id: c.name, label: `/${c.name}`, detail: c.description })),
-      ]
+    ? commands
+        .filter((c) => c.name.toLowerCase().includes(slashMatch.toLowerCase()))
+        .map((c) => ({ id: c.name, label: `/${c.name}`, detail: c.description }))
     : [];
   const mentionMatch = /(?:^|\s)@([^\s@]*)$/.exec(text);
   const mentionQuery = mentionMatch ? mentionMatch[1] : null;
@@ -90,9 +68,7 @@ export function useComposerInput({
     ? { kind: "slash", items: slashItems }
     : mentionMenuOpen
       ? { kind: "mention", items: mentionItems }
-      : modeMenuOpen
-        ? { kind: "mode", items: modeItems }
-        : null;
+      : null;
   const hasContent = Boolean(text.trim()) || attachments.length > 0;
 
   useEffect(() => {
@@ -143,35 +119,17 @@ export function useComposerInput({
   useEffect(() => {
     setActiveIndex(0);
     setDismissed(false);
-    setModeMenuOpen(false);
   }, [text]);
 
   function pick(index: number) {
     if (!menu) return;
     const item = menu.items[index];
     if (!item) return;
-    if (menu.kind === "mode") {
-      setModeMenuOpen(false);
-      const modeId = item.id.slice("mode:".length);
-      if (modeId !== currentModeId) onSetMode?.(modeId);
-      return;
-    }
     if (menu.kind === "slash") {
-      if (item.id.startsWith("mode:")) {
-        const modeId = item.id.slice("mode:".length);
-        setText((prev) => prev.replace(/\/([^\s\n]*)$/, "").replace(/\s+$/, ""));
-        if (modeId !== currentModeId) onSetMode?.(modeId);
-      } else {
-        setText((prev) => prev.replace(/\/([^\s\n]*)$/, () => `/${item.id} `));
-      }
+      setText((prev) => prev.replace(/\/([^\s\n]*)$/, () => `/${item.id} `));
       return;
     }
     setText((prev) => prev.replace(/@([^\s@]*)$/, () => `@${item.id} `));
-  }
-
-  function toggleModeMenu() {
-    setActiveIndex(0);
-    setModeMenuOpen((open) => !open);
   }
 
   function buildPrompt(): string {
@@ -230,8 +188,7 @@ export function useComposerInput({
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        if (menu.kind === "mode") setModeMenuOpen(false);
-        else setDismissed(true);
+        setDismissed(true);
         return;
       }
     }
@@ -254,9 +211,6 @@ export function useComposerInput({
     onPaste,
     onDragOver,
     onDrop,
-    modeMenuOpen,
-    toggleModeMenu,
-    currentMode,
     buildPrompt,
     reset,
     hasContent,

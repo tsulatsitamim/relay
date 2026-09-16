@@ -42,6 +42,13 @@ function setup(
 }
 
 describe("HomeComposer", () => {
+  it("does not render the decorative home chrome", () => {
+    setup();
+    expect(document.querySelector(".pills")).toBeNull();
+    expect(document.querySelector(".hint")).toBeNull();
+    expect(screen.queryByText("This Mac")).toBeNull();
+  });
+
   it("submits on Enter", () => {
     const { onSubmit, field } = setup();
     fireEvent.change(field, { target: { value: "hello" } });

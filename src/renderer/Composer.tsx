@@ -2,7 +2,6 @@ import { useRef } from "react";
 import type {
   AvailableCommandLike,
   PromptAttachment,
-  SessionModeLike,
 } from "../shared/types.ts";
 import { ComposerMirror } from "./ComposerMirror";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
@@ -21,9 +20,6 @@ type Props = {
   commands?: AvailableCommandLike[];
   cwd?: string;
   inject?: { text: string; nonce: number };
-  modes?: SessionModeLike[];
-  currentModeId?: string;
-  onSetMode?: (modeId: string) => void;
 };
 
 export function Composer({
@@ -37,9 +33,6 @@ export function Composer({
   commands = [],
   cwd,
   inject,
-  modes = [],
-  currentModeId,
-  onSetMode,
 }: Props) {
   const {
     field,
@@ -54,9 +47,6 @@ export function Composer({
     onPaste,
     onDragOver,
     onDrop,
-    modeMenuOpen,
-    toggleModeMenu,
-    currentMode,
     buildPrompt,
     reset,
     hasContent,
@@ -64,9 +54,6 @@ export function Composer({
   } = useComposerInput({
     commands,
     cwd,
-    modes,
-    currentModeId,
-    onSetMode,
     inject,
     onEnter: () => void submit(),
   });
@@ -145,19 +132,6 @@ export function Composer({
         <SuggestionMenu items={menu.items} activeIndex={activeIndex} onPick={pick} />
       ) : null}
       <div className="composer-card dock-composer" onDragOver={onDragOver} onDrop={onDrop}>
-        {modes.length > 1 ? (
-          <div className="composer-badges">
-            <button
-              type="button"
-              className="mode-badge"
-              disabled={disabled || working}
-              aria-expanded={modeMenuOpen}
-              onClick={toggleModeMenu}
-            >
-              {currentMode?.name ?? currentModeId ?? "mode"}
-            </button>
-          </div>
-        ) : null}
         <button
           type="button"
           className="plus"
@@ -173,7 +147,7 @@ export function Composer({
         <div className="dock-field">
           {text === "" && (
             <span className="dock-placeholder">
-              {disabled ? "Agent is working…" : "Plan, Build, / for skills, @ for context"}
+              {disabled ? "Agent is working…" : "/ untuk skill, @ untuk konteks"}
             </span>
           )}
           <ComposerMirror text={text} commands={commands} mirrorRef={mirror} />

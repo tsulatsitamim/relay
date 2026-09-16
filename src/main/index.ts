@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,15 +12,6 @@ import { listSkills } from "./skills.ts";
 import { readAttachment } from "./attachments.ts";
 import type { CreatePayload } from "../shared/ipc.ts";
 import type { PromptAttachment } from "../shared/types.ts";
-
-function fakeAgentPath(): string | undefined {
-  const candidates = [
-    join(app.getAppPath(), "agents", "fake-acp-agent.mjs"),
-    join(process.cwd(), "agents", "fake-acp-agent.mjs"),
-    fileURLToPath(new URL("../../agents/fake-acp-agent.mjs", import.meta.url)),
-  ];
-  return candidates.find((path) => existsSync(path));
-}
 
 function createWindow(): BrowserWindow {
   const dir = dirname(fileURLToPath(import.meta.url));
@@ -60,7 +50,7 @@ async function main(): Promise<void> {
   const logger = createLogger(join(userData, "relay.log"));
   const store = await openStore(join(userData, "relay.db"));
   if (store.listAgents().length === 0) {
-    store.saveAgents(defaultAgents(fakeAgentPath()));
+    store.saveAgents(defaultAgents());
   }
 
   const manager = new SessionManager(store);
