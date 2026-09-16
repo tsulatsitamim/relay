@@ -62,15 +62,15 @@ describe("HomeComposer", () => {
     expect(screen.queryAllByRole("option", { name: "/tmp/repo" })).toHaveLength(0);
   });
 
-  it("turns a picked command into a badge and sends it", () => {
+  it("inserts a picked command into the input and sends it", () => {
     const { onSubmit, field } = setup([], {
       commands: [{ name: "init", description: "guided setup" }],
     });
     fireEvent.change(field, { target: { value: "/ini" } });
     fireEvent.keyDown(field, { key: "Enter" });
-    expect(screen.getByText("/init")).toBeTruthy();
+    expect(field.value).toBe("/init ");
 
-    fireEvent.change(field, { target: { value: "hello" } });
+    fireEvent.change(field, { target: { value: `${field.value}hello` } });
     fireEvent.keyDown(field, { key: "Enter" });
     expect(onSubmit).toHaveBeenCalledWith("/init hello");
   });

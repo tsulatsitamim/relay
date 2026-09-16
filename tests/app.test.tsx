@@ -48,7 +48,11 @@ function stateWith(
   };
 }
 
-function mount(sessions: Session[], transcripts: RelayState["transcripts"] = {}) {
+function mount(
+  sessions: Session[],
+  transcripts: RelayState["transcripts"] = {},
+  skills: string[] = [],
+) {
   let listener: ((event: unknown) => void) | null = null;
   const send = vi.fn().mockResolvedValue(undefined);
   const bridge = {
@@ -66,7 +70,7 @@ function mount(sessions: Session[], transcripts: RelayState["transcripts"] = {})
     delete: vi.fn().mockResolvedValue(undefined),
     pickDirectory: vi.fn().mockResolvedValue(null),
     listFiles: vi.fn().mockResolvedValue([]),
-    listSkills: vi.fn().mockResolvedValue([]),
+    listSkills: vi.fn().mockResolvedValue(skills),
     pickImages: vi.fn().mockResolvedValue([]),
     addRepo: vi.fn().mockResolvedValue([]),
     removeRepo: vi.fn().mockResolvedValue([]),
@@ -109,6 +113,68 @@ describe("App queue drain", () => {
       expect(send.mock.calls.length).toBe(2);
     });
     expect(send.mock.calls.map((call) => call[1])).toEqual(["first", "second"]);
+  });
+});
+
+describe("App multi-command turns", () => {
+  it("sends each leading command as its own turn", async () => {
+    const { send } = mount([makeSession()], {
+      s1: [
+        {
+          id: "e1",
+          kind: "commands",
+          payload: {
+            commands: [
+              { name: "init", description: "guided setup" },
+              { name: "review", description: "review changes" },
+            ],
+          },
+        },
+      ],
+    });
+    const box = await openSession("Session one");
+    fireEvent.change(box, { target: { value: "/init /review hello" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(send.mock.calls.map((call) => call[1])).toEqual([
+        "/init",
+        "/review hello",
+      ]);
+    });
+  });
+
+  it("keeps skills in one turn", async () => {
+    const { send } = mount(
+      [makeSession()],
+      {
+        s1: [
+          {
+            id: "e1",
+            kind: "commands",
+            payload: {
+              commands: [
+                { name: "brainstorming", description: "explore" },
+                { name: "grill-me", description: "grill" },
+              ],
+            },
+          },
+        ],
+      },
+      ["brainstorming", "grill-me"],
+    );
+    const box = await openSession("Session one");
+    await waitFor(() => expect(box).toBeTruthy());
+    fireEvent.change(box, {
+      target: { value: "/brainstorming /grill-me plan A" },
+    });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(send.mock.calls.map((call) => call[1])).toEqual([
+        "/brainstorming /grill-me plan A",
+      ]);
+    });
   });
 });
 

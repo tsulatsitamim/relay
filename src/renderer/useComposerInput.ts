@@ -12,10 +12,19 @@ import type {
   SessionModeLike,
 } from "../shared/types.ts";
 import { readImageFiles } from "./attachments";
+import { leadingCommands } from "./commands";
 import type { Suggestion } from "./SuggestionMenu";
 
 const lineHeight = 24;
 const maxComposerHeight = 176;
+
+function slashQuery(text: string, commands: AvailableCommandLike[]): string | null {
+  const match = /(?:^|\s)\/([^\s\n]*)$/.exec(text);
+  if (!match) return null;
+  const before = text.slice(0, match.index);
+  const { end } = leadingCommands(before, commands.map((command) => command.name));
+  return end === before.length ? match[1] : null;
+}
 
 export type ComposerMenu =
   | { kind: "slash"; items: Suggestion[] }
@@ -45,7 +54,6 @@ export function useComposerInput({
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<PromptAttachment[]>([]);
   const [files, setFiles] = useState<string[]>([]);
-  const [commandBadge, setCommandBadge] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
@@ -60,16 +68,16 @@ export function useComposerInput({
     label: mode.name ?? mode.id,
     detail: "mode",
   }));
-  const slashMatch = /^\/([^\s\n]*)$/.exec(text);
-  const slashItems: Suggestion[] = slashMatch
+  const slashMatch = slashQuery(text, commands);
+  const slashItems: Suggestion[] = slashMatch !== null
     ? [
         ...modeItems.filter(
           (item) =>
             item.id !== `mode:${currentModeId}` &&
-            item.label.toLowerCase().includes(slashMatch[1].toLowerCase()),
+            item.label.toLowerCase().includes(slashMatch.toLowerCase()),
         ),
         ...commands
-          .filter((c) => c.name.toLowerCase().includes(slashMatch[1].toLowerCase()))
+          .filter((c) => c.name.toLowerCase().includes(slashMatch.toLowerCase()))
           .map((c) => ({ id: c.name, label: `/${c.name}`, detail: c.description })),
       ]
     : [];
@@ -85,8 +93,7 @@ export function useComposerInput({
       : modeMenuOpen
         ? { kind: "mode", items: modeItems }
         : null;
-  const hasContent =
-    Boolean(text.trim()) || attachments.length > 0 || commandBadge !== null;
+  const hasContent = Boolean(text.trim()) || attachments.length > 0;
 
   useEffect(() => {
     const el = field.current;
@@ -152,11 +159,11 @@ export function useComposerInput({
     if (menu.kind === "slash") {
       if (item.id.startsWith("mode:")) {
         const modeId = item.id.slice("mode:".length);
+        setText((prev) => prev.replace(/\/([^\s\n]*)$/, "").replace(/\s+$/, ""));
         if (modeId !== currentModeId) onSetMode?.(modeId);
       } else {
-        setCommandBadge(item.id);
+        setText((prev) => prev.replace(/\/([^\s\n]*)$/, () => `/${item.id} `));
       }
-      setText("");
       return;
     }
     setText((prev) => prev.replace(/@([^\s@]*)$/, () => `@${item.id} `));
@@ -168,14 +175,11 @@ export function useComposerInput({
   }
 
   function buildPrompt(): string {
-    return [commandBadge ? `/${commandBadge}` : "", text.trim()]
-      .filter(Boolean)
-      .join(" ");
+    return text.trim();
   }
 
   function reset() {
     setText("");
-    setCommandBadge(null);
   }
 
   async function addFiles(list: ArrayLike<File> | File[]) {
@@ -243,8 +247,6 @@ export function useComposerInput({
     attachments,
     setAttachments,
     addFiles,
-    commandBadge,
-    setCommandBadge,
     menu,
     activeIndex,
     pick,

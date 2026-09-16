@@ -15,7 +15,12 @@ import { Composer } from "./Composer";
 import { WorkingStatus } from "./WorkingStatus";
 import { ErrorBanner } from "./ErrorBanner";
 import { nextQueued, pruneQueued } from "./queue";
-import { commandsForAgent, lastCommands, mergeCommands } from "./commands";
+import {
+  commandsForAgent,
+  lastCommands,
+  mergeCommands,
+  promptTurns,
+} from "./commands";
 import { PermissionCard } from "./PermissionCard";
 import { SessionRow } from "./SessionRow";
 import { matchesSession } from "./search.ts";
@@ -341,10 +346,23 @@ export function App() {
     text: string,
     attachments?: PromptAttachment[],
   ) => {
+    const turns = promptTurns(
+      text,
+      commandList.map((command) => command.name),
+      skillNames,
+    );
+    const first = turns[0] ?? text;
+    if (turns.length > 1) {
+      const rest = turns.slice(1);
+      setQueued((prev) => ({
+        ...prev,
+        [sessionId]: [...(prev[sessionId] ?? []), ...rest],
+      }));
+    }
     setBusy(true);
     setChatError(null);
     try {
-      await window.relay.send(sessionId, text, attachments);
+      await window.relay.send(sessionId, first, attachments);
     } catch (err) {
       setChatError({
         sessionId,
@@ -938,12 +956,24 @@ export function App() {
               setBusy(true);
               setError(null);
               try {
+                const turns = promptTurns(
+                  prompt,
+                  commandList.map((command) => command.name),
+                  skillNames,
+                );
                 const session = await window.relay.create({
                   agentId,
                   cwd: repoPath,
-                  prompt,
+                  prompt: turns[0] ?? prompt,
                   attachments,
                 });
+                if (turns.length > 1) {
+                  const rest = turns.slice(1);
+                  setQueued((prev) => ({
+                    ...prev,
+                    [session.id]: [...(prev[session.id] ?? []), ...rest],
+                  }));
+                }
                 const next = await refresh();
                 setState(next);
                 setSelectedId(session.id);

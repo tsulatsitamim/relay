@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type {
   AgentConfig,
@@ -5,6 +6,7 @@ import type {
   PromptAttachment,
   Repo,
 } from "../shared/types.ts";
+import { ComposerMirror } from "./ComposerMirror";
 import { IconChevron, IconCirclePlus, IconMic, IconMonitor, IconSend } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
 import { withThumbs } from "./thumbs";
@@ -69,8 +71,6 @@ export function HomeComposer({
     setText,
     attachments,
     setAttachments,
-    commandBadge,
-    setCommandBadge,
     menu,
     activeIndex,
     pick,
@@ -88,6 +88,7 @@ export function HomeComposer({
     onEnter: () => void submit(),
   });
   const canSend = hasContent && !busy;
+  const mirror = useRef<HTMLDivElement>(null);
 
   async function submit() {
     if (submitting.current || busy) return;
@@ -183,31 +184,23 @@ export function HomeComposer({
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
-        {commandBadge !== null ? (
-          <div className="composer-badges">
-            <span className="command-badge">
-              <span className="badge-text">/{commandBadge}</span>
-              <button
-                type="button"
-                className="badge-remove"
-                aria-label={`Remove /${commandBadge}`}
-                onClick={() => setCommandBadge(null)}
-              >
-                ×
-              </button>
-            </span>
-          </div>
-        ) : null}
-        <textarea
-          ref={field}
-          value={text}
-          disabled={busy}
-          placeholder="Plan, Build, / for skills, @ for context"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-          rows={2}
-        />
+        <div className="home-field">
+          <ComposerMirror text={text} commands={commands} mirrorRef={mirror} />
+          <textarea
+            ref={field}
+            value={text}
+            disabled={busy}
+            placeholder="Plan, Build, / for skills, @ for context"
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+            onScroll={(e) => {
+              const node = mirror.current;
+              if (node) node.scrollTop = e.currentTarget.scrollTop;
+            }}
+            rows={2}
+          />
+        </div>
         <div className="composer-bar">
           <div className="left">
             <button

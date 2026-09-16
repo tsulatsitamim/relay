@@ -112,7 +112,7 @@ describe("Composer", () => {
     expect(onRemoveQueued).toHaveBeenCalledWith(1);
   });
 
-  it("offers slash commands and turns a picked one into a badge", () => {
+  it("offers slash commands and inserts a picked one into the input", () => {
     const onSend = vi.fn();
     const { container } = render(
       <Composer
@@ -130,8 +130,8 @@ describe("Composer", () => {
     fireEvent.change(box, { target: { value: "/in" } });
     expect(screen.getByText("/init")).toBeTruthy();
     fireEvent.keyDown(box, { key: "Enter" });
-    expect(box.value).toBe("");
-    expect(container.querySelector(".command-badge")?.textContent).toContain("/init");
+    expect(box.value).toBe("/init ");
+    expect(container.querySelector(".command-badge")).toBeNull();
     expect(onSend).not.toHaveBeenCalled();
   });
 
@@ -473,13 +473,13 @@ describe("Composer", () => {
     expect(labels.some((label) => label.includes("Build"))).toBe(false);
   });
 
-  it("turns a picked command into a badge and clears the input", () => {
+  it("inserts the picked command into the input", () => {
     const { container } = setup({ commands });
     const box = screen.getByRole("textbox") as HTMLTextAreaElement;
     fireEvent.change(box, { target: { value: "/ini" } });
     fireEvent.keyDown(box, { key: "Enter" });
-    expect(box.value).toBe("");
-    expect(container.querySelector(".command-badge")?.textContent).toContain("/init");
+    expect(box.value).toBe("/init ");
+    expect(container.querySelector(".command-badge")).toBeNull();
   });
 
   it("picks a command with Tab", () => {
@@ -487,23 +487,23 @@ describe("Composer", () => {
     const box = screen.getByRole("textbox") as HTMLTextAreaElement;
     fireEvent.change(box, { target: { value: "/rev" } });
     fireEvent.keyDown(box, { key: "Tab" });
-    expect(container.querySelector(".command-badge")?.textContent).toContain("/review");
+    expect(box.value).toBe("/review ");
   });
 
-  it("prepends the command badge to the sent prompt and clears it", () => {
+  it("sends the picked command with the typed text", () => {
     const onSend = vi.fn().mockResolvedValue(undefined);
-    const { container } = setup({ commands, onSend });
+    setup({ commands, onSend });
     const box = screen.getByRole("textbox") as HTMLTextAreaElement;
     fireEvent.change(box, { target: { value: "/ini" } });
     fireEvent.keyDown(box, { key: "Enter" });
-    fireEvent.change(box, { target: { value: "hello" } });
+    expect(box.value).toBe("/init ");
+    fireEvent.change(box, { target: { value: `${box.value}hello` } });
     fireEvent.keyDown(box, { key: "Enter" });
 
     expect(onSend).toHaveBeenCalledWith("/init hello");
-    expect(container.querySelectorAll(".command-badge")).toHaveLength(0);
+    expect(box.value).toBe("");
   });
-
-  it("sends a badge-only prompt", () => {
+  it("sends a command-only prompt", () => {
     const onSend = vi.fn().mockResolvedValue(undefined);
     setup({ commands, onSend });
     const box = screen.getByRole("textbox");
@@ -513,53 +513,49 @@ describe("Composer", () => {
     expect(onSend).toHaveBeenCalledWith("/init");
   });
 
-  it("keeps a single badge when the same command is picked twice", () => {
-    const { container } = setup({ commands });
-    const box = screen.getByRole("textbox");
-    fireEvent.change(box, { target: { value: "/ini" } });
-    fireEvent.keyDown(box, { key: "Enter" });
-    fireEvent.change(box, { target: { value: "/ini" } });
-    fireEvent.keyDown(box, { key: "Enter" });
-    expect(container.querySelectorAll(".command-badge")).toHaveLength(1);
-  });
-
-  it("replaces the badge when a different command is picked", () => {
-    const onSend = vi.fn().mockResolvedValue(undefined);
-    const { container } = setup({ commands, onSend });
+  it("offers another command after a leading one", () => {
+    setup({ commands });
     const box = screen.getByRole("textbox") as HTMLTextAreaElement;
     fireEvent.change(box, { target: { value: "/ini" } });
     fireEvent.keyDown(box, { key: "Enter" });
-    fireEvent.change(box, { target: { value: "/rev" } });
+    fireEvent.change(box, { target: { value: "/init /rev" } });
+    expect(screen.getByText("/review")).toBeTruthy();
     fireEvent.keyDown(box, { key: "Enter" });
-
-    const badges = container.querySelectorAll(".command-badge");
-    expect(badges).toHaveLength(1);
-    expect(badges[0]?.textContent).toContain("/review");
-
-    fireEvent.change(box, { target: { value: "hello" } });
-    fireEvent.keyDown(box, { key: "Enter" });
-    expect(onSend).toHaveBeenCalledWith("/review hello");
+    expect(box.value).toBe("/init /review ");
   });
 
-  it("removes a badge with its remove button", () => {
+  it("highlights leading command tokens in the field mirror", () => {
     const { container } = setup({ commands });
     const box = screen.getByRole("textbox");
-    fireEvent.change(box, { target: { value: "/ini" } });
-    fireEvent.keyDown(box, { key: "Enter" });
-    fireEvent.click(screen.getByLabelText("Remove /init"));
-    expect(container.querySelectorAll(".command-badge")).toHaveLength(0);
+    fireEvent.change(box, { target: { value: "/init hello" } });
+    const mirror = container.querySelector(".composer-mirror");
+    expect(mirror?.querySelector(".token")?.textContent).toBe("/init");
+    expect(mirror?.textContent).toContain("hello");
   });
 
-  it("queues command badges while working", () => {
-    const onQueue = vi.fn();
-    const { container } = setup({ commands, working: true, onQueue });
+  it("does not highlight a slash token after prose", () => {
+    const { container } = setup({ commands });
     const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "hello /init" } });
+    expect(container.querySelector(".composer-mirror .token")).toBeNull();
+  });
+
+  it("does not offer commands after prose", () => {
+    setup({ commands });
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "hello /ini" } });
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("queues a command while working", () => {
+    const onQueue = vi.fn();
+    setup({ commands, working: true, onQueue });
+    const box = screen.getByRole("textbox") as HTMLTextAreaElement;
     fireEvent.change(box, { target: { value: "/ini" } });
     fireEvent.keyDown(box, { key: "Enter" });
-    fireEvent.change(box, { target: { value: "hello" } });
+    fireEvent.change(box, { target: { value: `${box.value}hello` } });
     fireEvent.keyDown(box, { key: "Enter" });
     expect(onQueue).toHaveBeenCalledWith("/init hello");
-    expect(container.querySelectorAll(".command-badge")).toHaveLength(0);
   });
 
   it("sends only once when a second submit lands during attachment thumbnails", async () => {

@@ -785,9 +785,37 @@ input:focus-visible {
   resize: none;
   outline: none;
   background: transparent;
+  color: transparent;
+  caret-color: var(--text);
   font-size: var(--font-size-lg);
   line-height: 22px;
   letter-spacing: -0.15px;
+}
+
+.composer-mirror {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: var(--font-size-lg);
+  line-height: 22px;
+  letter-spacing: -0.15px;
+}
+
+.dock-field .composer-mirror {
+  line-height: var(--height-sm);
+}
+
+.composer-mirror .token {
+  background: var(--hover);
+  border-radius: 4px;
+}
+
+.home-field {
+  position: relative;
 }
 
 .composer-card:not(.dock-composer) textarea {

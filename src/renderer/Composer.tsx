@@ -1,8 +1,10 @@
+import { useRef } from "react";
 import type {
   AvailableCommandLike,
   PromptAttachment,
   SessionModeLike,
 } from "../shared/types.ts";
+import { ComposerMirror } from "./ComposerMirror";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
 import { withThumbs } from "./thumbs";
@@ -45,8 +47,6 @@ export function Composer({
     setText,
     attachments,
     setAttachments,
-    commandBadge,
-    setCommandBadge,
     menu,
     activeIndex,
     pick,
@@ -71,6 +71,7 @@ export function Composer({
     onEnter: () => void submit(),
   });
   const canSubmit = hasContent && !disabled;
+  const mirror = useRef<HTMLDivElement>(null);
 
   async function submit() {
     if (submitting.current) return;
@@ -144,32 +145,17 @@ export function Composer({
         <SuggestionMenu items={menu.items} activeIndex={activeIndex} onPick={pick} />
       ) : null}
       <div className="composer-card dock-composer" onDragOver={onDragOver} onDrop={onDrop}>
-        {modes.length > 1 || commandBadge !== null ? (
+        {modes.length > 1 ? (
           <div className="composer-badges">
-            {modes.length > 1 ? (
-              <button
-                type="button"
-                className="mode-badge"
-                disabled={disabled || working}
-                aria-expanded={modeMenuOpen}
-                onClick={toggleModeMenu}
-              >
-                {currentMode?.name ?? currentModeId ?? "mode"}
-              </button>
-            ) : null}
-            {commandBadge !== null ? (
-              <span className="command-badge">
-                <span className="badge-text">/{commandBadge}</span>
-                <button
-                  type="button"
-                  className="badge-remove"
-                  aria-label={`Remove /${commandBadge}`}
-                  onClick={() => setCommandBadge(null)}
-                >
-                  ×
-                </button>
-              </span>
-            ) : null}
+            <button
+              type="button"
+              className="mode-badge"
+              disabled={disabled || working}
+              aria-expanded={modeMenuOpen}
+              onClick={toggleModeMenu}
+            >
+              {currentMode?.name ?? currentModeId ?? "mode"}
+            </button>
           </div>
         ) : null}
         <button
@@ -190,6 +176,7 @@ export function Composer({
               {disabled ? "Agent is working…" : "Plan, Build, / for skills, @ for context"}
             </span>
           )}
+          <ComposerMirror text={text} commands={commands} mirrorRef={mirror} />
           <textarea
             ref={field}
             value={text}
@@ -197,6 +184,10 @@ export function Composer({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
+            onScroll={(e) => {
+              const node = mirror.current;
+              if (node) node.scrollTop = e.currentTarget.scrollTop;
+            }}
             rows={1}
           />
         </div>
