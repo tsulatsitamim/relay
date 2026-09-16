@@ -9,6 +9,7 @@ import { SessionManager, defaultAgents } from "./session-manager.ts";
 import { createLogger } from "./logger.ts";
 import { repoNameFromPath, withGitBranch } from "./repo-name.ts";
 import { listFiles } from "./file-index.ts";
+import { listSkills } from "./skills.ts";
 import { readAttachment } from "./attachments.ts";
 import type { CreatePayload } from "../shared/ipc.ts";
 import type { PromptAttachment } from "../shared/types.ts";
@@ -156,6 +157,10 @@ async function main(): Promise<void> {
   ipcMain.handle("relay:listFiles", (_e, cwd: string, query?: string) => {
     if (!cwd) return [];
     return listFiles(cwd, { query: typeof query === "string" ? query : "" });
+  });
+
+  ipcMain.handle("relay:listSkills", (_e, cwd?: string) => {
+    return listSkills({ cwd: typeof cwd === "string" && cwd ? cwd : undefined });
   });
 
   ipcMain.handle("relay:pickImages", async (event) => {

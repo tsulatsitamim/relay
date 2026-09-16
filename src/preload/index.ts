@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:pickDirectory"),
   listFiles: (cwd: string, query?: string): Promise<string[]> =>
     ipcRenderer.invoke("relay:listFiles", cwd, query),
+  listSkills: (cwd?: string): Promise<string[]> =>
+    ipcRenderer.invoke("relay:listSkills", cwd),
   pickImages: (): Promise<PromptAttachment[]> =>
     ipcRenderer.invoke("relay:pickImages"),
   addRepo: (): Promise<Repo[]> => ipcRenderer.invoke("relay:addRepo"),

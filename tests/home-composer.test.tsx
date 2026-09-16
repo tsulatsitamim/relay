@@ -1,14 +1,27 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { HomeComposer } from "../src/renderer/HomeComposer";
 import type { AgentConfig, Repo } from "../src/shared/types";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  delete (window as any).relay;
+});
+
 const agents: AgentConfig[] = [{ id: "fake", name: "Fake" }];
 const repos: Repo[] = [{ path: "/tmp/repo", name: "repo", branch: "main" }];
 
-function setup(recents: string[] = []) {
+function setup(
+  recents: string[] = [],
+  overrides: Partial<React.ComponentProps<typeof HomeComposer>> = {},
+) {
   const onSubmit = vi.fn().mockResolvedValue(undefined);
   render(
     <HomeComposer
@@ -22,6 +35,7 @@ function setup(recents: string[] = []) {
       onAgentId={vi.fn()}
       onRepoPath={vi.fn()}
       onSubmit={onSubmit}
+      {...overrides}
     />,
   );
   return { onSubmit, field: screen.getByRole("textbox") as HTMLTextAreaElement };
@@ -46,5 +60,60 @@ describe("HomeComposer", () => {
     setup(["/tmp/old", "/tmp/repo"]);
     expect(screen.getAllByRole("option", { name: "/tmp/old" })).toHaveLength(1);
     expect(screen.queryAllByRole("option", { name: "/tmp/repo" })).toHaveLength(0);
+  });
+
+  it("turns a picked command into a badge and sends it", () => {
+    const { onSubmit, field } = setup([], {
+      commands: [{ name: "init", description: "guided setup" }],
+    });
+    fireEvent.change(field, { target: { value: "/ini" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(screen.getByText("/init")).toBeTruthy();
+
+    fireEvent.change(field, { target: { value: "hello" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(onSubmit).toHaveBeenCalledWith("/init hello");
+  });
+
+  it("offers files for an @ token and inserts one", async () => {
+    const listFiles = vi.fn().mockResolvedValue(["src/index.ts", "README.md"]);
+    // @ts-expect-error test shim
+    window.relay = { listFiles };
+    const { field } = setup();
+    fireEvent.change(field, { target: { value: "look at @ind" } });
+    const option = await screen.findByText("src/index.ts");
+    fireEvent.click(option);
+    expect(field.value).toBe("look at @src/index.ts ");
+    expect(listFiles).toHaveBeenCalledWith("/tmp/repo", "ind");
+  });
+
+  it("does not look up files without a repository", async () => {
+    const listFiles = vi.fn().mockResolvedValue(["src/index.ts"]);
+    // @ts-expect-error test shim
+    window.relay = { listFiles };
+    const { field } = setup([], { repoPath: "" });
+    fireEvent.change(field, { target: { value: "@ind" } });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(listFiles).not.toHaveBeenCalled();
+    expect(screen.queryByText("src/index.ts")).toBeNull();
+  });
+
+  it("attaches a picked image and sends it with the prompt", async () => {
+    const pickImages = vi.fn().mockResolvedValue([
+      { name: "shot.png", mimeType: "image/png", data: "AAAA" },
+    ]);
+    // @ts-expect-error test shim
+    window.relay = { pickImages };
+    const { onSubmit, field } = setup();
+    fireEvent.click(screen.getByLabelText("Attach image"));
+    expect(await screen.findByText("shot.png")).toBeTruthy();
+
+    fireEvent.change(field, { target: { value: "look" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith("look", [
+        { name: "shot.png", mimeType: "image/png", data: "AAAA" },
+      ]),
+    );
   });
 });

@@ -66,6 +66,7 @@ function mount(sessions: Session[], transcripts: RelayState["transcripts"] = {})
     delete: vi.fn().mockResolvedValue(undefined),
     pickDirectory: vi.fn().mockResolvedValue(null),
     listFiles: vi.fn().mockResolvedValue([]),
+    listSkills: vi.fn().mockResolvedValue([]),
     pickImages: vi.fn().mockResolvedValue([]),
     addRepo: vi.fn().mockResolvedValue([]),
     removeRepo: vi.fn().mockResolvedValue([]),

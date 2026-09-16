@@ -12,6 +12,7 @@ export type RelayBridge = {
   delete: (id: string) => Promise<void>;
   pickDirectory: () => Promise<string | null>;
   listFiles: (cwd: string, query?: string) => Promise<string[]>;
+  listSkills: (cwd?: string) => Promise<string[]>;
   pickImages: () => Promise<PromptAttachment[]>;
   addRepo: () => Promise<Repo[]>;
   removeRepo: (path: string) => Promise<Repo[]>;

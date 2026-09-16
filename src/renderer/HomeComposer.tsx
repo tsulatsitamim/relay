@@ -1,6 +1,14 @@
-import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import type { AgentConfig, Repo } from "../shared/types.ts";
+import type { FormEvent, ReactNode } from "react";
+import type {
+  AgentConfig,
+  AvailableCommandLike,
+  PromptAttachment,
+  Repo,
+} from "../shared/types.ts";
 import { IconChevron, IconCirclePlus, IconMic, IconMonitor, IconSend } from "./icons";
+import { SuggestionMenu } from "./SuggestionMenu";
+import { withThumbs } from "./thumbs";
+import { useComposerInput } from "./useComposerInput";
 
 type Props = {
   agents: AgentConfig[];
@@ -10,9 +18,10 @@ type Props = {
   repoPath: string;
   busy: boolean;
   error: string | null;
+  commands?: AvailableCommandLike[];
   onAgentId: (id: string) => void;
   onRepoPath: (path: string) => void;
-  onSubmit: (prompt: string) => Promise<void>;
+  onSubmit: (prompt: string, attachments?: PromptAttachment[]) => Promise<void>;
 };
 
 function Chip({
@@ -45,28 +54,59 @@ export function HomeComposer({
   repoPath,
   busy,
   error,
+  commands = [],
   onAgentId,
   onRepoPath,
   onSubmit,
 }: Props) {
-  const [text, setText] = useState("");
   const selected = repos.find((r) => r.path === repoPath);
   const recentFolders = recents.filter(
     (path) => !repos.some((repo) => repo.path === path),
   );
-  const canSend = Boolean(text.trim()) && !busy;
+  const {
+    field,
+    text,
+    setText,
+    attachments,
+    setAttachments,
+    commandBadge,
+    setCommandBadge,
+    menu,
+    activeIndex,
+    pick,
+    onKeyDown,
+    onPaste,
+    onDragOver,
+    onDrop,
+    buildPrompt,
+    reset,
+    hasContent,
+    submitting,
+  } = useComposerInput({
+    commands,
+    cwd: repoPath || undefined,
+    onEnter: () => void submit(),
+  });
+  const canSend = hasContent && !busy;
 
   async function submit() {
-    const value = text.trim();
-    if (!value || busy) return;
-    setText("");
-    await onSubmit(value);
-  }
-
-  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key !== "Enter" || e.shiftKey) return;
-    e.preventDefault();
-    void submit();
+    if (submitting.current || busy) return;
+    const value = buildPrompt();
+    if (!value && attachments.length === 0) return;
+    submitting.current = true;
+    try {
+      if (attachments.length === 0) {
+        reset();
+        await onSubmit(value);
+        return;
+      }
+      const outgoing = await withThumbs(attachments);
+      reset();
+      setAttachments([]);
+      await onSubmit(value, outgoing);
+    } finally {
+      submitting.current = false;
+    }
   }
 
   return (
@@ -106,26 +146,82 @@ export function HomeComposer({
         </span>
       </div>
 
+      {attachments.length > 0 ? (
+        <div className="composer-queued">
+          {attachments.map((attachment, index) => (
+            <span className="queued-chip" key={`${index}-${attachment.name}`}>
+              <img
+                className="attach-thumb"
+                src={`data:${attachment.mimeType};base64,${attachment.data}`}
+                alt={attachment.name}
+              />
+              <span className="queued-text">{attachment.name}</span>
+              <button
+                className="queued-remove"
+                aria-label="Remove attachment"
+                onClick={() =>
+                  setAttachments((prev) => prev.filter((_, i) => i !== index))
+                }
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {menu ? (
+        <SuggestionMenu items={menu.items} activeIndex={activeIndex} onPick={pick} />
+      ) : null}
+
       <form
         className="composer-card"
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
           void submit();
         }}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
       >
+        {commandBadge !== null ? (
+          <div className="composer-badges">
+            <span className="command-badge">
+              <span className="badge-text">/{commandBadge}</span>
+              <button
+                type="button"
+                className="badge-remove"
+                aria-label={`Remove /${commandBadge}`}
+                onClick={() => setCommandBadge(null)}
+              >
+                ×
+              </button>
+            </span>
+          </div>
+        ) : null}
         <textarea
+          ref={field}
           value={text}
           disabled={busy}
           placeholder="Plan, Build, / for skills, @ for context"
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           rows={2}
         />
         <div className="composer-bar">
           <div className="left">
-            <span className="plus" aria-hidden>
+            <button
+              type="button"
+              className="plus"
+              aria-label="Attach image"
+              onClick={() => {
+                void window.relay.pickImages().then((picked) => {
+                  if (picked.length > 0) setAttachments((prev) => [...prev, ...picked]);
+                });
+              }}
+            >
               <IconCirclePlus />
-            </span>
+            </button>
             <Chip value={agentId} onChange={onAgentId}>
               {agents.map((agent) => (
                 <option key={agent.id} value={agent.id}>

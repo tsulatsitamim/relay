@@ -15,6 +15,7 @@ import { Composer } from "./Composer";
 import { WorkingStatus } from "./WorkingStatus";
 import { ErrorBanner } from "./ErrorBanner";
 import { nextQueued, pruneQueued } from "./queue";
+import { commandsForAgent, lastCommands, mergeCommands } from "./commands";
 import { PermissionCard } from "./PermissionCard";
 import { SessionRow } from "./SessionRow";
 import { matchesSession } from "./search.ts";
@@ -294,16 +295,26 @@ export function App() {
   const events: TranscriptEvent[] = selected
     ? (state.transcripts[selected.id] ?? [])
     : [];
-  const commands: AvailableCommandLike[] = (() => {
-    if (!selected) return [];
-    const transcript = state.transcripts[selected.id] ?? [];
-    for (let i = transcript.length - 1; i >= 0; i--) {
-      if (transcript[i]?.kind === "commands") {
-        return (transcript[i].payload.commands as AvailableCommandLike[]) ?? [];
-      }
-    }
-    return [];
-  })();
+  const commands: AvailableCommandLike[] = selected
+    ? lastCommands(events)
+    : commandsForAgent(state.sessions, state.transcripts, agentId);
+  const skillsCwd = selected ? selected.workingDirectory : repoPath;
+  const [skillNames, setSkillNames] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void window.relay
+      .listSkills(skillsCwd || undefined)
+      .then((names) => {
+        if (!cancelled) setSkillNames(names);
+      })
+      .catch(() => {
+        if (!cancelled) setSkillNames([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [skillsCwd]);
+  const commandList = mergeCommands(commands, skillNames);
   const composerLocked = Boolean(
     selected && ["starting", "working", "cancelling"].includes(selected.status),
   );
@@ -895,7 +906,7 @@ export function App() {
               queued={queued[selected.id] ?? []}
               onQueue={(text) => enqueue(selected.id, text)}
               onRemoveQueued={(index) => removeQueued(selected.id, index)}
-              commands={commands}
+              commands={commandList}
               cwd={selected.workingDirectory}
               inject={inject}
               modes={selected.modes}
@@ -916,9 +927,10 @@ export function App() {
             repoPath={repoPath}
             busy={busy}
             error={error}
+            commands={commandList}
             onAgentId={setAgentId}
             onRepoPath={setRepoPath}
-            onSubmit={async (prompt) => {
+            onSubmit={async (prompt, attachments) => {
               if (!agentId) {
                 setError("Choose an agent.");
                 return;
@@ -930,6 +942,7 @@ export function App() {
                   agentId,
                   cwd: repoPath,
                   prompt,
+                  attachments,
                 });
                 const next = await refresh();
                 setState(next);
