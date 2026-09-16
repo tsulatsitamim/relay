@@ -109,6 +109,7 @@ describe("SessionManager modes", () => {
       prompt: "warmup",
     });
 
+    await waitFor(() => sm.get(created.id)?.modes);
     expect(sm.get(created.id)?.modes).toEqual([
       { id: "build", name: "Build" },
       { id: "plan", name: "Plan" },
@@ -127,6 +128,10 @@ describe("SessionManager modes", () => {
       cwd: process.cwd(),
       prompt: "warmup",
     });
+    await waitFor(() => sm.get(created.id)?.modes);
+    await waitFor(() =>
+      sm.get(created.id)?.status === "idle" ? true : null,
+    );
     const before = sm.get(created.id)?.updatedAt;
 
     await sm.setMode(created.id, "plan");
@@ -142,6 +147,10 @@ describe("SessionManager modes", () => {
       cwd: process.cwd(),
       prompt: "warmup",
     });
+
+    await waitFor(() =>
+      sm.get(created.id)?.status === "idle" ? true : null,
+    );
 
     await sm.detachAll();
     expect(sm.get(created.id)?.status).toBe("exited");

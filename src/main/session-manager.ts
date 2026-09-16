@@ -222,13 +222,21 @@ export class SessionManager {
     });
     this.emitSessions();
 
+    void this.startTurn(session, input.agent, input.prompt, input.attachments);
+    return this.require(session.id);
+  }
+
+  private async startTurn(
+    session: Session,
+    agent: AgentConfig,
+    prompt: string,
+    attachments: PromptAttachment[] = [],
+  ): Promise<void> {
     try {
-      await this.attach(session, input.agent, false);
-      await this.runPrompt(session.id, input.prompt, input.attachments);
-      return this.require(session.id);
+      await this.attach(session, agent, false);
+      await this.runPrompt(session.id, prompt, attachments);
     } catch (err) {
-      this.fail(session.id, err);
-      throw err;
+      if (this.get(session.id)?.status !== "error") this.fail(session.id, err);
     }
   }
 

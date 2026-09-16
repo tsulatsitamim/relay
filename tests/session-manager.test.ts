@@ -50,6 +50,15 @@ async function waitFor<T>(get: () => T | null | undefined, timeoutMs = 3000): Pr
   }
 }
 
+function within<T>(promise: Promise<T>, ms = 1500): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`did not resolve within ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
 function firstPermission(events: ManagerEvent[]): PermissionRequest | null {
   for (const event of events) {
     if (event.type === "permission") return event.request;
@@ -67,12 +76,21 @@ describe("SessionManager", () => {
     expect(a.id).not.toBe(b.id);
     expect(sm.list().map((s) => s.id).sort()).toEqual([a.id, b.id].sort());
 
-    const snapA = sm.transcript(a.id);
-    const snapB = sm.transcript(b.id);
-    expect(snapA.some((e) => e.kind === "user" && String(e.payload.text).includes("task a"))).toBe(true);
-    expect(snapB.some((e) => e.kind === "user" && String(e.payload.text).includes("task b"))).toBe(true);
-    expect(snapA.some((e) => e.kind === "agent_message")).toBe(true);
-    expect(snapB.some((e) => e.kind === "agent_message")).toBe(true);
+    expect(
+      sm.transcript(a.id).some((e) => e.kind === "user" && String(e.payload.text).includes("task a")),
+    ).toBe(true);
+    expect(
+      sm.transcript(b.id).some((e) => e.kind === "user" && String(e.payload.text).includes("task b")),
+    ).toBe(true);
+
+    await waitFor(() =>
+      sm.transcript(a.id).some((e) => e.kind === "agent_message") ? true : null,
+    );
+    await waitFor(() =>
+      sm.transcript(b.id).some((e) => e.kind === "agent_message") ? true : null,
+    );
+    expect(sm.transcript(a.id).some((e) => e.kind === "agent_message")).toBe(true);
+    expect(sm.transcript(b.id).some((e) => e.kind === "agent_message")).toBe(true);
   });
 
   it("cancels an in-flight turn", async () => {
@@ -82,6 +100,9 @@ describe("SessionManager", () => {
       cwd: process.cwd(),
       prompt: "warmup",
     });
+    await waitFor(() =>
+      sm.get(session.id)?.status === "idle" ? true : null,
+    );
     const sending = sm.send(session.id, "SLOW cancel me");
     await new Promise((r) => setTimeout(r, 40));
     await sm.cancel(session.id);
@@ -97,8 +118,10 @@ describe("SessionManager", () => {
       cwd: process.cwd(),
       prompt: "original task",
     });
-    const acpId = sm.get(session.id)?.acpSessionId;
-    expect(acpId).toBeTruthy();
+    const acpId = await waitFor(() => sm.get(session.id)?.acpSessionId ?? null);
+    await waitFor(() =>
+      sm.get(session.id)?.status === "idle" ? true : null,
+    );
 
     await sm.detachAll();
     expect(sm.get(session.id)?.status).toBe("exited");
@@ -134,7 +157,9 @@ describe("SessionManager", () => {
     const session = await creating;
 
     expect(sm.pendingPermissions()).toHaveLength(0);
-    expect(sm.transcript(session.id).some((e) => e.kind === "diff")).toBe(true);
+    await waitFor(() =>
+      sm.transcript(session.id).some((e) => e.kind === "diff") ? true : null,
+    );
   });
 
   it("cancels the turn when the user rejects the permission request", async () => {
@@ -151,12 +176,56 @@ describe("SessionManager", () => {
     sm.answerPermission(request.id, null);
     const session = await creating;
 
-    expect(
+    await waitFor(() =>
       sm
         .transcript(session.id)
-        .some((e) => e.kind === "status" && String(e.payload.text).includes("Cancelled")),
-    ).toBe(true);
+        .some((e) => e.kind === "status" && String(e.payload.text).includes("Cancelled"))
+        ? true
+        : null,
+    );
     expect(sm.transcript(session.id).some((e) => e.kind === "diff")).toBe(false);
+  });
+
+  it("resolves create before the first turn finishes", async () => {
+    const sm = await manager();
+    const created = await within(
+      sm.create({
+        agent: fakeAgent(),
+        cwd: process.cwd(),
+        prompt: "SLOW warmup",
+      }),
+    );
+
+    expect(["starting", "working"]).toContain(sm.get(created.id)?.status);
+    expect(
+      sm.transcript(created.id).some((e) => e.kind === "agent_message"),
+    ).toBe(false);
+
+    await waitFor(() =>
+      sm.transcript(created.id).some((e) => e.kind === "agent_message")
+        ? true
+        : null,
+    );
+  });
+
+  it("surfaces a first-turn permission request after create resolves", async () => {
+    const sm = await manager();
+    const created = await within(
+      sm.create({
+        agent: fakeAgent(),
+        cwd: process.cwd(),
+        prompt: "need permission",
+      }),
+    );
+
+    const request = await waitFor(() =>
+      sm.pendingPermissions().find((p) => p.sessionId === created.id) ?? null,
+    );
+    sm.answerPermission(request.id, "allow");
+
+    await waitFor(() =>
+      sm.transcript(created.id).some((e) => e.kind === "diff") ? true : null,
+    );
   });
 
   it("marks a session exited when its agent process dies unexpectedly", async () => {
