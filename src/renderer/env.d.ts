@@ -9,6 +9,7 @@ export type RelayBridge = {
   truncate: (id: string, fromEventId: string) => Promise<TranscriptEvent[]>;
   setMode: (sessionId: string, modeId: string) => Promise<void>;
   permission: (requestId: string, optionId: string | null) => Promise<void>;
+  setAutoApprove: (id: string, enabled: boolean) => Promise<void>;
   restart: (id: string) => Promise<void>;
   delete: (id: string) => Promise<void>;
   pickDirectory: () => Promise<string | null>;

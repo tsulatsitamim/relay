@@ -625,6 +625,14 @@ input:focus-visible {
   animation: relay-pulse 1.4s ease-in-out infinite;
 }
 
+.unread-badge {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--working);
+  flex-shrink: 0;
+}
+
 @keyframes relay-pulse {
   0%,
   100% {
@@ -975,6 +983,36 @@ input:focus-visible {
   font-size: var(--font-size-sm);
 }
 
+.auto-approve-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  height: var(--height-xs);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--working) 45%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--working) 7%, var(--card));
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+}
+
+.auto-approve-off {
+  height: calc(var(--height-xs) - 6px);
+  padding: 0 var(--space-1-5);
+  font-family: var(--font);
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.auto-approve-off:hover {
+  background: var(--hover);
+}
+
 .dots {
   display: inline-flex;
   align-items: center;
@@ -1130,6 +1168,16 @@ input:focus-visible {
 
 .permission-btn.deny {
   color: var(--muted);
+}
+
+.permission-btn.allow-all {
+  color: var(--working);
+  background: color-mix(in srgb, var(--working) 7%, var(--card));
+  border-color: color-mix(in srgb, var(--working) 45%, var(--line));
+}
+
+.permission-btn.allow-all:hover {
+  background: color-mix(in srgb, var(--working) 14%, var(--card));
 }
 
 .transcript-wrap {

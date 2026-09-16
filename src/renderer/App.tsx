@@ -188,6 +188,9 @@ function TitlebarChrome({
 export function App() {
   const [state, setState] = useState<RelayState>(emptyState);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [unread, setUnread] = useState<Set<string>>(() => new Set());
+  const [autoApprove, setAutoApprove] = useState<Set<string>>(() => new Set());
+  const selectedIdRef = useRef<string | null>(selectedId);
   const [repoPath, setRepoPath] = useState("");
   const [agentId, setAgentId] = useState("");
   const [query, setQuery] = useState("");
@@ -243,6 +246,14 @@ export function App() {
       })
       .catch((err) => console.error(err));
     return window.relay.subscribe((event) => {
+      if (event.type === "transcript" && event.sessionId !== selectedIdRef.current) {
+        setUnread((prev) => {
+          if (prev.has(event.sessionId)) return prev;
+          const next = new Set(prev);
+          next.add(event.sessionId);
+          return next;
+        });
+      }
       setState((prev) => {
         if (event.type === "sessions") return { ...prev, sessions: event.sessions };
         if (event.type === "transcript") {
@@ -270,6 +281,17 @@ export function App() {
       });
     });
   }, []);
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+    if (selectedId === null) return;
+    setUnread((prev) => {
+      if (!prev.has(selectedId)) return prev;
+      const next = new Set(prev);
+      next.delete(selectedId);
+      return next;
+    });
+  }, [selectedId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -391,6 +413,26 @@ export function App() {
       permissions: prev.permissions.filter((p) => p.id !== requestId),
     }));
     void window.relay.permission(requestId, optionId);
+  };
+
+  const allowAllForSession = (
+    sessionId: string,
+    requestId: string,
+    optionId: string | null,
+  ) => {
+    answerPermission(requestId, optionId);
+    setAutoApprove((prev) => new Set(prev).add(sessionId));
+    void window.relay.setAutoApprove(sessionId, true);
+  };
+
+  const disableAutoApprove = (sessionId: string) => {
+    setAutoApprove((prev) => {
+      if (!prev.has(sessionId)) return prev;
+      const next = new Set(prev);
+      next.delete(sessionId);
+      return next;
+    });
+    void window.relay.setAutoApprove(sessionId, false);
   };
 
   const sendToSession = async (
@@ -583,6 +625,7 @@ export function App() {
         active={session.id === selectedId}
         renaming={session.id === renamingId}
         permission={permissionSessionIds.has(session.id)}
+        unread={unread.has(session.id)}
         onSelect={setSelectedId}
         onContextMenu={(row, e) =>
           setMenu({ kind: "session", x: e.clientX, y: e.clientY, sessionId: row.id })
@@ -963,6 +1006,19 @@ export function App() {
             <header className="thread-head">
               <span className="thread-name">{selected.title}</span>
               <WorkingStatus active={working} since={selected.lastPromptAt} />
+              {autoApprove.has(selected.id) ? (
+                <span className="auto-approve-pill">
+                  Auto-approve on
+                  <button
+                    type="button"
+                    className="auto-approve-off"
+                    aria-label="Turn off auto-approve"
+                    onClick={() => disableAutoApprove(selected.id)}
+                  >
+                    Off
+                  </button>
+                </span>
+              ) : null}
               {selected.error ? <span className="thread-err">{selected.error}</span> : null}
               {canRestart ? (
                 <button
@@ -1011,6 +1067,9 @@ export function App() {
                     key={request.id}
                     request={request}
                     onAnswer={answerPermission}
+                    onAllowAll={(requestId, optionId) =>
+                      allowAllForSession(request.sessionId, requestId, optionId)
+                    }
                   />
                 ))}
               </div>

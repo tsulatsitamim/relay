@@ -228,6 +228,72 @@ describe("SessionManager", () => {
     );
   });
 
+  it("auto-approves permission requests while enabled for a session", async () => {
+    const sm = await manager();
+    const events: ManagerEvent[] = [];
+    sm.onEvent((e) => events.push(e));
+
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    await waitFor(() => (sm.get(session.id)?.status === "idle" ? true : null));
+
+    sm.setAutoApprove(session.id, true);
+    await sm.send(session.id, "need permission");
+
+    expect(sm.pendingPermissions()).toHaveLength(0);
+    expect(events.some((e) => e.type === "permission")).toBe(false);
+    await waitFor(() =>
+      sm.transcript(session.id).some((e) => e.kind === "diff") ? true : null,
+    );
+  });
+
+  it("surfaces permission requests again after auto-approve is disabled", async () => {
+    const sm = await manager();
+    const events: ManagerEvent[] = [];
+    sm.onEvent((e) => events.push(e));
+
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    await waitFor(() => (sm.get(session.id)?.status === "idle" ? true : null));
+
+    sm.setAutoApprove(session.id, true);
+    sm.setAutoApprove(session.id, false);
+    const sending = sm.send(session.id, "need permission");
+    const request = await waitFor(() => firstPermission(events));
+    expect(sm.pendingPermissions().map((r) => r.id)).toEqual([request.id]);
+    sm.answerPermission(request.id, "allow");
+    await sending;
+  });
+
+  it("clears auto-approve when the session restarts", async () => {
+    const sm = await manager();
+    const events: ManagerEvent[] = [];
+    sm.onEvent((e) => events.push(e));
+
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    await waitFor(() => (sm.get(session.id)?.status === "idle" ? true : null));
+
+    sm.setAutoApprove(session.id, true);
+    await sm.restart(session.id);
+    await waitFor(() => (sm.get(session.id)?.status === "idle" ? true : null));
+
+    const sending = sm.send(session.id, "need permission");
+    const request = await waitFor(() => firstPermission(events));
+    expect(request.title).toBe("Edit README.md");
+    sm.answerPermission(request.id, "allow");
+    await sending;
+  });
+
   it("marks a session exited when its agent process dies unexpectedly", async () => {
     const sm = await manager();
     const session = await sm.create({

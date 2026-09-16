@@ -8,6 +8,7 @@ type Props = {
   active: boolean;
   renaming: boolean;
   permission?: boolean;
+  unread?: boolean;
   onSelect: (id: string) => void;
   onContextMenu: (session: Session, event: MouseEvent) => void;
   onRename: (id: string, title: string) => void;
@@ -19,6 +20,7 @@ export const SessionRow = memo(function SessionRow({
   active,
   renaming,
   permission,
+  unread,
   onSelect,
   onContextMenu,
   onRename,
@@ -47,7 +49,7 @@ export const SessionRow = memo(function SessionRow({
 
   return (
     <div
-      className={`row-item ${active ? "active" : ""} ${session.archived ? "muted" : ""}`}
+      className={`row-item ${active ? "active" : ""} ${session.archived ? "muted" : ""} ${unread ? "unread" : ""}`}
       role="button"
       tabIndex={0}
       data-has-actions="true"
@@ -126,6 +128,9 @@ export const SessionRow = memo(function SessionRow({
             {session.archived ? <IconRedo /> : <IconArchive />}
           </button>
         </span>
+        {unread && !renaming ? (
+          <span className="unread-badge" title="Unread" aria-label="Unread" />
+        ) : null}
         <span className="when">{timeAgo(session.updatedAt)}</span>
       </span>
     </div>

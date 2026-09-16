@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:setMode", sessionId, modeId),
   permission: (requestId: string, optionId: string | null): Promise<void> =>
     ipcRenderer.invoke("relay:permission", requestId, optionId),
+  setAutoApprove: (id: string, enabled: boolean): Promise<void> =>
+    ipcRenderer.invoke("relay:setAutoApprove", id, enabled),
   restart: (id: string): Promise<void> => ipcRenderer.invoke("relay:restart", id),
   delete: (id: string): Promise<void> => ipcRenderer.invoke("relay:delete", id),
   pickDirectory: (): Promise<string | null> =>

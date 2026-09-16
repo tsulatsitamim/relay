@@ -68,6 +68,7 @@ function mount(
     truncate,
     cancel: vi.fn().mockResolvedValue(undefined),
     permission: vi.fn().mockResolvedValue(undefined),
+    setAutoApprove: vi.fn().mockResolvedValue(undefined),
     restart: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockResolvedValue(undefined),
     pickDirectory: vi.fn().mockResolvedValue(null),
@@ -419,5 +420,94 @@ describe("App working indicator", () => {
     await waitFor(() => {
       expect(document.querySelector(".working-row")).toBeNull();
     });
+  });
+});
+
+describe("App unread indicator", () => {
+  it("marks a non-selected session unread and clears it when selected", async () => {
+    const { emit } = mount([
+      makeSession({ id: "s1", title: "Session one" }),
+      makeSession({ id: "s2", title: "Session two" }),
+    ]);
+    await openSession("Session one");
+
+    act(() => {
+      emit({
+        type: "transcript",
+        sessionId: "s2",
+        events: [
+          { id: "e1", kind: "agent_message", payload: { text: "hello" } },
+        ],
+      });
+    });
+
+    const row = (await screen.findByText("Session two")).closest(
+      ".row-item",
+    ) as HTMLElement;
+    await waitFor(() => expect(row.querySelector(".unread-badge")).toBeTruthy());
+
+    fireEvent.click(row);
+    await waitFor(() => expect(row.querySelector(".unread-badge")).toBeNull());
+  });
+
+  it("does not mark the selected session unread", async () => {
+    const { emit } = mount([makeSession({ id: "s1", title: "Session one" })]);
+    await openSession("Session one");
+
+    act(() => {
+      emit({
+        type: "transcript",
+        sessionId: "s1",
+        events: [
+          { id: "e1", kind: "agent_message", payload: { text: "hello" } },
+        ],
+      });
+    });
+
+    const row = Array.from(
+      document.querySelectorAll(".sidebar .row-item"),
+    ).find(
+      (item) => item.querySelector(".cell-content")?.textContent === "Session one",
+    ) as HTMLElement;
+    expect(row.querySelector(".unread-badge")).toBeNull();
+  });
+});
+
+describe("App auto-approve", () => {
+  it("shows the indicator after allowing all and dismisses it when turned off", async () => {
+    const { bridge, emit } = mount([
+      makeSession({ id: "s1", title: "Session one" }),
+    ]);
+    await openSession("Session one");
+
+    act(() => {
+      emit({
+        type: "permission",
+        sessionId: "s1",
+        request: {
+          id: "p1",
+          sessionId: "s1",
+          title: "Edit README.md",
+          kind: "edit",
+          options: [
+            { optionId: "allow", name: "Allow once", kind: "allow_once" },
+            { optionId: "reject", name: "Reject", kind: "reject_once" },
+          ],
+        },
+      });
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Allow all for this session" }),
+    );
+    expect(bridge.permission).toHaveBeenCalledWith("p1", "allow");
+    expect(bridge.setAutoApprove).toHaveBeenCalledWith("s1", true);
+    expect(await screen.findByText("Auto-approve on")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Turn off auto-approve"));
+    expect(bridge.setAutoApprove).toHaveBeenLastCalledWith("s1", false);
+    await waitFor(() =>
+      expect(screen.queryByText("Auto-approve on")).toBeNull(),
+    );
   });
 });

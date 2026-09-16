@@ -16,6 +16,7 @@ import {
   type PermissionPrompt,
 } from "./acp-session.ts";
 import type { Store } from "./db.ts";
+import { pickAutoAllowOption } from "./permission.ts";
 import { reduceSessionUpdate } from "./transcript.ts";
 import { titleFromPrompt } from "./title.ts";
 import { repoFor } from "../shared/repo.ts";
@@ -45,6 +46,7 @@ export class SessionManager {
     string,
     { request: PermissionRequest; resolve: (answer: PermissionAnswer) => void }
   >();
+  private readonly autoApprove = new Set<string>();
   private seq = 0;
 
   constructor(private readonly store: Store) {
@@ -125,10 +127,21 @@ export class SessionManager {
     );
   }
 
+  setAutoApprove(id: string, enabled: boolean): void {
+    if (enabled) this.autoApprove.add(id);
+    else this.autoApprove.delete(id);
+  }
+
   private askPermission(
     sessionId: string,
     prompt: PermissionPrompt,
   ): Promise<PermissionAnswer> {
+    if (this.autoApprove.has(sessionId)) {
+      const optionId = pickAutoAllowOption(prompt.options);
+      return Promise.resolve(
+        optionId ? { outcome: "selected", optionId } : { outcome: "cancelled" },
+      );
+    }
     const id = randomUUID();
     const request: PermissionRequest = {
       id,
@@ -295,6 +308,7 @@ export class SessionManager {
     const session = this.require(id);
     await this.live.get(id)?.kill();
     this.live.delete(id);
+    this.autoApprove.delete(id);
     const agent = this.agentFor(session);
     await this.attach(session, agent, Boolean(session.acpSessionId));
   }
@@ -303,6 +317,7 @@ export class SessionManager {
     await this.live.get(id)?.kill();
     this.live.delete(id);
     this.cancelPendingForSession(id);
+    this.autoApprove.delete(id);
     this.events.delete(id);
     this.store.deleteSession(id);
     this.emitSessions();
@@ -313,6 +328,7 @@ export class SessionManager {
       [...this.live.values()].map((session) => session.kill()),
     );
     this.live.clear();
+    this.autoApprove.clear();
     for (const id of [...this.permissions.keys()]) {
       this.settlePermission(id, { outcome: "cancelled" });
     }

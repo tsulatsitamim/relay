@@ -1,15 +1,17 @@
 import type { PermissionRequest } from "../shared/types.ts";
+import { pickAutoAllowOption } from "../main/permission.ts";
 
 type Props = {
   request: PermissionRequest;
   onAnswer: (requestId: string, optionId: string | null) => void;
+  onAllowAll?: (requestId: string, optionId: string | null) => void;
 };
 
 function isReject(kind: string): boolean {
   return kind.startsWith("reject");
 }
 
-export function PermissionCard({ request, onAnswer }: Props) {
+export function PermissionCard({ request, onAnswer, onAllowAll }: Props) {
   const hasReject = request.options.some((option) => isReject(option.kind));
   return (
     <div className="permission" role="alertdialog" aria-label="Permission required">
@@ -39,6 +41,17 @@ export function PermissionCard({ request, onAnswer }: Props) {
             Deny
           </button>
         )}
+        {onAllowAll ? (
+          <button
+            type="button"
+            className="permission-btn allow-all"
+            onClick={() =>
+              onAllowAll(request.id, pickAutoAllowOption(request.options))
+            }
+          >
+            Allow all for this session
+          </button>
+        ) : null}
       </div>
     </div>
   );

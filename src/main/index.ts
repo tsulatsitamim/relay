@@ -1,17 +1,25 @@
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain, clipboard } from "electron";
+import {
+  app,
+  BrowserWindow,
+  Notification,
+  dialog,
+  ipcMain,
+  clipboard,
+} from "electron";
 import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import { SessionManager, defaultAgents } from "./session-manager.ts";
+import { notifyTurnFinished, type NotifyDeps } from "./notify.ts";
 import { createLogger } from "./logger.ts";
 import { repoNameFromPath, withGitBranch } from "./repo-name.ts";
 import { listFiles } from "./file-index.ts";
 import { listSkills } from "./skills.ts";
 import { readAttachment } from "./attachments.ts";
 import type { CreatePayload } from "../shared/ipc.ts";
-import type { PromptAttachment } from "../shared/types.ts";
+import type { PromptAttachment, SessionStatus } from "../shared/types.ts";
 
 function createWindow(): BrowserWindow {
   const dir = dirname(fileURLToPath(import.meta.url));
@@ -64,8 +72,42 @@ async function main(): Promise<void> {
     }
   };
 
+  const notifyDeps: NotifyDeps = {
+    isSupported: () => Notification.isSupported(),
+    isFocused: () =>
+      [...windows].some((win) => !win.isDestroyed() && win.isFocused()),
+    notify: ({ title, body, onClick }) => {
+      const notification = new Notification({ title, body });
+      notification.on("click", onClick);
+      notification.show();
+    },
+    focusWindow: () => {
+      const win = BrowserWindow.getAllWindows()[0];
+      if (!win) return;
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    },
+  };
+  const lastStatus = new Map<string, SessionStatus>();
+
   manager.onEvent((event) => {
     if (event.type === "log") logger.info(event.message, { sessionId: event.sessionId });
+    if (event.type === "sessions") {
+      for (const session of event.sessions) {
+        const previous = lastStatus.get(session.id);
+        lastStatus.set(session.id, session.status);
+        const finished =
+          (previous === "working" || previous === "starting") &&
+          session.status === "idle";
+        if (finished) {
+          notifyTurnFinished(notifyDeps, {
+            title: session.title,
+            body: "Finished",
+          });
+        }
+      }
+    }
     broadcast("relay:event", event);
   });
 
@@ -90,6 +132,13 @@ async function main(): Promise<void> {
     "relay:permission",
     (_e, requestId: string, optionId: string | null) => {
       manager.answerPermission(requestId, optionId);
+    },
+  );
+
+  ipcMain.handle(
+    "relay:setAutoApprove",
+    (_e, id: string, enabled: boolean) => {
+      manager.setAutoApprove(id, enabled);
     },
   );
 
