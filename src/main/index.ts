@@ -8,10 +8,12 @@ import {
   dialog,
   ipcMain,
   clipboard,
+  shell,
 } from "electron";
 import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import { SessionManager, defaultAgents } from "./session-manager.ts";
+import { resolveWithin } from "./open-path.ts";
 import {
   isTurnFinished,
   notifyTurnFinished,
@@ -283,6 +285,13 @@ async function main(): Promise<void> {
         }
       : { error: "missing session" };
     clipboard.writeText(JSON.stringify(live, null, 2));
+  });
+
+  ipcMain.handle("relay:openPath", async (_e, cwd: string, path: string) => {
+    const resolved = resolveWithin(cwd, path);
+    if (!resolved) return false;
+    const error = await shell.openPath(resolved);
+    return error === "";
   });
 
   ipcMain.handle("relay:windowControl", (event, action: "min" | "max" | "close") => {

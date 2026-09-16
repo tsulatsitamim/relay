@@ -22,6 +22,7 @@ export type RelayBridge = {
   setArchived: (id: string, archived: boolean) => Promise<void>;
   rename: (id: string, title: string) => Promise<void>;
   copyDebug: (id: string) => Promise<void>;
+  openPath: (cwd: string, path: string) => Promise<boolean>;
   windowControl: (action: "min" | "max" | "close") => Promise<void>;
   subscribe: (listener: (event: RelayEvent) => void) => () => void;
 };

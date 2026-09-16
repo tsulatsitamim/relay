@@ -227,6 +227,7 @@ export function App() {
   >();
   const pendingTruncate = useRef<string | null>(null);
   const [injectSessionId, setInjectSessionId] = useState<string | null>(null);
+  const [reviewedDiffs, setReviewedDiffs] = useState<Set<string>>(() => new Set());
   const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   if (injectSessionId !== selectedId) {
@@ -433,6 +434,20 @@ export function App() {
       return next;
     });
     void window.relay.setAutoApprove(sessionId, false);
+  };
+
+  const toggleDiffReviewed = (eventId: string) => {
+    setReviewedDiffs((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  };
+
+  const openDiff = (path: string) => {
+    if (!selected) return;
+    void window.relay.openPath(selected.workingDirectory, path);
   };
 
   const sendToSession = async (
@@ -1052,6 +1067,9 @@ export function App() {
                 setInject({ text, nonce: Date.now(), fromEventId: eventId });
               }}
               onRegenerate={regenerate}
+              reviewedDiffIds={reviewedDiffs}
+              onToggleReviewed={toggleDiffReviewed}
+              onOpenDiff={openDiff}
               footer={
                 <WorkingStatus
                   active={working}

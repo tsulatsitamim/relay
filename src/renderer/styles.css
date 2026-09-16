@@ -1885,6 +1885,30 @@ input:focus-visible {
   color: var(--danger);
 }
 
+.diff-reviewed,
+.diff-action {
+  flex-shrink: 0;
+  height: 18px;
+  padding: 0 6px;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.diff-reviewed:hover,
+.diff-action:hover {
+  background: var(--hover);
+}
+
+.diff-reviewed.on {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+
 .diff-body {
   margin: 0;
   padding: 0 0 8px;

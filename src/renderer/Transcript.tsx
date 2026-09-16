@@ -15,6 +15,9 @@ type Props = {
   events: TranscriptEvent[];
   onEditUser?: (text: string, eventId: string) => void;
   onRegenerate?: (agentEventId: string) => void;
+  reviewedDiffIds?: Set<string>;
+  onToggleReviewed?: (eventId: string) => void;
+  onOpenDiff?: (path: string) => void;
   footer?: ReactNode;
   activeEventId?: string | null;
 };
@@ -23,11 +26,17 @@ function EventRow({
   event,
   onEditUser,
   onRegenerate,
+  reviewedDiffIds,
+  onToggleReviewed,
+  onOpenDiff,
   isLast,
 }: {
   event: TranscriptEvent;
   onEditUser?: (text: string, eventId: string) => void;
   onRegenerate?: (agentEventId: string) => void;
+  reviewedDiffIds?: Set<string>;
+  onToggleReviewed?: (eventId: string) => void;
+  onOpenDiff?: (path: string) => void;
   isLast?: boolean;
 }) {
   if (event.kind === "commands") return null;
@@ -129,11 +138,17 @@ function EventRow({
   }
 
   if (event.kind === "diff") {
+    const path = String(event.payload.path ?? "file");
     return (
       <DiffBlock
-        path={String(event.payload.path ?? "file")}
+        path={path}
         oldText={(event.payload.oldText as string | null) ?? null}
         newText={String(event.payload.newText ?? "")}
+        reviewed={reviewedDiffIds?.has(event.id)}
+        onToggleReviewed={
+          onToggleReviewed ? () => onToggleReviewed(event.id) : undefined
+        }
+        onOpen={onOpenDiff ? () => onOpenDiff(path) : undefined}
       />
     );
   }
@@ -145,7 +160,16 @@ function EventRow({
   return <div className="msg status">{String(event.payload.text ?? "")}</div>;
 }
 
-export function Transcript({ events, onEditUser, onRegenerate, footer, activeEventId }: Props) {
+export function Transcript({
+  events,
+  onEditUser,
+  onRegenerate,
+  reviewedDiffIds,
+  onToggleReviewed,
+  onOpenDiff,
+  footer,
+  activeEventId,
+}: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stick, setStick] = useState(true);
   const lastAgentId = events.reduce<string | null>(
@@ -213,6 +237,9 @@ export function Transcript({ events, onEditUser, onRegenerate, footer, activeEve
                   event={event}
                   onEditUser={onEditUser}
                   onRegenerate={onRegenerate}
+                  reviewedDiffIds={reviewedDiffIds}
+                  onToggleReviewed={onToggleReviewed}
+                  onOpenDiff={onOpenDiff}
                   isLast={event.id === lastAgentId}
                 />
               </div>

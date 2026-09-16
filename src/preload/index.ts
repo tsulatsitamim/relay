@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:rename", id, title),
   copyDebug: (id: string): Promise<void> =>
     ipcRenderer.invoke("relay:copyDebug", id),
+  openPath: (cwd: string, path: string): Promise<boolean> =>
+    ipcRenderer.invoke("relay:openPath", cwd, path),
   windowControl: (action: "min" | "max" | "close"): Promise<void> =>
     ipcRenderer.invoke("relay:windowControl", action),
   subscribe: (listener: (event: RelayEvent) => void) => {

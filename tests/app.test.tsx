@@ -82,6 +82,7 @@ function mount(
     rename: vi.fn().mockResolvedValue(undefined),
     copyDebug: vi.fn().mockResolvedValue(undefined),
     windowControl: vi.fn().mockResolvedValue(undefined),
+    openPath: vi.fn().mockResolvedValue(true),
   };
   (window as any).relay = bridge;
   render(<App />);
@@ -470,6 +471,48 @@ describe("App unread indicator", () => {
       (item) => item.querySelector(".cell-content")?.textContent === "Session one",
     ) as HTMLElement;
     expect(row.querySelector(".unread-badge")).toBeNull();
+  });
+});
+
+describe("App diff review", () => {
+  const diffEvents = [
+    {
+      id: "d1",
+      kind: "diff",
+      payload: { path: "src/a.ts", oldText: "a\n", newText: "b\n" },
+    },
+  ] as RelayState["transcripts"][string];
+
+  it("keeps a reviewed diff marked across a re-render", async () => {
+    const { emit } = mount([makeSession({ id: "s1", title: "Session one" })], {
+      s1: diffEvents,
+    });
+    await openSession("Session one");
+    const button = await screen.findByRole("button", { name: "Reviewed" });
+    expect(button.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Reviewed" }).getAttribute("aria-pressed"),
+      ).toBe("true"),
+    );
+
+    act(() => {
+      emit({ type: "sessions", sessions: [makeSession({ id: "s1", title: "Session one" })] });
+    });
+    expect(
+      screen.getByRole("button", { name: "Reviewed" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("opens a diff file through the bridge with the session cwd", async () => {
+    const { bridge } = mount([makeSession({ id: "s1", title: "Session one" })], {
+      s1: diffEvents,
+    });
+    await openSession("Session one");
+    fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
+    expect(bridge.openPath).toHaveBeenCalledWith("/tmp/repo", "src/a.ts");
   });
 });
 
