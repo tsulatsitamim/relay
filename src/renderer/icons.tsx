@@ -33,6 +33,7 @@ import {
   SquarePen,
   Trash2,
   TriangleAlert,
+  X,
 } from "lucide-react";
 
 const sidebar: LucideProps = {
@@ -75,6 +76,7 @@ export const IconTrash = icon(Trash2, { size: 14, strokeWidth: 1.75 });
 export const IconCheck = icon(Check, { size: 14, strokeWidth: 2 });
 export const IconPencil = icon(Pencil, { size: 14, strokeWidth: 1.75 });
 export const IconCopy = icon(Copy, { size: 13, strokeWidth: 1.75 });
+export const IconX = icon(X, { size: 14, strokeWidth: 2 });
 export const IconSpinner = icon(LoaderCircle, { size: 14, strokeWidth: 2 });
 export const IconWarning = icon(TriangleAlert, { size: 14, strokeWidth: 2 });
 export const IconThinking = icon(Brain, { size: 14, strokeWidth: 1.75 });

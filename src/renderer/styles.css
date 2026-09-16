@@ -1534,49 +1534,53 @@ input:focus-visible {
 .msg-edit {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .msg-edit-input {
   width: 100%;
   min-width: min(360px, 70vw);
-  min-height: 52px;
   resize: none;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
+  overflow: hidden;
+  border: none;
+  border-radius: 18px;
+  background: transparent;
   color: var(--text);
   caret-color: var(--text);
   font: inherit;
   font-size: var(--conversation-font-size);
   line-height: var(--conversation-line-height);
   letter-spacing: normal;
-  padding: var(--space-1-5) var(--space-2);
+  padding: 0;
   outline: none;
 }
 
-.msg-edit-input:focus {
+.msg.user:has(.msg-edit-input:focus) {
+  background: color-mix(in srgb, var(--card) 94%, var(--text) 6%);
   border-color: color-mix(in srgb, var(--base) 24%, transparent);
 }
 
 .msg-edit-actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .msg-action {
-  height: 20px;
-  padding: 0 6px;
-  font-size: var(--font-size-sm);
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   color: var(--muted);
-  background: var(--card);
-  border: 1px solid var(--line);
+  background: transparent;
+  border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
 .msg-action:hover {
+  color: var(--text);
   background: var(--hover);
 }
 

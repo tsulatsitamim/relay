@@ -7,7 +7,7 @@ import { Markdown } from "./Markdown";
 import { PlanBlock } from "./PlanBlock";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
-import { IconArrowDown } from "./icons";
+import { IconArrowDown, IconCheck, IconCopy, IconX } from "./icons";
 import { MinimapRail } from "./MinimapRail";
 import { buildTurns, jumpTop } from "./minimap";
 import { isNearBottom, nextFollowMode, type FollowMode } from "./scroll";
@@ -24,6 +24,36 @@ type Props = {
   activeEventId?: string | null;
   streaming?: boolean;
 };
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const revert = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (revert.current !== null) window.clearTimeout(revert.current);
+    };
+  }, []);
+
+  function copy() {
+    void navigator.clipboard?.writeText(text);
+    setCopied(true);
+    if (revert.current !== null) window.clearTimeout(revert.current);
+    revert.current = window.setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <button
+      type="button"
+      className="msg-action"
+      aria-label="Copy message"
+      title="Copy"
+      onClick={copy}
+    >
+      {copied ? <IconCheck /> : <IconCopy />}
+    </button>
+  );
+}
 
 function EventRow({
   event,
@@ -42,6 +72,15 @@ function EventRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!editing) return;
+    const el = editRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [editing, draft]);
 
   if (event.kind === "commands") return null;
 
@@ -66,6 +105,7 @@ function EventRow({
         {editing ? (
           <div className="msg-edit">
             <textarea
+              ref={editRef}
               className="msg-edit-input"
               aria-label="Edit message text"
               value={draft}
@@ -86,23 +126,25 @@ function EventRow({
                 type="button"
                 className="msg-action"
                 aria-label="Save edit"
+                title="Save"
                 onClick={(e) => {
                   e.stopPropagation();
                   save();
                 }}
               >
-                Save
+                <IconCheck />
               </button>
               <button
                 type="button"
                 className="msg-action"
                 aria-label="Cancel edit"
+                title="Cancel"
                 onClick={(e) => {
                   e.stopPropagation();
                   setEditing(false);
                 }}
               >
-                Cancel
+                <IconX />
               </button>
             </div>
           </div>
@@ -123,14 +165,7 @@ function EventRow({
             ) : null}
             <div className="msg-foot" onClick={(e) => e.stopPropagation()}>
               <div className="msg-actions">
-                <button
-                  type="button"
-                  className="msg-action"
-                  aria-label="Copy message"
-                  onClick={() => void navigator.clipboard?.writeText(text)}
-                >
-                  Copy
-                </button>
+                <CopyButton text={text} />
               </div>
               {time != null ? <span className="msg-time">{time}</span> : null}
             </div>
@@ -147,14 +182,7 @@ function EventRow({
         <Markdown text={text} />
         <div className="msg-foot">
           <div className="msg-actions">
-            <button
-              type="button"
-              className="msg-action"
-              aria-label="Copy message"
-              onClick={() => void navigator.clipboard?.writeText(text)}
-            >
-              Copy
-            </button>
+            <CopyButton text={text} />
           </div>
           {time != null ? <span className="msg-time">{time}</span> : null}
         </div>

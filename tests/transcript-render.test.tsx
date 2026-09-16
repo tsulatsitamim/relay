@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Transcript } from "../src/renderer/Transcript.tsx";
 import { formatDay, formatTime } from "../src/renderer/time.ts";
 import type { TranscriptEvent } from "../src/shared/types.ts";
@@ -253,7 +253,77 @@ describe("Transcript rendering", () => {
     ];
     const { container } = render(<Transcript events={events} onEditUser={vi.fn()} />);
     const agent = container.querySelector(".msg.agent")!;
-    expect(agent.querySelector(".msg-actions")?.textContent).toBe("Copy");
+    expect(agent.querySelector(".msg-actions")?.textContent).toBe("");
+    expect(agent.querySelector(".msg-actions .lucide-copy")).toBeTruthy();
+  });
+
+  it("renders the copy action as an icon-only button with a tooltip", () => {
+    const events: TranscriptEvent[] = [
+      { id: "u1", kind: "user", payload: { text: "hello" } },
+      { id: "a1", kind: "agent_message", payload: { text: "world" } },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    const buttons = screen.getAllByRole("button", { name: "Copy message" });
+    expect(buttons).toHaveLength(2);
+    for (const button of buttons) {
+      expect(button.textContent).toBe("");
+      expect(button.getAttribute("title")).toBe("Copy");
+      expect(button.querySelector("svg.lucide-copy")).toBeTruthy();
+    }
+    expect(container.textContent).not.toContain("Copy");
+  });
+
+  it("swaps the copy icon for a check and reverts after the feedback delay", () => {
+    vi.useFakeTimers();
+    try {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
+      const events: TranscriptEvent[] = [
+        { id: "a1", kind: "agent_message", payload: { text: "the answer" } },
+      ];
+      render(<Transcript events={events} />);
+      const button = screen.getByRole("button", { name: "Copy message" });
+      expect(button.querySelector("svg.lucide-copy")).toBeTruthy();
+      fireEvent.click(button);
+      expect(writeText).toHaveBeenCalledWith("the answer");
+      expect(button.querySelector("svg.lucide-check")).toBeTruthy();
+      expect(button.querySelector("svg.lucide-copy")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(1200);
+      });
+      expect(button.querySelector("svg.lucide-copy")).toBeTruthy();
+      expect(button.querySelector("svg.lucide-check")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("renders the inline edit actions as icon-only buttons", () => {
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "try again" } },
+    ];
+    const { container } = render(<Transcript events={events} onEditUser={vi.fn()} />);
+    fireEvent.click(container.querySelector(".msg.user")!);
+    const save = screen.getByRole("button", { name: "Save edit" });
+    const cancel = screen.getByRole("button", { name: "Cancel edit" });
+    expect(save.textContent).toBe("");
+    expect(cancel.textContent).toBe("");
+    expect(save.querySelector("svg.lucide-check")).toBeTruthy();
+    expect(cancel.querySelector("svg.lucide-x")).toBeTruthy();
+  });
+
+  it("cancels an inline edit through the cancel button", () => {
+    const onEditUser = vi.fn();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "try again" } },
+    ];
+    const { container } = render(<Transcript events={events} onEditUser={onEditUser} />);
+    fireEvent.click(container.querySelector(".msg.user")!);
+    const box = screen.getByRole("textbox", { name: "Edit message text" });
+    fireEvent.change(box, { target: { value: "discard me" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel edit" }));
+    expect(onEditUser).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "Edit message text" })).toBeNull();
   });
 
   it("renders a usage line with tokens and cost", () => {
