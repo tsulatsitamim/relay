@@ -15,7 +15,6 @@ import { useVisibleAnimation } from "./visible-animation";
 type Props = {
   events: TranscriptEvent[];
   onEditUser?: (text: string, eventId: string) => void;
-  onRegenerate?: (agentEventId: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
@@ -28,90 +27,135 @@ function EventRow({
   event,
   time,
   onEditUser,
-  onRegenerate,
   reviewedDiffIds,
   onToggleReviewed,
   onOpenDiff,
-  isLast,
 }: {
   event: TranscriptEvent;
   time: string | null;
   onEditUser?: (text: string, eventId: string) => void;
-  onRegenerate?: (agentEventId: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
-  isLast?: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
   if (event.kind === "commands") return null;
 
   if (event.kind === "user") {
+    const text = String(event.payload.text ?? "");
     const attachments = event.payload.attachments as
       | { name: string; thumb?: string }[]
       | undefined;
+    const save = () => {
+      setEditing(false);
+      onEditUser?.(draft, event.id);
+    };
     return (
-      <div className="msg user">
-        {time != null ? (
-          <span className="msg-time">{time}</span>
-        ) : null}
-        {onEditUser ? (
-          <div className="msg-actions">
-            <button
-              type="button"
-              className="msg-action"
-              aria-label="Edit message"
-              onClick={() => onEditUser(String(event.payload.text ?? ""), event.id)}
-            >
-              Edit
-            </button>
+      <div
+        className="msg user"
+        onClick={() => {
+          if (editing || !onEditUser) return;
+          setDraft(text);
+          setEditing(true);
+        }}
+      >
+        {editing ? (
+          <div className="msg-edit">
+            <textarea
+              className="msg-edit-input"
+              aria-label="Edit message text"
+              value={draft}
+              autoFocus
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  save();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setEditing(false);
+                }
+              }}
+            />
+            <div className="msg-edit-actions">
+              <button
+                type="button"
+                className="msg-action"
+                aria-label="Save edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  save();
+                }}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className="msg-action"
+                aria-label="Cancel edit"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditing(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        ) : null}
-        {String(event.payload.text ?? "")}
-        {attachments?.length ? (
-          <div className="msg-attachments">
-            {attachments.map((a, index) => (
-              <span className="msg-attachment" key={`${index}-${a.name}`}>
-                {a.thumb ? (
-                  <img className="msg-thumb" src={a.thumb} alt={a.name} />
-                ) : null}
-                {a.name}
-              </span>
-            ))}
-          </div>
-        ) : null}
+        ) : (
+          <>
+            {text}
+            {attachments?.length ? (
+              <div className="msg-attachments">
+                {attachments.map((a, index) => (
+                  <span className="msg-attachment" key={`${index}-${a.name}`}>
+                    {a.thumb ? (
+                      <img className="msg-thumb" src={a.thumb} alt={a.name} />
+                    ) : null}
+                    {a.name}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className="msg-foot" onClick={(e) => e.stopPropagation()}>
+              <div className="msg-actions">
+                <button
+                  type="button"
+                  className="msg-action"
+                  aria-label="Copy message"
+                  onClick={() => void navigator.clipboard?.writeText(text)}
+                >
+                  Copy
+                </button>
+              </div>
+              {time != null ? <span className="msg-time">{time}</span> : null}
+            </div>
+          </>
+        )}
       </div>
     );
   }
 
   if (event.kind === "agent_message") {
+    const text = String(event.payload.text ?? "");
     return (
       <div className="msg agent">
-        {time != null ? (
-          <span className="msg-time">{time}</span>
-        ) : null}
-        <div className="msg-actions">
-          <button
-            type="button"
-            className="msg-action"
-            aria-label="Copy message"
-            onClick={() =>
-              void navigator.clipboard?.writeText(String(event.payload.text ?? ""))
-            }
-          >
-            Copy
-          </button>
-          {isLast && onRegenerate ? (
+        <Markdown text={text} />
+        <div className="msg-foot">
+          <div className="msg-actions">
             <button
               type="button"
               className="msg-action"
-              aria-label="Regenerate answer"
-              onClick={() => onRegenerate(event.id)}
+              aria-label="Copy message"
+              onClick={() => void navigator.clipboard?.writeText(text)}
             >
-              Regenerate
+              Copy
             </button>
-          ) : null}
+          </div>
+          {time != null ? <span className="msg-time">{time}</span> : null}
         </div>
-        <Markdown text={String(event.payload.text ?? "")} />
       </div>
     );
   }
@@ -168,10 +212,8 @@ function MessageRow({
   event,
   time,
   isActive,
-  isLast,
   streamingRow,
   onEditUser,
-  onRegenerate,
   reviewedDiffIds,
   onToggleReviewed,
   onOpenDiff,
@@ -179,10 +221,8 @@ function MessageRow({
   event: TranscriptEvent;
   time: string | null;
   isActive: boolean;
-  isLast: boolean;
   streamingRow?: boolean;
   onEditUser?: (text: string, eventId: string) => void;
-  onRegenerate?: (agentEventId: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
@@ -200,11 +240,9 @@ function MessageRow({
         event={event}
         time={time}
         onEditUser={onEditUser}
-        onRegenerate={onRegenerate}
         reviewedDiffIds={reviewedDiffIds}
         onToggleReviewed={onToggleReviewed}
         onOpenDiff={onOpenDiff}
-        isLast={isLast}
       />
     </div>
   );
@@ -213,7 +251,6 @@ function MessageRow({
 export function Transcript({
   events,
   onEditUser,
-  onRegenerate,
   reviewedDiffIds,
   onToggleReviewed,
   onOpenDiff,
@@ -236,10 +273,6 @@ export function Transcript({
     streamingSinceRef.current = null;
   }
   const rows = useMemo(() => buildRows(events), [events]);
-  const lastAgentId = events.reduce<string | null>(
-    (last, event) => (event.kind === "agent_message" ? event.id : last),
-    null,
-  );
 
   function resumeScrollTracking() {
     suppressScroll.current = true;
@@ -320,13 +353,11 @@ export function Transcript({
                 event={event}
                 time={time}
                 isActive={event.id === activeEventId}
-                isLast={event.id === lastAgentId}
                 streamingRow={
                   streamingSinceRef.current !== null &&
                   index >= streamingSinceRef.current
                 }
                 onEditUser={onEditUser}
-                onRegenerate={onRegenerate}
                 reviewedDiffIds={reviewedDiffIds}
                 onToggleReviewed={onToggleReviewed}
                 onOpenDiff={onOpenDiff}

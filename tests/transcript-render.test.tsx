@@ -129,45 +129,131 @@ describe("Transcript rendering", () => {
     expect(writeText).toHaveBeenCalledWith("the answer");
   });
 
-  it("edits a user message through the action when onEditUser is provided", () => {
+  it("opens an inline editor pre-filled when a user message body is clicked", () => {
+    const onEditUser = vi.fn();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "try again" } },
+    ];
+    const { container } = render(
+      <Transcript events={events} onEditUser={onEditUser} />,
+    );
+    fireEvent.click(container.querySelector(".msg.user")!);
+    const box = screen.getByRole("textbox", {
+      name: "Edit message text",
+    }) as HTMLTextAreaElement;
+    expect(box.value).toBe("try again");
+  });
+
+  it("saves an inline edit through onEditUser", () => {
+    const onEditUser = vi.fn();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "try again" } },
+    ];
+    const { container } = render(
+      <Transcript events={events} onEditUser={onEditUser} />,
+    );
+    fireEvent.click(container.querySelector(".msg.user")!);
+    const box = screen.getByRole("textbox", { name: "Edit message text" });
+    fireEvent.change(box, { target: { value: "try harder" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save edit" }));
+    expect(onEditUser).toHaveBeenCalledWith("try harder", "1");
+  });
+
+  it("saves on Enter and keeps Shift+Enter for newlines", () => {
+    const onEditUser = vi.fn();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "try again" } },
+    ];
+    const { container } = render(
+      <Transcript events={events} onEditUser={onEditUser} />,
+    );
+    fireEvent.click(container.querySelector(".msg.user")!);
+    const box = screen.getByRole("textbox", { name: "Edit message text" });
+    fireEvent.change(box, { target: { value: "line one\nline two" } });
+    fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+    expect(onEditUser).not.toHaveBeenCalled();
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onEditUser).toHaveBeenCalledWith("line one\nline two", "1");
+  });
+
+  it("does not call onEditUser when an inline edit is cancelled with Escape", () => {
+    const onEditUser = vi.fn();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "try again" } },
+    ];
+    const { container } = render(
+      <Transcript events={events} onEditUser={onEditUser} />,
+    );
+    fireEvent.click(container.querySelector(".msg.user")!);
+    const box = screen.getByRole("textbox", { name: "Edit message text" });
+    fireEvent.change(box, { target: { value: "discard me" } });
+    fireEvent.keyDown(box, { key: "Escape" });
+    expect(onEditUser).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "Edit message text" })).toBeNull();
+  });
+
+  it("does not open an inline editor when onEditUser is absent", () => {
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "try again" } },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    fireEvent.click(container.querySelector(".msg.user")!);
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("does not open the inline editor when the footer copy button is clicked", () => {
     const onEditUser = vi.fn();
     const events: TranscriptEvent[] = [
       { id: "1", kind: "user", payload: { text: "try again" } },
     ];
     render(<Transcript events={events} onEditUser={onEditUser} />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
-    expect(onEditUser).toHaveBeenCalledWith("try again", "1");
+    fireEvent.click(screen.getByRole("button", { name: "Copy message" }));
+    expect(screen.queryByRole("textbox")).toBeNull();
   });
 
-  it("offers regenerate only on the last agent message", () => {
-    const onRegenerate = vi.fn();
+  it("has no regenerate action", () => {
     const events: TranscriptEvent[] = [
       { id: "u1", kind: "user", payload: { text: "q1" } },
       { id: "a1", kind: "agent_message", payload: { text: "one" } },
       { id: "u2", kind: "user", payload: { text: "q2" } },
       { id: "a2", kind: "agent_message", payload: { text: "two" } },
     ];
-    render(<Transcript events={events} onRegenerate={onRegenerate} />);
-    const buttons = screen.getAllByRole("button", { name: "Regenerate answer" });
-    expect(buttons).toHaveLength(1);
-    fireEvent.click(buttons[0]!);
-    expect(onRegenerate).toHaveBeenCalledWith("a2");
-  });
-
-  it("omits regenerate when onRegenerate is not provided", () => {
-    const events: TranscriptEvent[] = [
-      { id: "a1", kind: "agent_message", payload: { text: "one" } },
-    ];
     render(<Transcript events={events} />);
     expect(screen.queryByRole("button", { name: "Regenerate answer" })).toBeNull();
   });
 
-  it("omits the edit action when onEditUser is not provided", () => {
+  it("renders copy in the footer of user and agent messages", () => {
     const events: TranscriptEvent[] = [
-      { id: "1", kind: "user", payload: { text: "try again" } },
+      { id: "u1", kind: "user", payload: { text: "hello" } },
+      { id: "a1", kind: "agent_message", payload: { text: "world" } },
     ];
-    render(<Transcript events={events} />);
-    expect(screen.queryByRole("button", { name: "Edit message" })).toBeNull();
+    const { container } = render(<Transcript events={events} />);
+    const foots = container.querySelectorAll(".msg-foot");
+    expect(foots).toHaveLength(2);
+    expect(foots[0]!.querySelector(".msg-actions")).toBeTruthy();
+    expect(foots[1]!.querySelector(".msg-actions")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Copy message" })).toHaveLength(2);
+  });
+
+  it("renders the timestamp inside the message footer", () => {
+    const ts = new Date(2026, 0, 2, 9, 5).getTime();
+    const events: TranscriptEvent[] = [
+      { id: "u1", kind: "user", payload: { text: "hello" }, createdAt: ts },
+      { id: "a1", kind: "agent_message", payload: { text: "world" }, createdAt: ts },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    const foots = container.querySelectorAll(".msg-foot");
+    expect(foots[0]!.querySelector(".msg-time")?.textContent).toBe(formatTime(ts));
+    expect(foots[1]!.querySelector(".msg-time")?.textContent).toBe(formatTime(ts));
+  });
+
+  it("does not render an edit affordance on agent messages", () => {
+    const events: TranscriptEvent[] = [
+      { id: "a1", kind: "agent_message", payload: { text: "world" } },
+    ];
+    const { container } = render(<Transcript events={events} onEditUser={vi.fn()} />);
+    const agent = container.querySelector(".msg.agent")!;
+    expect(agent.querySelector(".msg-actions")?.textContent).toBe("Copy");
   });
 
   it("renders a usage line with tokens and cost", () => {

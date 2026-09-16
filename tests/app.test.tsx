@@ -286,8 +286,14 @@ describe("App edit-resend isolation", () => {
     await screen.findByText("Session one");
     const box = await openSession("Session one");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Edit message" }));
-    await waitFor(() => expect(box.value).toBe("hello there"));
+    await screen.findByText("hello there");
+    fireEvent.click(document.querySelector(".msg.user")!);
+    const edit = (await screen.findByRole("textbox", {
+      name: "Edit message text",
+    })) as HTMLTextAreaElement;
+    fireEvent.change(edit, { target: { value: "hello there edited" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save edit" }));
+    await waitFor(() => expect(box.value).toBe("hello there edited"));
 
     fireEvent.click(screen.getByText("Session two"));
     const next = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
@@ -296,25 +302,18 @@ describe("App edit-resend isolation", () => {
   });
 });
 
-describe("App regenerate", () => {
-  it("truncates the last agent message then resends the last user text", async () => {
-    const { send, truncate } = mount([makeSession()], {
+describe("App regenerate removal", () => {
+  it("no longer offers a regenerate action for the last agent message", async () => {
+    mount([makeSession()], {
       s1: [
         { id: "u1", kind: "user", payload: { text: "first question" } },
         { id: "a1", kind: "agent_message", payload: { text: "first answer" } },
-        { id: "u2", kind: "user", payload: { text: "second question" } },
-        { id: "a2", kind: "agent_message", payload: { text: "second answer" } },
       ],
     });
     await openSession("Session one");
-    fireEvent.click(screen.getByRole("button", { name: "Regenerate answer" }));
-
-    await waitFor(() => expect(send).toHaveBeenCalled());
-    expect(truncate).toHaveBeenCalledWith("s1", "a2");
-    expect(send.mock.calls[0]?.slice(0, 2)).toEqual(["s1", "second question"]);
-    expect(truncate.mock.invocationCallOrder[0]).toBeLessThan(
-      send.mock.invocationCallOrder[0]!,
-    );
+    expect(
+      screen.queryByRole("button", { name: "Regenerate answer" }),
+    ).toBeNull();
   });
 });
 
@@ -327,9 +326,14 @@ describe("App edit resend", () => {
       ],
     });
     const box = await openSession("Session one");
-    fireEvent.click(screen.getByRole("button", { name: "Edit message" }));
-    await waitFor(() => expect(box.value).toBe("original"));
-    fireEvent.change(box, { target: { value: "edited" } });
+    await screen.findByText("original");
+    fireEvent.click(document.querySelector(".msg.user")!);
+    const edit = (await screen.findByRole("textbox", {
+      name: "Edit message text",
+    })) as HTMLTextAreaElement;
+    fireEvent.change(edit, { target: { value: "edited" } });
+    fireEvent.keyDown(edit, { key: "Enter" });
+    await waitFor(() => expect(box.value).toBe("edited"));
     fireEvent.keyDown(box, { key: "Enter" });
 
     await waitFor(() => expect(send).toHaveBeenCalled());

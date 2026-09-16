@@ -492,26 +492,6 @@ export function App() {
     }
   };
 
-  const regenerate = (agentEventId: string) => {
-    if (!selected || working) return;
-    const index = events.findIndex((event) => event.id === agentEventId);
-    if (index === -1) return;
-    let found: string | null = null;
-    for (let i = index - 1; i >= 0; i -= 1) {
-      const event = events[i]!;
-      if (event.kind === "user") {
-        found = String(event.payload.text ?? "");
-        break;
-      }
-    }
-    if (found === null) return;
-    const prompt = found;
-    void (async () => {
-      await window.relay.truncate(selected.id, agentEventId);
-      await sendToSession(selected.id, prompt);
-    })();
-  };
-
   const enqueue = (sessionId: string, text: string) => {
     pendingTruncate.current = null;
     setQueued((prev) => ({
@@ -1070,7 +1050,6 @@ export function App() {
                 pendingTruncate.current = eventId;
                 setInject({ text, nonce: Date.now(), fromEventId: eventId });
               }}
-              onRegenerate={regenerate}
               reviewedDiffIds={reviewedDiffs}
               onToggleReviewed={toggleDiffReviewed}
               onOpenDiff={openDiff}
