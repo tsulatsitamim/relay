@@ -247,6 +247,29 @@ describe("Transcript rendering", () => {
     expect(foots[1]!.querySelector(".msg-time")?.textContent).toBe(formatTime(ts));
   });
 
+  it("renders the user footer below and outside the bubble", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const ts = new Date(2026, 0, 2, 9, 5).getTime();
+    const events: TranscriptEvent[] = [
+      { id: "u1", kind: "user", payload: { text: "hello" }, createdAt: ts },
+      { id: "a1", kind: "agent_message", payload: { text: "world" }, createdAt: ts },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    const user = container.querySelector(".msg.user")!;
+    const bubble = user.querySelector(".msg-bubble");
+    const foot = user.querySelector(".msg-foot");
+    expect(bubble).toBeTruthy();
+    expect(foot).toBeTruthy();
+    expect(bubble!.contains(foot!)).toBe(false);
+    expect(foot!.contains(bubble!)).toBe(false);
+    expect(bubble!.textContent).toContain("hello");
+    expect(foot!.querySelector(".msg-time")?.textContent).toBe(formatTime(ts));
+    const copy = foot!.querySelector<HTMLButtonElement>(".msg-actions button")!;
+    fireEvent.click(copy);
+    expect(writeText).toHaveBeenCalledWith("hello");
+  });
+
   it("does not render an edit affordance on agent messages", () => {
     const events: TranscriptEvent[] = [
       { id: "a1", kind: "agent_message", payload: { text: "world" } },

@@ -102,74 +102,78 @@ function EventRow({
           setEditing(true);
         }}
       >
-        {editing ? (
-          <div className="msg-edit">
-            <textarea
-              ref={editRef}
-              className="msg-edit-input"
-              aria-label="Edit message text"
-              value={draft}
-              autoFocus
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  save();
-                } else if (e.key === "Escape") {
-                  e.preventDefault();
-                  setEditing(false);
-                }
-              }}
-            />
-            <div className="msg-edit-actions">
-              <button
-                type="button"
-                className="msg-action"
-                aria-label="Save edit"
-                title="Save"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  save();
+        <div className="msg-bubble">
+          {editing ? (
+            <div className="msg-edit">
+              <textarea
+                ref={editRef}
+                className="msg-edit-input"
+                aria-label="Edit message text"
+                value={draft}
+                autoFocus
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    save();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setEditing(false);
+                  }
                 }}
-              >
-                <IconCheck />
-              </button>
-              <button
-                type="button"
-                className="msg-action"
-                aria-label="Cancel edit"
-                title="Cancel"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditing(false);
-                }}
-              >
-                <IconX />
-              </button>
+              />
+              <div className="msg-edit-actions">
+                <button
+                  type="button"
+                  className="msg-action"
+                  aria-label="Save edit"
+                  title="Save"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    save();
+                  }}
+                >
+                  <IconCheck />
+                </button>
+                <button
+                  type="button"
+                  className="msg-action"
+                  aria-label="Cancel edit"
+                  title="Cancel"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditing(false);
+                  }}
+                >
+                  <IconX />
+                </button>
+              </div>
             </div>
+          ) : (
+            <>
+              {text}
+              {attachments?.length ? (
+                <div className="msg-attachments">
+                  {attachments.map((a, index) => (
+                    <span className="msg-attachment" key={`${index}-${a.name}`}>
+                      {a.thumb ? (
+                        <img className="msg-thumb" src={a.thumb} alt={a.name} />
+                      ) : null}
+                      {a.name}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+        {editing ? null : (
+          <div className="msg-foot" onClick={(e) => e.stopPropagation()}>
+            <div className="msg-actions">
+              <CopyButton text={text} />
+            </div>
+            {time != null ? <span className="msg-time">{time}</span> : null}
           </div>
-        ) : (
-          <>
-            {text}
-            {attachments?.length ? (
-              <div className="msg-attachments">
-                {attachments.map((a, index) => (
-                  <span className="msg-attachment" key={`${index}-${a.name}`}>
-                    {a.thumb ? (
-                      <img className="msg-thumb" src={a.thumb} alt={a.name} />
-                    ) : null}
-                    {a.name}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            <div className="msg-foot" onClick={(e) => e.stopPropagation()}>
-              <div className="msg-actions">
-                <CopyButton text={text} />
-              </div>
-              {time != null ? <span className="msg-time">{time}</span> : null}
-            </div>
-          </>
         )}
       </div>
     );

@@ -1477,19 +1477,28 @@ input:focus-visible {
 }
 
 .msg.user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
   align-self: flex-end;
   width: fit-content;
   max-width: 80%;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
-  padding: 12px;
   font-size: var(--conversation-font-size);
   line-height: var(--conversation-line-height);
   letter-spacing: normal;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.msg-bubble {
+  max-width: 100%;
+  min-width: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  padding: 12px;
 }
 
 .msg.user,
@@ -1507,6 +1516,7 @@ input:focus-visible {
 
 .msg.user .msg-foot {
   justify-content: flex-end;
+  margin-top: 0;
 }
 
 .msg-actions {
@@ -1555,7 +1565,7 @@ input:focus-visible {
   outline: none;
 }
 
-.msg.user:has(.msg-edit-input:focus) {
+.msg.user:has(.msg-edit-input:focus) .msg-bubble {
   background: color-mix(in srgb, var(--card) 94%, var(--text) 6%);
   border-color: color-mix(in srgb, var(--base) 24%, transparent);
 }

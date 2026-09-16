@@ -78,8 +78,8 @@ describe("conversation typography contract", () => {
   });
 
   it("draws the user bubble at 80% / 18px / 12px on a surface", () => {
-    const bubble = decls(".msg.user");
-    expect(bubble).toContain("max-width: 80%;");
+    expect(decls(".msg.user")).toContain("max-width: 80%;");
+    const bubble = decls(".msg-bubble");
     expect(bubble).toContain("border-radius: 18px;");
     expect(bubble).toContain("padding: 12px;");
   });
