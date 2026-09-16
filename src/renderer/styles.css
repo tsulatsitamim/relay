@@ -55,9 +55,9 @@
   --icon-action: 14px;
   --icon-action-box: var(--height-xs);
   --titlebar: 44px;
-  --composer-max-width: 640px;
+  --composer-max-width: 768px;
   --composer-messages-padding-inline: 12px;
-  --conversation-font-size: var(--font-size-lg);
+  --conversation-font-size: 15px;
   --conversation-line-height: 22px;
 }
 
@@ -796,7 +796,7 @@ input:focus-visible {
   color: transparent;
   caret-color: var(--text);
   font-size: var(--font-size-lg);
-  line-height: 22px;
+  line-height: 24px;
   letter-spacing: -0.15px;
 }
 
@@ -809,7 +809,7 @@ input:focus-visible {
   overflow-wrap: anywhere;
   color: var(--text);
   font-size: var(--font-size-lg);
-  line-height: 22px;
+  line-height: 24px;
   letter-spacing: -0.15px;
 }
 
@@ -1196,20 +1196,22 @@ input:focus-visible {
   overflow: auto;
   width: min(var(--composer-max-width), calc(100% - (var(--composer-messages-padding-inline) * 2)));
   margin: 0 auto;
-  padding: var(--space-5) 0 var(--space-5);
+  padding: var(--space-5) var(--space-3);
   scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
 }
 
 .transcript::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .transcript::-webkit-scrollbar-thumb {
   background: transparent;
+  border: 3px solid transparent;
   border-radius: 99px;
+  background-clip: padding-box;
 }
 
 .transcript:hover::-webkit-scrollbar-thumb {
@@ -1357,10 +1359,19 @@ input:focus-visible {
   position: relative;
 }
 
+.msg-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  min-height: 20px;
+}
+
+.msg.user .msg-foot {
+  justify-content: flex-end;
+}
+
 .msg-actions {
-  position: absolute;
-  top: -10px;
-  right: 4px;
   display: inline-flex;
   gap: 2px;
   opacity: 0;
@@ -1375,20 +1386,44 @@ input:focus-visible {
 }
 
 .msg-time {
-  position: absolute;
-  bottom: -10px;
-  right: 4px;
   color: var(--faint);
   font-size: var(--font-size-xs);
   white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
   user-select: none;
 }
 
-.msg:hover .msg-time,
-.msg:focus-within .msg-time {
-  opacity: 1;
+.msg-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.msg-edit-input {
+  width: 100%;
+  min-width: min(360px, 70vw);
+  min-height: 52px;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+  caret-color: var(--text);
+  font: inherit;
+  font-size: var(--conversation-font-size);
+  line-height: var(--conversation-line-height);
+  letter-spacing: -0.15px;
+  padding: var(--space-1-5) var(--space-2);
+  outline: none;
+}
+
+.msg-edit-input:focus {
+  border-color: color-mix(in srgb, var(--base) 24%, transparent);
+}
+
+.msg-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
 }
 
 .msg-action {
@@ -1430,7 +1465,7 @@ input:focus-visible {
 .msg.agent {
   max-width: 100%;
   font-size: var(--conversation-font-size);
-  line-height: var(--conversation-line-height);
+  line-height: 1.6;
   letter-spacing: -0.15px;
   word-break: break-word;
 }
@@ -1464,8 +1499,8 @@ input:focus-visible {
 }
 
 .markdown p {
-  margin: 0 0 10px;
-  line-height: var(--conversation-line-height);
+  margin: 0 0 12px;
+  line-height: inherit;
 }
 
 .markdown h1,
