@@ -12,7 +12,11 @@ import {
 import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import { SessionManager, defaultAgents } from "./session-manager.ts";
-import { notifyTurnFinished, type NotifyDeps } from "./notify.ts";
+import {
+  isTurnFinished,
+  notifyTurnFinished,
+  type NotifyDeps,
+} from "./notify.ts";
 import { createLogger } from "./logger.ts";
 import { repoNameFromPath, withGitBranch } from "./repo-name.ts";
 import { listFiles } from "./file-index.ts";
@@ -97,9 +101,7 @@ async function main(): Promise<void> {
       for (const session of event.sessions) {
         const previous = lastStatus.get(session.id);
         lastStatus.set(session.id, session.status);
-        const finished =
-          (previous === "working" || previous === "starting") &&
-          session.status === "idle";
+        const finished = isTurnFinished(previous, session.status);
         if (finished) {
           notifyTurnFinished(notifyDeps, {
             title: session.title,

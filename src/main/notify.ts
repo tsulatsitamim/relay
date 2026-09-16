@@ -1,3 +1,12 @@
+import type { SessionStatus } from "../shared/types.ts";
+
+export function isTurnFinished(
+  previous: SessionStatus | undefined,
+  next: SessionStatus,
+): boolean {
+  return previous === "working" && next === "idle";
+}
+
 export type NotifyDeps = {
   isSupported: () => boolean;
   isFocused: () => boolean;

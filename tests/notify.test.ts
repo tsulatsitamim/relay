@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { notifyTurnFinished, type NotifyDeps } from "../src/main/notify.ts";
+import {
+  isTurnFinished,
+  notifyTurnFinished,
+  type NotifyDeps,
+} from "../src/main/notify.ts";
 
 function deps(over: Partial<NotifyDeps> = {}): NotifyDeps {
   return {
@@ -44,5 +48,23 @@ describe("notifyTurnFinished", () => {
     };
     options.onClick();
     expect(d.focusWindow).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isTurnFinished", () => {
+  it("reports a real turn completion from working to idle", () => {
+    expect(isTurnFinished("working", "idle")).toBe(true);
+  });
+
+  it("does not report a reattach that settles from starting to idle", () => {
+    expect(isTurnFinished("starting", "idle")).toBe(false);
+  });
+
+  it("does not report other status changes or the first observed status", () => {
+    expect(isTurnFinished(undefined, "idle")).toBe(false);
+    expect(isTurnFinished("idle", "idle")).toBe(false);
+    expect(isTurnFinished("idle", "working")).toBe(false);
+    expect(isTurnFinished("working", "working")).toBe(false);
+    expect(isTurnFinished("starting", "working")).toBe(false);
   });
 });
