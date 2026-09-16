@@ -58,6 +58,7 @@ const emptyState: RelayState = {
   transcripts: {},
   permissions: [],
   homeDir: "",
+  autoApprove: [],
 };
 
 type MenuState =
@@ -242,6 +243,7 @@ export function App() {
       .getState()
       .then((next) => {
         setState(next);
+        setAutoApprove(new Set(next.autoApprove));
         setAgentId((id) => id || next.agents[0]?.id || "");
         setRepoPath((path) => path || next.repos[0]?.path || "");
       })
@@ -446,8 +448,8 @@ export function App() {
   };
 
   const openDiff = (path: string) => {
-    if (!selected) return;
-    void window.relay.openPath(selected.workingDirectory, path);
+    if (!selected) return Promise.resolve(false);
+    return window.relay.openPath(selected.workingDirectory, path);
   };
 
   const sendToSession = async (
@@ -622,6 +624,7 @@ export function App() {
   async function refresh() {
     const next = await window.relay.getState();
     setState(next);
+    setAutoApprove(new Set(next.autoApprove));
     return next;
   }
 

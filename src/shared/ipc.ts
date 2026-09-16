@@ -15,6 +15,7 @@ export type RelayState = {
   transcripts: Record<string, TranscriptEvent[]>;
   permissions: PermissionRequest[];
   homeDir: string;
+  autoApprove: string[];
 };
 
 export type RelayEvent =

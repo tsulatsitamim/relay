@@ -13,7 +13,7 @@ import {
 import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import { SessionManager, defaultAgents } from "./session-manager.ts";
-import { resolveWithin } from "./open-path.ts";
+import { resolveWithinReal } from "./open-path.ts";
 import {
   isTurnFinished,
   notifyTurnFinished,
@@ -129,6 +129,7 @@ async function main(): Promise<void> {
       transcripts,
       permissions: manager.pendingPermissions(),
       homeDir: homedir(),
+      autoApprove: manager.autoApproveSessions(),
     };
   });
 
@@ -288,7 +289,7 @@ async function main(): Promise<void> {
   });
 
   ipcMain.handle("relay:openPath", async (_e, cwd: string, path: string) => {
-    const resolved = resolveWithin(cwd, path);
+    const resolved = resolveWithinReal(cwd, path);
     if (!resolved) return false;
     const error = await shell.openPath(resolved);
     return error === "";

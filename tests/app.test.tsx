@@ -36,6 +36,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 function stateWith(
   sessions: Session[],
   transcripts: RelayState["transcripts"] = {},
+  autoApprove: string[] = [],
 ): RelayState {
   return {
     sessions,
@@ -45,6 +46,7 @@ function stateWith(
     transcripts,
     permissions: [],
     homeDir: "/tmp",
+    autoApprove,
   };
 }
 
@@ -52,12 +54,13 @@ function mount(
   sessions: Session[],
   transcripts: RelayState["transcripts"] = {},
   skills: string[] = [],
+  autoApprove: string[] = [],
 ) {
   let listener: ((event: unknown) => void) | null = null;
   const send = vi.fn().mockResolvedValue(undefined);
   const truncate = vi.fn().mockResolvedValue([]);
   const bridge = {
-    getState: vi.fn().mockResolvedValue(stateWith(sessions, transcripts)),
+    getState: vi.fn().mockResolvedValue(stateWith(sessions, transcripts, autoApprove)),
     subscribe: vi.fn((fn: (event: unknown) => void) => {
       listener = fn;
       return () => {
@@ -552,5 +555,11 @@ describe("App auto-approve", () => {
     await waitFor(() =>
       expect(screen.queryByText("Auto-approve on")).toBeNull(),
     );
+  });
+
+  it("rehydrates the indicator from getState after a reload", async () => {
+    mount([makeSession({ id: "s1", title: "Session one" })], {}, [], ["s1"]);
+    await openSession("Session one");
+    expect(await screen.findByText("Auto-approve on")).toBeTruthy();
   });
 });

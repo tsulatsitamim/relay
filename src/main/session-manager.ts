@@ -132,6 +132,10 @@ export class SessionManager {
     else this.autoApprove.delete(id);
   }
 
+  autoApproveSessions(): string[] {
+    return [...this.autoApprove];
+  }
+
   private askPermission(
     sessionId: string,
     prompt: PermissionPrompt,

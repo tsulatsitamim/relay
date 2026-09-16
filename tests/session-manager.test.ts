@@ -162,6 +162,28 @@ describe("SessionManager", () => {
     );
   });
 
+  it("tracks auto-approved sessions and clears them on disable and delete", async () => {
+    const sm = await manager();
+    expect(sm.autoApproveSessions()).toEqual([]);
+
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "auto approve",
+    });
+    await waitFor(() => (sm.get(session.id)?.status === "idle" ? true : null));
+
+    sm.setAutoApprove(session.id, true);
+    expect(sm.autoApproveSessions()).toEqual([session.id]);
+
+    sm.setAutoApprove(session.id, false);
+    expect(sm.autoApproveSessions()).toEqual([]);
+
+    sm.setAutoApprove(session.id, true);
+    await sm.delete(session.id);
+    expect(sm.autoApproveSessions()).toEqual([]);
+  });
+
   it("cancels the turn when the user rejects the permission request", async () => {
     const sm = await manager();
     const events: ManagerEvent[] = [];
