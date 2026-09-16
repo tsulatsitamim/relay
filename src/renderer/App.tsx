@@ -323,6 +323,24 @@ export function App() {
   const composerLocked = Boolean(
     selected && ["starting", "working", "cancelling"].includes(selected.status),
   );
+  const [sending, setSending] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setSending((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      for (const id of prev) {
+        const session = state.sessions.find((item) => item.id === id);
+        if (session && !["starting", "working", "cancelling"].includes(session.status)) {
+          next.delete(id);
+        }
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [state.sessions]);
+  const markSending = (id: string) => setSending((prev) => new Set(prev).add(id));
+  const working = Boolean(
+    selected && (composerLocked || sending.has(selected.id)),
+  );
   const permissions = selected
     ? state.permissions.filter((request) => request.sessionId === selected.id)
     : [];
@@ -361,6 +379,7 @@ export function App() {
     }
     setBusy(true);
     setChatError(null);
+    markSending(sessionId);
     try {
       await window.relay.send(sessionId, first, attachments);
     } catch (err) {
@@ -876,7 +895,7 @@ export function App() {
           <div className="thread">
             <header className="thread-head">
               <span className="thread-name">{selected.title}</span>
-              <WorkingStatus status={selected.status} since={selected.lastPromptAt} />
+              <WorkingStatus active={working} since={selected.lastPromptAt} />
               {selected.error ? <span className="thread-err">{selected.error}</span> : null}
               {canRestart ? (
                 <button
@@ -891,6 +910,13 @@ export function App() {
             <Transcript
               events={events}
               onEditUser={(text) => setInject({ text, nonce: Date.now() })}
+              footer={
+                <WorkingStatus
+                  active={working}
+                  since={selected.lastPromptAt}
+                  variant="row"
+                />
+              }
             />
             {permissions.length > 0 ? (
               <div className="permission-dock">
@@ -960,6 +986,7 @@ export function App() {
                   prompt: turns[0] ?? prompt,
                   attachments,
                 });
+                markSending(session.id);
                 if (turns.length > 1) {
                   const rest = turns.slice(1);
                   setQueued((prev) => ({

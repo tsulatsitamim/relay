@@ -256,3 +256,43 @@ describe("App retry", () => {
     expect(send.mock.calls[1]?.slice(0, 3)).toEqual(["s1", "look", [attachment]]);
   });
 });
+
+describe("App working indicator", () => {
+  it("shows a working row as soon as a prompt is sent", async () => {
+    const { send } = mount([makeSession()]);
+    send.mockImplementation(
+      () =>
+        new Promise<void>(() => {
+          /* stays pending so the optimistic indicator is observable */
+        }),
+    );
+    const box = await openSession("Session one");
+    fireEvent.change(box, { target: { value: "hello" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(document.querySelector(".working-row")).toBeTruthy();
+    });
+  });
+
+  it("hides the working row when the session goes idle", async () => {
+    const { emit } = mount([makeSession()]);
+    await openSession("Session one");
+    act(() => {
+      emit({
+        type: "sessions",
+        sessions: [makeSession({ status: "working", lastPromptAt: Date.now() })],
+      });
+    });
+    await waitFor(() => {
+      expect(document.querySelector(".working-row")).toBeTruthy();
+    });
+
+    act(() => {
+      emit({ type: "sessions", sessions: [makeSession()] });
+    });
+    await waitFor(() => {
+      expect(document.querySelector(".working-row")).toBeNull();
+    });
+  });
+});

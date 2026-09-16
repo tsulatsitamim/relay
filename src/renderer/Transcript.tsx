@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { PlanEntry, TranscriptEvent } from "../shared/types.ts";
 import { DiffBlock } from "./DiffBlock";
 import { formatUsage } from "./format";
@@ -12,6 +13,7 @@ import { isNearBottom } from "./scroll";
 type Props = {
   events: TranscriptEvent[];
   onEditUser?: (text: string) => void;
+  footer?: ReactNode;
 };
 
 function EventRow({
@@ -120,7 +122,7 @@ function EventRow({
   return <div className="msg status">{String(event.payload.text ?? "")}</div>;
 }
 
-export function Transcript({ events, onEditUser }: Props) {
+export function Transcript({ events, onEditUser, footer }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stick, setStick] = useState(true);
 
@@ -158,6 +160,7 @@ export function Transcript({ events, onEditUser }: Props) {
         {events.map((event) => (
           <EventRow key={event.id} event={event} onEditUser={onEditUser} />
         ))}
+        {footer}
       </div>
       {!stick && events.length > 0 ? (
         <button

@@ -1,13 +1,45 @@
 import { useEffect, useState } from "react";
 
-export function WorkingStatus({ status, since }: { status: string; since?: number }) {
-  const [, force] = useState(0);
+type Props = {
+  active: boolean;
+  since?: number;
+  variant?: "head" | "row";
+};
+
+export function WorkingStatus({ active, since, variant = "head" }: Props) {
+  const [, tick] = useState(0);
+
   useEffect(() => {
-    if (status !== "working" || !since) return;
-    const t = setInterval(() => force((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, [status, since]);
-  if (status !== "working") return null;
+    if (!active) return;
+    const timer = setInterval(() => tick((value) => value + 1), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+
+  if (!active) return null;
+
   const secs = since ? Math.max(0, Math.floor((Date.now() - since) / 1000)) : 0;
-  return <span className="thread-status">Working · {secs}s</span>;
+  const label = `Working · ${secs}s`;
+  const dots = (
+    <span className="dots" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </span>
+  );
+
+  if (variant === "row") {
+    return (
+      <div className="working-row">
+        {dots}
+        <span>{label}</span>
+      </div>
+    );
+  }
+
+  return (
+    <span className="thread-status">
+      {dots}
+      {label}
+    </span>
+  );
 }
