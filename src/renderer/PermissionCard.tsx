@@ -1,5 +1,5 @@
 import type { PermissionRequest } from "../shared/types.ts";
-import { pickAutoAllowOption } from "../main/permission.ts";
+import { pickAutoAllowOption } from "../shared/permission.ts";
 
 type Props = {
   request: PermissionRequest;

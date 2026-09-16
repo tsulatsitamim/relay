@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickAutoAllowOption } from "../src/main/permission.ts";
+import { pickAutoAllowOption } from "../src/shared/permission.ts";
 
 describe("pickAutoAllowOption", () => {
   it("prefers allow_always over allow_once", () => {
