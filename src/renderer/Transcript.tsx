@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { PlanEntry, TranscriptEvent } from "../shared/types.ts";
 import { DiffBlock } from "./DiffBlock";
@@ -9,7 +9,7 @@ import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
 import { IconArrowDown } from "./icons";
 import { isNearBottom } from "./scroll";
-import { formatDay, formatTime } from "./time";
+import { buildRows } from "./transcript-rows";
 
 type Props = {
   events: TranscriptEvent[];
@@ -17,13 +17,14 @@ type Props = {
   onRegenerate?: (agentEventId: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
-  onOpenDiff?: (path: string) => void;
+  onOpenDiff?: (path: string) => void | Promise<unknown>;
   footer?: ReactNode;
   activeEventId?: string | null;
 };
 
 function EventRow({
   event,
+  time,
   onEditUser,
   onRegenerate,
   reviewedDiffIds,
@@ -32,11 +33,12 @@ function EventRow({
   isLast,
 }: {
   event: TranscriptEvent;
+  time: string | null;
   onEditUser?: (text: string, eventId: string) => void;
   onRegenerate?: (agentEventId: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
-  onOpenDiff?: (path: string) => void;
+  onOpenDiff?: (path: string) => void | Promise<unknown>;
   isLast?: boolean;
 }) {
   if (event.kind === "commands") return null;
@@ -47,8 +49,8 @@ function EventRow({
       | undefined;
     return (
       <div className="msg user">
-        {event.createdAt != null ? (
-          <span className="msg-time">{formatTime(event.createdAt)}</span>
+        {time != null ? (
+          <span className="msg-time">{time}</span>
         ) : null}
         {onEditUser ? (
           <div className="msg-actions">
@@ -82,8 +84,8 @@ function EventRow({
   if (event.kind === "agent_message") {
     return (
       <div className="msg agent">
-        {event.createdAt != null ? (
-          <span className="msg-time">{formatTime(event.createdAt)}</span>
+        {time != null ? (
+          <span className="msg-time">{time}</span>
         ) : null}
         <div className="msg-actions">
           <button
@@ -172,6 +174,7 @@ export function Transcript({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stick, setStick] = useState(true);
+  const rows = useMemo(() => buildRows(events), [events]);
   const lastAgentId = events.reduce<string | null>(
     (last, event) => (event.kind === "agent_message" ? event.id : last),
     null,
@@ -219,14 +222,10 @@ export function Transcript({
         aria-relevant="additions"
         onScroll={onScroll}
       >
-        {events.map((event, index) => {
-          const day = event.createdAt != null ? formatDay(event.createdAt) : null;
-          const previous = index > 0 ? events[index - 1] : undefined;
-          const previousDay =
-            previous?.createdAt != null ? formatDay(previous.createdAt) : null;
+        {rows.map(({ event, time, day, showSeparator }) => {
           return (
             <Fragment key={event.id}>
-              {day != null && day !== previousDay ? (
+              {showSeparator ? (
                 <div className="day-separator">{day}</div>
               ) : null}
               <div
@@ -235,6 +234,7 @@ export function Transcript({
               >
                 <EventRow
                   event={event}
+                  time={time}
                   onEditUser={onEditUser}
                   onRegenerate={onRegenerate}
                   reviewedDiffIds={reviewedDiffIds}

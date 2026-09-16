@@ -1,4 +1,7 @@
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { diffStat, unifiedDiff } from "../shared/diff.ts";
+
+const OPEN_ERROR_MS = 2000;
 
 type Props = {
   path: string;
@@ -6,7 +9,7 @@ type Props = {
   newText: string;
   reviewed?: boolean;
   onToggleReviewed?: () => void;
-  onOpen?: () => void;
+  onOpen?: () => void | Promise<unknown>;
 };
 
 export function DiffBlock({
@@ -19,6 +22,38 @@ export function DiffBlock({
 }: Props) {
   const diff = unifiedDiff(oldText, newText, path);
   const { adds, dels } = diffStat(oldText, newText);
+  const [openError, setOpenError] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  function showOpenError() {
+    setOpenError(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOpenError(false), OPEN_ERROR_MS);
+  }
+
+  function openInEditor(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    let result: void | Promise<unknown>;
+    try {
+      result = onOpen?.();
+    } catch {
+      showOpenError();
+      return;
+    }
+    Promise.resolve(result).then(
+      (ok) => {
+        if (ok === false) showOpenError();
+      },
+      () => showOpenError(),
+    );
+  }
 
   return (
     <details className="diff">
@@ -48,14 +83,13 @@ export function DiffBlock({
             type="button"
             className="diff-action"
             aria-label="Open in editor"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onOpen();
-            }}
+            onClick={openInEditor}
           >
             Open
           </button>
+        ) : null}
+        {openError ? (
+          <span className="diff-open-error">Could not open file</span>
         ) : null}
         <button
           type="button"

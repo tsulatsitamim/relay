@@ -69,6 +69,24 @@ describe("DiffBlock", () => {
     expect(screen.queryByRole("button", { name: "Open in editor" })).toBeNull();
   });
 
+  it("shows a transient message when the open action resolves false", async () => {
+    const onOpen = vi.fn().mockResolvedValue(false);
+    const { container } = render(
+      <DiffBlock path="src/a.ts" oldText={"a\n"} newText={"b\n"} onOpen={onOpen} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open in editor" }));
+    expect(await screen.findByText("Could not open file")).toBeTruthy();
+    expect(container.querySelector(".diff-open-error")).toBeTruthy();
+  });
+
+  it("does not show a message when the open action resolves true", async () => {
+    const onOpen = vi.fn().mockResolvedValue(true);
+    render(<DiffBlock path="src/a.ts" oldText={"a\n"} newText={"b\n"} onOpen={onOpen} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open in editor" }));
+    await Promise.resolve();
+    expect(screen.queryByText("Could not open file")).toBeNull();
+  });
+
   it("copies the unified diff text through the clipboard action", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

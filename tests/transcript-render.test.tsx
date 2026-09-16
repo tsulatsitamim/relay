@@ -236,4 +236,16 @@ describe("Transcript rendering", () => {
     expect(container.querySelectorAll(".msg-time")).toHaveLength(0);
     expect(container.querySelectorAll(".day-separator")).toHaveLength(0);
   });
+
+  it("emits a single day separator when an untimestamped event sits between same-day events", () => {
+    const day1 = new Date(2026, 0, 2, 9, 5).getTime();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "a" }, createdAt: day1 },
+      { id: "2", kind: "user", payload: { text: "b" } },
+      { id: "3", kind: "user", payload: { text: "c" }, createdAt: day1 },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    expect(container.querySelectorAll(".day-separator")).toHaveLength(1);
+    expect(container.querySelectorAll(".msg-time")).toHaveLength(2);
+  });
 });

@@ -43,6 +43,25 @@ describe("Markdown", () => {
     expect(link?.getAttribute("target")).toBe("_blank");
     expect(link?.getAttribute("rel")).toBe("noreferrer");
     expect(link?.getAttribute("href")).toBe("https://example.com/a.png");
+    expect(container.querySelectorAll("a")).toHaveLength(1);
+  });
+
+  it("renders nothing for an image with a missing or blank source", () => {
+    const { container } = render(<Markdown text={"![]()"} />);
+    expect(container.querySelector("img.md-img")).toBeNull();
+    expect(container.querySelectorAll("a")).toHaveLength(0);
+  });
+
+  it("does not nest anchors for a linked image", () => {
+    const { container } = render(
+      <Markdown
+        text={"[![shot](https://example.com/a.png)](https://site.example/page)"}
+      />,
+    );
+    const anchors = container.querySelectorAll("a");
+    expect(anchors).toHaveLength(1);
+    expect(anchors[0]?.getAttribute("href")).toBe("https://site.example/page");
+    expect(container.querySelector("img.md-img")).toBeTruthy();
   });
 
   it("renders a fenced code block with a language label and copy button", async () => {

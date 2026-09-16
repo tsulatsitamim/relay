@@ -1909,6 +1909,12 @@ input:focus-visible {
   border-color: color-mix(in srgb, var(--ok) 40%, transparent);
 }
 
+.diff-open-error {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--danger);
+}
+
 .diff-body {
   margin: 0;
   padding: 0 0 8px;
