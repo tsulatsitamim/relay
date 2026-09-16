@@ -1541,6 +1541,16 @@ input:focus-visible {
   user-select: none;
 }
 
+.msg .msg-time {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.msg:hover .msg-time,
+.msg:focus-within .msg-time {
+  opacity: 1;
+}
+
 .msg-edit {
   display: flex;
   flex-direction: column;
