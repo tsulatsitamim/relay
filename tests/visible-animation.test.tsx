@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, renderHook } from "@testing-library/react";
+import { cleanup, render, renderHook } from "@testing-library/react";
+import { useRef } from "react";
 import type { RefObject } from "react";
 import {
   applyAnimationVisibility,
@@ -78,5 +79,51 @@ describe("visible animation gate", () => {
     const ref = { current: el } as RefObject<HTMLElement | null>;
     expect(() => renderHook(() => useVisibleAnimation(ref))).not.toThrow();
     expect(el.style.getPropertyValue("--visible-animation-state")).toBe("");
+  });
+
+  it("shares a single observer across every mounted row", () => {
+    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+    function Gated() {
+      const ref = useRef<HTMLDivElement>(null);
+      useVisibleAnimation(ref);
+      return <div ref={ref} />;
+    }
+    render(
+      <>
+        <Gated />
+        <Gated />
+        <Gated />
+      </>,
+    );
+    expect(MockIntersectionObserver.instances).toHaveLength(1);
+    expect(MockIntersectionObserver.instances[0]!.observe).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps other subscriptions alive when one element unsubscribes", () => {
+    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+    function GatedTarget({ target }: { target: HTMLDivElement }) {
+      const ref = useRef<HTMLDivElement | null>(null);
+      ref.current = target;
+      useVisibleAnimation(ref);
+      return null;
+    }
+    const a = document.createElement("div");
+    const b = document.createElement("div");
+    const { rerender } = render(
+      <>
+        <GatedTarget target={a} />
+        <GatedTarget target={b} />
+      </>,
+    );
+    const observer = MockIntersectionObserver.instances[0]!;
+    expect(MockIntersectionObserver.instances).toHaveLength(1);
+
+    rerender(<GatedTarget target={a} />);
+
+    expect(observer.unobserve).toHaveBeenCalledWith(b);
+    expect(observer.disconnect).not.toHaveBeenCalled();
+
+    observer.emit([{ target: a, isIntersecting: false }]);
+    expect(a.style.getPropertyValue("--visible-animation-state")).toBe("paused");
   });
 });

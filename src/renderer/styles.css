@@ -1226,18 +1226,18 @@ input:focus-visible {
   contain-intrinsic-size: auto 108px;
 }
 
-.transcript[data-streaming] .msg-row {
+.msg-row[data-streaming-row] {
   transition: opacity 600ms ease;
 }
 
 @starting-style {
-  .transcript[data-streaming] .msg-row {
+  .msg-row[data-streaming-row] {
     opacity: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .transcript[data-streaming] .msg-row {
+  .msg-row[data-streaming-row] {
     opacity: 1;
     transition: none;
   }

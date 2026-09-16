@@ -260,4 +260,47 @@ describe("Transcript rendering", () => {
     rerender(<Transcript events={events} streaming />);
     expect(log?.hasAttribute("data-streaming")).toBe(true);
   });
+
+  it("does not replay the entrance animation for rows that predate streaming", () => {
+    const events: TranscriptEvent[] = [
+      { id: "u1", kind: "user", payload: { text: "q1" } },
+      { id: "a1", kind: "agent_message", payload: { text: "one" } },
+      { id: "u2", kind: "user", payload: { text: "q2" } },
+    ];
+    const { container } = render(<Transcript events={events} streaming />);
+    expect(container.querySelectorAll(".msg-row[data-streaming-row]")).toHaveLength(0);
+  });
+
+  it("marks only rows appended while streaming", () => {
+    const events: TranscriptEvent[] = [
+      { id: "u1", kind: "user", payload: { text: "q1" } },
+      { id: "a1", kind: "agent_message", payload: { text: "one" } },
+    ];
+    const { container, rerender } = render(<Transcript events={events} streaming />);
+    rerender(
+      <Transcript
+        events={[...events, { id: "a2", kind: "agent_message", payload: { text: "two" } }]}
+        streaming
+      />,
+    );
+    const marked = container.querySelectorAll(".msg-row[data-streaming-row]");
+    expect(marked).toHaveLength(1);
+    expect(marked[0]!.getAttribute("data-event-id")).toBe("a2");
+  });
+
+  it("clears the streaming row markers when streaming ends", () => {
+    const events: TranscriptEvent[] = [
+      { id: "u1", kind: "user", payload: { text: "q1" } },
+    ];
+    const streamingEvents = [
+      ...events,
+      { id: "a1", kind: "agent_message", payload: { text: "one" } },
+    ];
+    const { container, rerender } = render(<Transcript events={events} streaming />);
+    rerender(<Transcript events={streamingEvents} streaming />);
+    expect(container.querySelectorAll(".msg-row[data-streaming-row]")).toHaveLength(1);
+
+    rerender(<Transcript events={streamingEvents} />);
+    expect(container.querySelectorAll(".msg-row[data-streaming-row]")).toHaveLength(0);
+  });
 });

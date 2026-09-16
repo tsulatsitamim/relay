@@ -169,6 +169,7 @@ function MessageRow({
   time,
   isActive,
   isLast,
+  streamingRow,
   onEditUser,
   onRegenerate,
   reviewedDiffIds,
@@ -179,6 +180,7 @@ function MessageRow({
   time: string | null;
   isActive: boolean;
   isLast: boolean;
+  streamingRow?: boolean;
   onEditUser?: (text: string, eventId: string) => void;
   onRegenerate?: (agentEventId: string) => void;
   reviewedDiffIds?: Set<string>;
@@ -192,6 +194,7 @@ function MessageRow({
       ref={ref}
       className={`msg-row${isActive ? " find-active" : ""}`}
       data-event-id={event.id}
+      data-streaming-row={streamingRow ? "" : undefined}
     >
       <EventRow
         event={event}
@@ -224,6 +227,14 @@ export function Transcript({
   modeRef.current = mode;
   const seenEventIds = useRef<Set<string>>(new Set(events.map((event) => event.id)));
   const suppressScroll = useRef(false);
+  const streamingSinceRef = useRef<number | null>(null);
+  if (streaming) {
+    if (streamingSinceRef.current === null) {
+      streamingSinceRef.current = events.length;
+    }
+  } else {
+    streamingSinceRef.current = null;
+  }
   const rows = useMemo(() => buildRows(events), [events]);
   const lastAgentId = events.reduce<string | null>(
     (last, event) => (event.kind === "agent_message" ? event.id : last),
@@ -299,7 +310,7 @@ export function Transcript({
         data-streaming={streaming ? "" : undefined}
         onScroll={onScroll}
       >
-        {rows.map(({ event, time, day, showSeparator }) => {
+        {rows.map(({ event, time, day, showSeparator }, index) => {
           return (
             <Fragment key={event.id}>
               {showSeparator ? (
@@ -310,6 +321,10 @@ export function Transcript({
                 time={time}
                 isActive={event.id === activeEventId}
                 isLast={event.id === lastAgentId}
+                streamingRow={
+                  streamingSinceRef.current !== null &&
+                  index >= streamingSinceRef.current
+                }
                 onEditUser={onEditUser}
                 onRegenerate={onRegenerate}
                 reviewedDiffIds={reviewedDiffIds}
