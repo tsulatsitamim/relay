@@ -11,6 +11,8 @@ const TEXT_KEYS = [
   "command",
   "rawInput",
   "rawOutput",
+  "oldText",
+  "newText",
 ] as const;
 
 function collect(value: unknown, out: string[]): void {
@@ -37,6 +39,16 @@ export function eventText(event: TranscriptEvent): string {
   const out: string[] = [];
   collect(event.payload, out);
   return out.join(" ").toLowerCase();
+}
+
+export function findMatches(events: TranscriptEvent[], query: string): string[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const matches: string[] = [];
+  for (const event of events) {
+    if (eventText(event).includes(q)) matches.push(event.id);
+  }
+  return matches;
 }
 
 export function matchesSession(

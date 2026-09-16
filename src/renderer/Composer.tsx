@@ -17,6 +17,7 @@ type Props = {
   queued?: string[];
   onQueue?: (text: string) => void;
   onRemoveQueued?: (index: number) => void;
+  onClearQueued?: () => void;
   commands?: AvailableCommandLike[];
   cwd?: string;
   inject?: { text: string; nonce: number };
@@ -30,6 +31,7 @@ export function Composer({
   queued = [],
   onQueue,
   onRemoveQueued,
+  onClearQueued,
   commands = [],
   cwd,
   inject,
@@ -103,6 +105,16 @@ export function Composer({
               </button>
             </span>
           ))}
+          {queued.length > 1 ? (
+            <button
+              type="button"
+              className="queued-clear"
+              aria-label="Clear queued messages"
+              onClick={() => onClearQueued?.()}
+            >
+              Clear
+            </button>
+          ) : null}
         </div>
       ) : null}
       {attachments.length > 0 ? (

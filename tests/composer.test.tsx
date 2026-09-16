@@ -112,6 +112,39 @@ describe("Composer", () => {
     expect(onRemoveQueued).toHaveBeenCalledWith(1);
   });
 
+  it("clears all queued messages from one control", () => {
+    const onClearQueued = vi.fn();
+    const onRemoveQueued = vi.fn();
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={vi.fn()}
+        onCancel={noop}
+        queued={["first", "second"]}
+        onClearQueued={onClearQueued}
+        onRemoveQueued={onRemoveQueued}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Clear queued messages"));
+    expect(onClearQueued).toHaveBeenCalledTimes(1);
+    expect(onRemoveQueued).not.toHaveBeenCalled();
+  });
+
+  it("hides the clear control when only one message is queued", () => {
+    render(
+      <Composer
+        disabled={false}
+        working={false}
+        onSend={vi.fn()}
+        onCancel={noop}
+        queued={["only"]}
+        onClearQueued={vi.fn()}
+      />,
+    );
+    expect(screen.queryByLabelText("Clear queued messages")).toBeNull();
+  });
+
   it("offers slash commands and inserts a picked one into the input", () => {
     const onSend = vi.fn();
     const { container } = render(

@@ -15,6 +15,7 @@ type Props = {
   events: TranscriptEvent[];
   onEditUser?: (text: string) => void;
   footer?: ReactNode;
+  activeEventId?: string | null;
 };
 
 function EventRow({
@@ -129,7 +130,7 @@ function EventRow({
   return <div className="msg status">{String(event.payload.text ?? "")}</div>;
 }
 
-export function Transcript({ events, onEditUser, footer }: Props) {
+export function Transcript({ events, onEditUser, footer, activeEventId }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [stick, setStick] = useState(true);
 
@@ -138,6 +139,14 @@ export function Transcript({ events, onEditUser, footer }: Props) {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [events, stick]);
+
+  useEffect(() => {
+    if (!activeEventId) return;
+    const row = scrollRef.current?.querySelector(
+      `[data-event-id="${activeEventId}"]`,
+    );
+    if (row instanceof HTMLElement) row.scrollIntoView?.({ block: "center" });
+  }, [activeEventId]);
 
   function onScroll() {
     const el = scrollRef.current;
@@ -177,7 +186,10 @@ export function Transcript({ events, onEditUser, footer }: Props) {
               {day != null && day !== previousDay ? (
                 <div className="day-separator">{day}</div>
               ) : null}
-              <div className="msg-row">
+              <div
+                className={`msg-row${event.id === activeEventId ? " find-active" : ""}`}
+                data-event-id={event.id}
+              >
                 <EventRow event={event} onEditUser={onEditUser} />
               </div>
             </Fragment>

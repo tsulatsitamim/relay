@@ -116,6 +116,74 @@ describe("App queue drain", () => {
   });
 });
 
+describe("App conversation find", () => {
+  const events = [
+    { id: "e1", kind: "user", payload: { text: "alpha beta" } },
+    { id: "e2", kind: "agent_message", payload: { text: "gamma alpha" } },
+  ] as RelayState["transcripts"][string];
+
+  it("opens the find bar with Cmd+F and closes it with Escape", async () => {
+    mount([makeSession()], { s1: events });
+    await openSession("Session one");
+
+    fireEvent.keyDown(window, { key: "f", metaKey: true });
+    expect(await screen.findByLabelText("Find in conversation")).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByLabelText("Find in conversation")).toBeNull();
+  });
+
+  it("counts matches and cycles the active match with Next", async () => {
+    mount([makeSession()], { s1: events });
+    await openSession("Session one");
+    fireEvent.keyDown(window, { key: "f", metaKey: true });
+    fireEvent.change(screen.getByLabelText("Find in conversation"), {
+      target: { value: "alpha" },
+    });
+
+    expect(screen.getByText("1 of 2")).toBeTruthy();
+    expect(
+      document.querySelector('[data-event-id="e1"]')?.classList.contains("find-active"),
+    ).toBe(true);
+
+    fireEvent.click(screen.getByLabelText("Next match"));
+    expect(screen.getByText("2 of 2")).toBeTruthy();
+    expect(
+      document.querySelector('[data-event-id="e2"]')?.classList.contains("find-active"),
+    ).toBe(true);
+    expect(
+      document.querySelector('[data-event-id="e1"]')?.classList.contains("find-active"),
+    ).toBe(false);
+  });
+
+  it("shows 0 of 0 when nothing matches", async () => {
+    mount([makeSession()], { s1: events });
+    await openSession("Session one");
+    fireEvent.keyDown(window, { key: "f", metaKey: true });
+    expect(screen.getByText("0 of 0")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Find in conversation"), {
+      target: { value: "zzz" },
+    });
+    expect(screen.getByText("0 of 0")).toBeTruthy();
+  });
+});
+
+describe("App clearing the queue", () => {
+  it("empties the rendered chips for the selected session", async () => {
+    mount([makeSession({ status: "working" })]);
+    const box = await openSession("Session one");
+
+    fireEvent.change(box, { target: { value: "first" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.change(box, { target: { value: "second" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(document.querySelectorAll(".queued-chip")).toHaveLength(2);
+
+    fireEvent.click(screen.getByLabelText("Clear queued messages"));
+    expect(document.querySelectorAll(".queued-chip")).toHaveLength(0);
+  });
+});
+
 describe("App multi-command turns", () => {
   it("sends each leading command as its own turn", async () => {
     const { send } = mount([makeSession()], {

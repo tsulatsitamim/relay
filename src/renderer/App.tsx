@@ -23,7 +23,8 @@ import {
 } from "./commands";
 import { PermissionCard } from "./PermissionCard";
 import { SessionRow } from "./SessionRow";
-import { matchesSession } from "./search.ts";
+import { findMatches, matchesSession } from "./search.ts";
+import { FindBar } from "./FindBar";
 import {
   IconAutomations,
   IconCheck,
@@ -210,6 +211,9 @@ export function App() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [queued, setQueued] = useState<Record<string, string[]>>({});
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [findIndex, setFindIndex] = useState(0);
   const flushing = useRef<Set<string>>(new Set());
   const [flushTick, setFlushTick] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -279,7 +283,15 @@ export function App() {
         e.preventDefault();
         toggleSidebar();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        if (selectedId !== null) setFindOpen((v) => !v);
+      }
       if (e.key === "Escape") {
+        if (findOpen) {
+          setFindOpen(false);
+          return;
+        }
         const current = state.sessions.find((s) => s.id === selectedId);
         if (current && (current.status === "working" || current.status === "starting")) {
           void window.relay.cancel(current.id);
@@ -291,7 +303,13 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, state.sessions]);
+  }, [selectedId, state.sessions, findOpen]);
+
+  useEffect(() => {
+    setFindOpen(false);
+    setFindQuery("");
+    setFindIndex(0);
+  }, [selectedId]);
 
   const selected = useMemo(
     () => state.sessions.find((s) => s.id === selectedId) ?? null,
@@ -300,6 +318,18 @@ export function App() {
   const events: TranscriptEvent[] = selected
     ? (state.transcripts[selected.id] ?? [])
     : [];
+  const findResults = useMemo(
+    () => (findOpen ? findMatches(events, findQuery) : []),
+    [findOpen, events, findQuery],
+  );
+  const findCount = findResults.length;
+  const activeMatchId =
+    findCount > 0 ? findResults[Math.min(findIndex, findCount - 1)]! : null;
+
+  const stepMatch = (delta: number) => {
+    if (findCount === 0) return;
+    setFindIndex((prev) => (prev + delta + findCount) % findCount);
+  };
   const commands: AvailableCommandLike[] = selected
     ? lastCommands(events)
     : commandsForAgent(state.sessions, state.transcripts, agentId);
@@ -405,6 +435,13 @@ export function App() {
     setQueued((prev) => ({
       ...prev,
       [sessionId]: (prev[sessionId] ?? []).filter((_, i) => i !== index),
+    }));
+  };
+
+  const clearQueued = (sessionId: string) => {
+    setQueued((prev) => ({
+      ...prev,
+      [sessionId]: [],
     }));
   };
 
@@ -907,8 +944,23 @@ export function App() {
                 </button>
               ) : null}
             </header>
+            {findOpen ? (
+              <FindBar
+                query={findQuery}
+                onQuery={(value) => {
+                  setFindQuery(value);
+                  setFindIndex(0);
+                }}
+                count={findCount}
+                index={findIndex}
+                onPrev={() => stepMatch(-1)}
+                onNext={() => stepMatch(1)}
+                onClose={() => setFindOpen(false)}
+              />
+            ) : null}
             <Transcript
               events={events}
+              activeEventId={findOpen ? activeMatchId : null}
               onEditUser={(text) => setInject({ text, nonce: Date.now() })}
               footer={
                 <WorkingStatus
@@ -950,6 +1002,7 @@ export function App() {
               queued={queued[selected.id] ?? []}
               onQueue={(text) => enqueue(selected.id, text)}
               onRemoveQueued={(index) => removeQueued(selected.id, index)}
+              onClearQueued={() => clearQueued(selected.id)}
               commands={commandList}
               cwd={selected.workingDirectory}
               inject={inject}

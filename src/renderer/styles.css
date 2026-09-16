@@ -1180,6 +1180,65 @@ input:focus-visible {
   display: none;
 }
 
+.msg-row.find-active {
+  background: color-mix(in srgb, var(--working) 14%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.find-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(var(--composer-max-width), calc(100% - (var(--composer-messages-padding-inline) * 2)));
+  margin: var(--space-2) auto 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.find-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.find-count {
+  flex-shrink: 0;
+  color: var(--faint);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.find-nav,
+.find-close {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  padding: 2px var(--space-1-5);
+  border-radius: var(--radius-sm);
+}
+
+.find-nav:hover,
+.find-close:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.find-close {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
 .day-separator {
   align-self: center;
   color: var(--faint);
@@ -2006,6 +2065,22 @@ input:focus-visible {
 
 .queued-remove:hover {
   color: var(--text);
+}
+
+.queued-clear {
+  align-self: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  padding: 2px var(--space-1-5);
+  border-radius: var(--radius-sm);
+}
+
+.queued-clear:hover {
+  color: var(--text);
+  background: var(--hover);
 }
 
 .suggest {
