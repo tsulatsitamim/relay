@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
+import type { BranchInfo, CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
 import type {
   AgentConfig,
   ClaudeInstallResult,
@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:listFiles", cwd, query),
   listSkills: (cwd?: string): Promise<string[]> =>
     ipcRenderer.invoke("relay:listSkills", cwd),
+  branchInfo: (cwd: string): Promise<BranchInfo | null> =>
+    ipcRenderer.invoke("relay:branchInfo", cwd),
   pickImages: (): Promise<PromptAttachment[]> =>
     ipcRenderer.invoke("relay:pickImages"),
   addRepo: (): Promise<Repo[]> => ipcRenderer.invoke("relay:addRepo"),

@@ -30,7 +30,7 @@ import {
   type NotifyDeps,
 } from "./notify.ts";
 import { createLogger } from "./logger.ts";
-import { repoNameFromPath, withGitBranch } from "./repo-name.ts";
+import { branchInfo, repoNameFromPath, withGitBranch } from "./repo-name.ts";
 import { listFiles } from "./file-index.ts";
 import { listSkills } from "./skills.ts";
 import { readAttachment } from "./attachments.ts";
@@ -243,6 +243,11 @@ async function main(): Promise<void> {
 
   ipcMain.handle("relay:listSkills", (_e, cwd?: string) => {
     return listSkills({ cwd: typeof cwd === "string" && cwd ? cwd : undefined });
+  });
+
+  ipcMain.handle("relay:branchInfo", (_e, cwd: string) => {
+    if (typeof cwd !== "string" || !cwd) return null;
+    return branchInfo(cwd);
   });
 
   ipcMain.handle("relay:pickImages", async (event) => {

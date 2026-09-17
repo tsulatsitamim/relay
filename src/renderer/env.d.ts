@@ -1,4 +1,4 @@
-import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
+import type { BranchInfo, CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
 import type {
   AgentConfig,
   ClaudeInstallResult,
@@ -22,6 +22,7 @@ export type RelayBridge = {
   pickDirectory: () => Promise<string | null>;
   listFiles: (cwd: string, query?: string) => Promise<string[]>;
   listSkills: (cwd?: string) => Promise<string[]>;
+  branchInfo: (cwd: string) => Promise<BranchInfo | null>;
   pickImages: () => Promise<PromptAttachment[]>;
   addRepo: () => Promise<Repo[]>;
   removeRepo: (path: string) => Promise<Repo[]>;

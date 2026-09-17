@@ -36,3 +36,8 @@ export type CreatePayload = {
   prompt: string;
   attachments?: PromptAttachment[];
 };
+
+export type BranchInfo = {
+  branch: string;
+  worktree: boolean;
+};
