@@ -32,6 +32,15 @@ import { PermissionCard } from "./PermissionCard";
 import { SessionRow } from "./SessionRow";
 import { findMatches, matchesSession } from "./search.ts";
 import { FindBar } from "./FindBar";
+import { HelpDialog, type ShortcutHint } from "./HelpDialog";
+import { CommandPalette, type PaletteCommand } from "./CommandPalette";
+import {
+  eventKey,
+  isTypingTarget,
+  resolveBinding,
+  type KeyBinding,
+  type TypingTargetLike,
+} from "./keys.ts";
 import {
   IconAutomations,
   IconCheck,
@@ -252,6 +261,9 @@ export function App() {
   const [permissionIndex, setPermissionIndex] = useState(0);
   const [view, setView] = useState<"chat" | "settings">("chat");
   const [section, setSection] = useState<SettingsSection>("general");
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const bindingsRef = useRef<KeyBinding[]>([]);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   if (injectSessionId !== selectedId) {
@@ -328,45 +340,19 @@ export function App() {
   }, [selectedId]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        setSearching(false);
-        setSelectedId(null);
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setSearching((v) => !v);
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
-        e.preventDefault();
-        toggleSidebar();
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        if (selectedId !== null) setFindOpen((v) => !v);
-      }
-      if (e.key === "Escape") {
-        if (view === "settings") {
-          setView("chat");
-          return;
-        }
-        if (findOpen) {
-          setFindOpen(false);
-          return;
-        }
-        const current = state.sessions.find((s) => s.id === selectedId);
-        if (current && (current.status === "working" || current.status === "starting")) {
-          void window.relay.cancel(current.id);
-        } else {
-          setSearching(false);
-          setSelectedId(null);
-        }
-      }
+    const onKey = (event: KeyboardEvent) => {
+      const binding = resolveBinding(
+        bindingsRef.current,
+        eventKey(event),
+        isTypingTarget(event.target as unknown as TypingTargetLike),
+      );
+      if (!binding) return;
+      event.preventDefault();
+      binding.run();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, state.sessions, findOpen, view]);
+  }, []);
 
   useEffect(() => {
     setFindOpen(false);
@@ -735,6 +721,135 @@ export function App() {
     setView((current) => (current === "settings" ? "chat" : "settings"));
   }
 
+  function newChat() {
+    setSearching(false);
+    setSelectedId(null);
+  }
+
+  function findInConversation() {
+    if (selectedId !== null) setFindOpen((value) => !value);
+  }
+
+  function runEscape() {
+    if (commandOpen) {
+      setCommandOpen(false);
+      return;
+    }
+    if (helpOpen) {
+      setHelpOpen(false);
+      return;
+    }
+    if (view === "settings") {
+      setView("chat");
+      return;
+    }
+    if (findOpen) {
+      setFindOpen(false);
+      return;
+    }
+    const current = state.sessions.find((session) => session.id === selectedId);
+    if (current && (current.status === "working" || current.status === "starting")) {
+      void window.relay.cancel(current.id);
+    } else {
+      setSearching(false);
+      setSelectedId(null);
+    }
+  }
+
+  const paletteCommands: PaletteCommand[] = [
+    {
+      id: "new-chat",
+      label: "New chat",
+      hint: "Start a fresh conversation",
+      shortcut: "mod+n",
+      run: newChat,
+    },
+    {
+      id: "open-settings",
+      label: "Open settings",
+      hint: "Preferences and providers",
+      run: () => setView("settings"),
+    },
+    { id: "toggle-sidebar", label: "Toggle sidebar", shortcut: "mod+b", run: toggleSidebar },
+  ];
+  if (selected) {
+    paletteCommands.push(
+      {
+        id: "find",
+        label: "Find in conversation",
+        hint: selected.title,
+        shortcut: "mod+f",
+        run: findInConversation,
+      },
+      {
+        id: "clear-queue",
+        label: "Clear queued messages",
+        hint: selected.title,
+        run: () => clearQueued(selected.id),
+      },
+      {
+        id: "copy-debug",
+        label: "Copy debug info",
+        hint: selected.title,
+        run: () => void window.relay.copyDebug(selected.id),
+      },
+      {
+        id: "restart",
+        label: "Restart session",
+        hint: selected.title,
+        run: () => void window.relay.restart(selected.id),
+      },
+    );
+  }
+
+  const bindings: KeyBinding[] = [
+    { id: "new-chat", keys: "mod+n", label: "New chat", scope: "global", run: newChat },
+    {
+      id: "palette",
+      keys: "mod+k",
+      label: "Command palette",
+      scope: "global",
+      run: () => setCommandOpen((value) => !value),
+    },
+    { id: "sidebar", keys: "mod+b", label: "Toggle sidebar", scope: "global", run: toggleSidebar },
+    {
+      id: "find",
+      keys: "mod+f",
+      label: "Find in conversation",
+      scope: "global",
+      run: findInConversation,
+    },
+    {
+      id: "help",
+      keys: "mod+/",
+      label: "Keyboard shortcuts",
+      scope: "notTyping",
+      run: () => setHelpOpen(true),
+    },
+    {
+      id: "help-question",
+      keys: "?",
+      label: "Keyboard shortcuts",
+      scope: "notTyping",
+      run: () => setHelpOpen(true),
+    },
+    { id: "escape", keys: "Escape", label: "Close overlay", scope: "global", run: runEscape },
+  ];
+
+  const shortcutHints: ShortcutHint[] = [
+    { label: "New chat", keys: "mod+n" },
+    { label: "Command palette", keys: "mod+k" },
+    { label: "Find in conversation", keys: "mod+f" },
+    { label: "Toggle sidebar", keys: "mod+b" },
+    { label: "Stash / restore draft", keys: "mod+s" },
+    { label: "Keyboard shortcuts", keys: "?" },
+    { label: "Close overlay", keys: "Escape" },
+  ];
+
+  useEffect(() => {
+    bindingsRef.current = bindings;
+  });
+
   function renderRow(session: Session) {
     return (
       <SessionRow
@@ -802,9 +917,6 @@ export function App() {
               <IconSearch />
             </span>
             <span className="cell-content">Search</span>
-            <span className="row-end">
-              <span className="kbd-badge">{shortcutMod}K</span>
-            </span>
           </button>
           <button className="nav-item" type="button" disabled>
             <span className="cell-icon">
@@ -1319,6 +1431,32 @@ export function App() {
           />
         )}
       </section>
+      {commandOpen ? (
+        <CommandPalette
+          commands={paletteCommands}
+          sessions={state.sessions}
+          transcripts={state.transcripts}
+          folders={state.recents}
+          mod={shortcutMod}
+          onSelectSession={(id) => {
+            setView("chat");
+            setSelectedId(id);
+          }}
+          onSelectFolder={(path) => {
+            setView("chat");
+            setRepoPath(path);
+            setSelectedId(null);
+          }}
+          onClose={() => setCommandOpen(false)}
+        />
+      ) : null}
+      {helpOpen ? (
+        <HelpDialog
+          shortcuts={shortcutHints}
+          mod={shortcutMod}
+          onClose={() => setHelpOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

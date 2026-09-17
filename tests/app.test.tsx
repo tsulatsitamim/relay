@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { App } from "../src/renderer/App";
 import type { RelayState } from "../src/shared/ipc";
@@ -780,5 +781,78 @@ describe("App home agent default", () => {
 
     fireEvent.change(repoSelect(), { target: { value: "/tmp/blank" } });
     await waitFor(() => expect(agentSelect().value).toBe(""));
+  });
+});
+
+describe("App command palette", () => {
+  it("opens with Cmd+K and closes with Escape", async () => {
+    mount([makeSession()]);
+    await openSession("Session one");
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(await screen.findByRole("dialog", { name: "Command palette" })).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Command palette" })).toBeNull(),
+    );
+  });
+
+  it("runs a command through the existing bridge handler", async () => {
+    const { bridge } = mount([makeSession()]);
+    await openSession("Session one");
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    const input = await screen.findByLabelText("Command palette query");
+    fireEvent.change(input, { target: { value: "debug" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(bridge.copyDebug).toHaveBeenCalledWith("s1"));
+  });
+
+  it("selects a session from the palette", async () => {
+    mount([
+      makeSession({ id: "s1", title: "Session one" }),
+      makeSession({ id: "s2", title: "Session two" }),
+    ]);
+    await screen.findByText("Session two");
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    const dialog = await screen.findByRole("dialog", { name: "Command palette" });
+    fireEvent.change(within(dialog).getByLabelText("Command palette query"), {
+      target: { value: "two" },
+    });
+    fireEvent.click(within(dialog).getByText("Session two"));
+    await waitFor(() =>
+      expect(document.querySelector(".thread-name")?.textContent).toBe("Session two"),
+    );
+  });
+});
+
+describe("App keybinding registry", () => {
+  it("starts a new chat with Cmd+N", async () => {
+    mount([makeSession()]);
+    await openSession("Session one");
+    fireEvent.keyDown(window, { key: "n", metaKey: true });
+    await waitFor(() => expect(document.querySelector(".home")).toBeTruthy());
+  });
+
+  it("opens the help dialog with ? and closes it with Escape", async () => {
+    mount([makeSession()]);
+    await openSession("Session one");
+    fireEvent.keyDown(window, { key: "?" });
+    expect(
+      await screen.findByRole("dialog", { name: "Keyboard shortcuts" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Command palette")).toBeTruthy();
+    expect(screen.getByText("Stash / restore draft")).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull(),
+    );
+  });
+
+  it("does not open help while typing in the composer", async () => {
+    mount([makeSession()]);
+    const box = await openSession("Session one");
+    fireEvent.keyDown(box, { key: "?" });
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
   });
 });
