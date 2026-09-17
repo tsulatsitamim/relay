@@ -16,6 +16,13 @@ describe("ThinkingBlock", () => {
 
     expect(screen.getByText("weighing options")).toBeTruthy();
   });
+
+  it("renders the thought through the shared badge body", async () => {
+    const { container } = render(<ThinkingBlock text="weighing options" />);
+    await userEvent.click(screen.getByRole("button", { name: /Thinking/i }));
+    expect(container.querySelector(".thinking .badge-body")).toBeTruthy();
+    expect(container.querySelector(".thinking-body")).toBeNull();
+  });
 });
 
 describe("PlanBlock", () => {

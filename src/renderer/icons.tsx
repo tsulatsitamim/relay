@@ -14,10 +14,12 @@ import {
   CirclePlus,
   Copy,
   Ellipsis,
+  FileText,
   Folder,
   FolderOpen,
   FolderPlus,
   GitFork,
+  Globe,
   Info,
   ListChecks,
   ListFilter,
@@ -39,8 +41,10 @@ import {
   Square,
   SquareArrowOutUpRight,
   SquarePen,
+  Terminal,
   Trash2,
   TriangleAlert,
+  Wrench,
   X,
 } from "lucide-react";
 
@@ -100,3 +104,9 @@ export const IconSettings = icon(Settings);
 export const IconInfo = icon(Info);
 export const IconPlug = icon(Plug);
 export const IconSliders = icon(SlidersHorizontal);
+export const IconToolRead = icon(FileText, { size: 14, strokeWidth: 1.75 });
+export const IconToolEdit = icon(SquarePen, { size: 14, strokeWidth: 1.75 });
+export const IconToolExecute = icon(Terminal, { size: 14, strokeWidth: 1.75 });
+export const IconToolSearch = icon(Search, { size: 14, strokeWidth: 1.75 });
+export const IconToolWeb = icon(Globe, { size: 14, strokeWidth: 1.75 });
+export const IconToolGeneric = icon(Wrench, { size: 14, strokeWidth: 1.75 });

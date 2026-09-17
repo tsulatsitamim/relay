@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { TranscriptEvent } from "../shared/types.ts";
 import { IconCheck, IconChevronRight, IconSpinner, IconWarning } from "./icons";
-import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
+import { ToolCallCard, ToolKindIcon, type ToolCallData } from "./ToolCallCard";
 import { toolGroupMeta, toolGroupSummary } from "./tool-group";
 
 export function ToolGroup({ events }: { events: TranscriptEvent[] }) {
@@ -29,6 +29,7 @@ export function ToolGroup({ events }: { events: TranscriptEvent[] }) {
   }
 
   const summary = toolGroupSummary(events);
+  const first = events[0]?.payload as ToolCallData | undefined;
 
   return (
     <section className={`toolgroup toolgroup-${meta.tone}`}>
@@ -49,6 +50,7 @@ export function ToolGroup({ events }: { events: TranscriptEvent[] }) {
             <span className="tool-dot" />
           )}
         </span>
+        <ToolKindIcon kind={first?.kind} title={first?.title} />
         <span className="toolgroup-title">{events.length} tool calls</span>
         {summary ? <span className="toolgroup-hint">{summary}</span> : null}
         <span className="tool-state">{meta.label}</span>

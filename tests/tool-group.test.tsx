@@ -91,6 +91,13 @@ describe("ToolGroup", () => {
     expect(screen.getByText("Input")).toBeTruthy();
   });
 
+  it("shows the first member's mapped icon in the summary row", () => {
+    const { container } = render(<ToolGroup events={[call("1", "read"), call("2", "edit")]} />);
+    expect(
+      container.querySelector(".toolgroup-head .tool-icon .lucide-file-text"),
+    ).toBeTruthy();
+  });
+
   it("collapses the body when the run finishes", () => {
     const { container, rerender } = render(
       <ToolGroup

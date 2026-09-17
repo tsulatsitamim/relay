@@ -101,4 +101,57 @@ describe("ToolCallCard", () => {
     );
     expect(screen.getByText("src/a.ts")).toBeTruthy();
   });
+
+  it("shows a read icon for a read tool", () => {
+    const { container } = render(
+      <ToolCallCard
+        toolCall={{ title: "Read file", kind: "read", status: "completed" }}
+      />,
+    );
+    expect(container.querySelector(".tool-head .tool-icon .lucide-file-text")).toBeTruthy();
+  });
+
+  it("shows an execute icon for an execute tool", () => {
+    const { container } = render(
+      <ToolCallCard
+        toolCall={{ title: "Run tests", kind: "execute", status: "completed" }}
+      />,
+    );
+    expect(container.querySelector(".tool-head .tool-icon .lucide-terminal")).toBeTruthy();
+  });
+
+  it("shows a generic icon for an unknown kind", () => {
+    const { container } = render(
+      <ToolCallCard
+        toolCall={{ title: "Mystery work", kind: "mystery", status: "completed" }}
+      />,
+    );
+    expect(container.querySelector(".tool-head .tool-icon .lucide-wrench")).toBeTruthy();
+  });
+
+  it("keeps the status indicator and aria-expanded behavior with an icon", async () => {
+    const { container } = render(
+      <ToolCallCard
+        toolCall={{
+          title: "Read file",
+          kind: "read",
+          status: "completed",
+          rawInput: { path: "a" },
+        }}
+      />,
+    );
+    const head = container.querySelector(".tool-head")!;
+    expect(head.querySelector(".tool-status")).toBeTruthy();
+    expect(head.getAttribute("aria-expanded")).toBe("false");
+    expect(head.querySelector(".tool-title")?.textContent).toBe("Read file");
+    expect(head.querySelector(".tool-state")?.textContent).toBe("Completed");
+    expect(head.querySelector(".tool-chevron")?.classList.contains("open")).toBe(false);
+
+    await userEvent.click(head);
+
+    expect(head.getAttribute("aria-expanded")).toBe("true");
+    expect(head.querySelector(".lucide-file-text")).toBeTruthy();
+    expect(head.querySelector(".tool-chevron")?.classList.contains("open")).toBe(true);
+    expect(container.querySelector(".tool-body")).toBeTruthy();
+  });
 });

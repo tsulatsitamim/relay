@@ -7,8 +7,20 @@ import type { TranscriptEvent } from "../src/shared/types.ts";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   delete (navigator as { clipboard?: unknown }).clipboard;
 });
+
+function fakeClipboardItem() {
+  const items: Record<string, Blob>[] = [];
+  class FakeClipboardItem {
+    constructor(record: Record<string, Blob>) {
+      items.push(record);
+    }
+  }
+  vi.stubGlobal("ClipboardItem", FakeClipboardItem);
+  return items;
+}
 
 describe("Transcript rendering", () => {
   it("renders agent messages as markdown", () => {
@@ -127,6 +139,39 @@ describe("Transcript rendering", () => {
     render(<Transcript events={events} />);
     fireEvent.click(screen.getByRole("button", { name: "Copy message" }));
     expect(writeText).toHaveBeenCalledWith("the answer");
+  });
+
+  it("copies an agent message as rich html with the rendered markup", async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { write, writeText } });
+    const items = fakeClipboardItem();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "agent_message", payload: { text: "## Result\n\n**bold**" } },
+    ];
+    render(<Transcript events={events} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy message" }));
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(writeText).not.toHaveBeenCalled();
+    const html = await items[0]!["text/html"]!.text();
+    expect(html).toContain("<h2>Result</h2>");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).not.toContain("msg-actions");
+    expect(html).not.toContain("<button");
+  });
+
+  it("keeps user message copy as plain text", () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { write, writeText } });
+    fakeClipboardItem();
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "**not markdown**" } },
+    ];
+    render(<Transcript events={events} />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy message" }));
+    expect(write).not.toHaveBeenCalled();
+    expect(writeText).toHaveBeenCalledWith("**not markdown**");
   });
 
   it("opens an inline editor pre-filled when a user message body is clicked", () => {

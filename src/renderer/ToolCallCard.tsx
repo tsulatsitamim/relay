@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { IconCheck, IconChevronRight, IconSpinner, IconWarning } from "./icons";
-import { prettyValue, toolStatusMeta } from "./toolFormat";
+import {
+  IconCheck,
+  IconChevronRight,
+  IconSpinner,
+  IconToolEdit,
+  IconToolExecute,
+  IconToolGeneric,
+  IconToolRead,
+  IconToolSearch,
+  IconToolWeb,
+  IconWarning,
+} from "./icons";
+import { prettyValue, toolIcon, toolStatusMeta } from "./toolFormat";
 
 export type ToolCallData = {
   toolCallId?: string;
@@ -11,6 +22,27 @@ export type ToolCallData = {
   rawInput?: unknown;
   rawOutput?: unknown;
 };
+
+export function ToolKindIcon({ kind, title }: { kind: unknown; title?: string }) {
+  const mapped = toolIcon(kind, title);
+  return (
+    <span className="tool-icon" aria-hidden>
+      {mapped === "read" ? (
+        <IconToolRead />
+      ) : mapped === "edit" ? (
+        <IconToolEdit />
+      ) : mapped === "execute" ? (
+        <IconToolExecute />
+      ) : mapped === "search" ? (
+        <IconToolSearch />
+      ) : mapped === "web" ? (
+        <IconToolWeb />
+      ) : (
+        <IconToolGeneric />
+      )}
+    </span>
+  );
+}
 
 export function ToolCallCard({ toolCall }: { toolCall: ToolCallData }) {
   const { tone, label } = toolStatusMeta(toolCall.status);
@@ -55,6 +87,7 @@ export function ToolCallCard({ toolCall }: { toolCall: ToolCallData }) {
             <span className="tool-dot" />
           )}
         </span>
+        <ToolKindIcon kind={toolCall.kind} title={toolCall.title} />
         <span className="tool-title">{toolCall.title ?? "Tool"}</span>
         {toolCall.kind ? <span className="tool-kind">{toolCall.kind}</span> : null}
         {(toolCall.locations ?? []).map((location, index) => (

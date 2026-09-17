@@ -2073,6 +2073,13 @@ input:focus-visible {
   flex-shrink: 0;
 }
 
+.tool-icon {
+  display: inline-flex;
+  width: 14px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
 .tool-running .tool-status {
   color: var(--working);
 }
@@ -2268,20 +2275,36 @@ input:focus-visible {
   color: var(--text);
 }
 
-.thinking-icon,
-.thinking-chevron {
+.thinking-icon {
   display: inline-flex;
 }
 
-.thinking-chevron {
+.badge-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 2px 0;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.badge-head:hover {
+  color: var(--text);
+}
+
+.badge-chevron {
+  display: inline-flex;
   transition: transform 0.12s ease;
 }
 
-.thinking-chevron.open {
+.badge-chevron.open {
   transform: rotate(90deg);
 }
 
-.thinking-body {
+.thinking .badge-body {
   margin-top: 4px;
   padding: 8px 10px;
   border-left: 2px solid var(--line);

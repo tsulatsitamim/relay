@@ -1,25 +1,24 @@
 import { useState } from "react";
-import { IconChevronRight, IconThinking } from "./icons";
+import { ExpandableBadge } from "./ExpandableBadge";
+import { IconThinking } from "./icons";
 
 export function ThinkingBlock({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
     <section className={`thinking${open ? " open" : ""}`}>
-      <button
-        type="button"
+      <ExpandableBadge
         className="thinking-head"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        icon={
+          <span className="thinking-icon" aria-hidden>
+            <IconThinking />
+          </span>
+        }
+        label={<span className="thinking-label">Thinking</span>}
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
       >
-        <span className="thinking-icon" aria-hidden>
-          <IconThinking />
-        </span>
-        <span className="thinking-label">Thinking</span>
-        <span className={`thinking-chevron${open ? " open" : ""}`} aria-hidden>
-          <IconChevronRight />
-        </span>
-      </button>
-      {open ? <div className="thinking-body">{text}</div> : null}
+        {text}
+      </ExpandableBadge>
     </section>
   );
 }

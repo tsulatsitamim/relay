@@ -11,6 +11,7 @@ import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
 import { ToolGroup } from "./ToolGroup";
 import { CopyButton } from "./CopyButton";
+import { htmlFromNode } from "./rich-clipboard";
 import { IconArrowDown, IconCheck, IconChevron, IconFork, IconRewind, IconX } from "./icons";
 import { MinimapRail } from "./MinimapRail";
 import { buildTurns as buildRailTurns, jumpTop } from "./minimap";
@@ -86,6 +87,7 @@ function EventRow({
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(false);
   const editRef = useRef<HTMLTextAreaElement>(null);
+  const markdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!editing) return;
@@ -246,7 +248,9 @@ function EventRow({
     const { text: shownText, capped } = capAgentMessage(text);
     return (
       <div className="msg agent">
-        <Markdown text={shownText} />
+        <div ref={markdownRef}>
+          <Markdown text={shownText} />
+        </div>
         {capped ? (
           <div className="msg-cap">
             Message capped at {AGENT_MESSAGE_CAP.toLocaleString("en-US")} characters
@@ -254,7 +258,7 @@ function EventRow({
         ) : null}
         <div className="msg-foot">
           <div className="msg-actions">
-            <CopyButton text={text} />
+            <CopyButton text={text} html={() => htmlFromNode(markdownRef.current)} />
           </div>
           {time != null ? <span className="msg-time">{time}</span> : null}
         </div>
