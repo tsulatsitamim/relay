@@ -1,5 +1,11 @@
 import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
-import type { PromptAttachment, Repo, Session, TranscriptEvent } from "../shared/types.ts";
+import type {
+  AgentConfig,
+  PromptAttachment,
+  Repo,
+  Session,
+  TranscriptEvent,
+} from "../shared/types.ts";
 
 export type RelayBridge = {
   getState: () => Promise<RelayState>;
@@ -18,6 +24,9 @@ export type RelayBridge = {
   pickImages: () => Promise<PromptAttachment[]>;
   addRepo: () => Promise<Repo[]>;
   removeRepo: (path: string) => Promise<Repo[]>;
+  saveAgent: (agent: AgentConfig) => Promise<AgentConfig>;
+  deleteAgent: (id: string) => Promise<void>;
+  setSetting: (key: string, value: string) => Promise<void>;
   setPinned: (id: string, pinned: boolean) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
   rename: (id: string, title: string) => Promise<void>;

@@ -120,6 +120,41 @@ export class SessionManager {
     this.store.saveAgents(agents);
   }
 
+  saveAgent(agent: AgentConfig): AgentConfig {
+    const agents = this.store.listAgents();
+    const index = agents.findIndex((item) => item.id === agent.id && agent.id !== "");
+    const saved =
+      index === -1
+        ? { ...agent, id: uniqueAgentId(agent.name, agents) }
+        : { ...agent };
+    const next =
+      index === -1
+        ? [...agents, saved]
+        : agents.map((item, i) => (i === index ? saved : item));
+    this.store.saveAgents(next);
+    return saved;
+  }
+
+  removeAgent(id: string): void {
+    const agents = this.store.listAgents();
+    const remaining = agents.filter((agent) => agent.id !== id);
+    if (remaining.length === agents.length) {
+      throw new Error(`unknown agent ${id}`);
+    }
+    if (remaining.length === 0) {
+      throw new Error("cannot delete the last provider");
+    }
+    this.store.saveAgents(remaining);
+  }
+
+  settings(): Record<string, string> {
+    return this.store.listSettings();
+  }
+
+  setSetting(key: string, value: string): void {
+    this.store.setSetting(key, value);
+  }
+
   transcript(sessionId: string): TranscriptEvent[] {
     return this.events.get(sessionId) ?? [];
   }
@@ -526,6 +561,19 @@ function attachmentMeta(
     mimeType: a.mimeType,
     ...(a.thumb ? { thumb: a.thumb } : {}),
   }));
+}
+
+function uniqueAgentId(name: string, existing: AgentConfig[]): string {
+  const base =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "provider";
+  let id = `${base}-${randomUUID().slice(0, 8)}`;
+  while (existing.some((agent) => agent.id === id)) {
+    id = `${base}-${randomUUID().slice(0, 8)}`;
+  }
+  return id;
 }
 
 export function defaultAgents(fakeAgentPath?: string): AgentConfig[] {

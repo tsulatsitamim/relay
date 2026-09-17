@@ -501,3 +501,53 @@ describe("SessionManager", () => {
     expect(sm.list().map((s) => s.id)).toEqual(["s2"]);
   });
 });
+
+describe("SessionManager agent management", () => {
+  it("saves, updates, and deletes agents by id", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "relay-db-"));
+    const store = await openStore(join(dir, "relay.db"));
+    const sm = new SessionManager(store);
+    managers.push(sm);
+    expect(sm.agents()).toEqual([]);
+
+    const created = sm.saveAgent({
+      id: "",
+      name: "My Agent",
+      command: "my-agent",
+      args: ["acp"],
+    });
+    expect(created.id).toBeTruthy();
+    expect(sm.agents()).toEqual([created]);
+
+    const updated = sm.saveAgent({ ...created, name: "Renamed", enabled: false });
+    expect(updated.id).toBe(created.id);
+    expect(sm.agents()).toHaveLength(1);
+    expect(sm.agents()[0]).toMatchObject({
+      id: created.id,
+      name: "Renamed",
+      enabled: false,
+    });
+
+    const second = sm.saveAgent({
+      id: "",
+      name: "Second",
+      command: "second",
+      args: [],
+    });
+    expect(sm.agents()).toHaveLength(2);
+
+    sm.removeAgent(created.id);
+    expect(sm.agents().map((a) => a.id)).toEqual([second.id]);
+  });
+
+  it("refuses to delete the last remaining agent", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "relay-db-"));
+    const store = await openStore(join(dir, "relay.db"));
+    store.saveAgents([{ id: "only", name: "Only", command: "only", args: [] }]);
+    const sm = new SessionManager(store);
+    managers.push(sm);
+
+    expect(() => sm.removeAgent("only")).toThrow(/last/);
+    expect(sm.agents()).toHaveLength(1);
+  });
+});

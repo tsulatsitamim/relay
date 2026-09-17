@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS agent_defaults (
   cwd TEXT PRIMARY KEY,
   agent_id TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `;
 
 export class Store {
@@ -169,8 +173,34 @@ export class Store {
     }));
   }
 
-  setAgentDefault(cwd: string, agentId: string): void {
+  setSetting(key: string, value: string): void {
     this.db.run(
+      "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+      [key, value],
+    );
+    this.flush();
+  }
+
+  getSetting(key: string): string | null {
+    const stmt = this.db.prepare("SELECT value FROM settings WHERE key = ?");
+    stmt.bind([key]);
+    const found = stmt.step();
+    const value = found ? String(stmt.getAsObject().value) : null;
+    stmt.free();
+    return value;
+  }
+
+  listSettings(): Record<string, string> {
+    const rows = this.db.exec("SELECT key, value FROM settings");
+    if (!rows[0]) return {};
+    const settings: Record<string, string> = {};
+    for (const [key, value] of rows[0].values) {
+      settings[String(key)] = String(value);
+    }
+    return settings;
+  }
+
+  setAgentDefault(cwd: string, agentId: string): void {    this.db.run(
       "INSERT OR REPLACE INTO agent_defaults (cwd, agent_id) VALUES (?, ?)",
       [cwd, agentId],
     );

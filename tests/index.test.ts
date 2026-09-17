@@ -6,6 +6,7 @@ import type { RelayState } from "../src/shared/ipc.ts";
 
 const h = vi.hoisted(() => ({
   userData: "",
+  version: "9.9.9",
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
 }));
 
@@ -45,6 +46,7 @@ vi.mock("electron", () => {
     app: {
       whenReady: () => Promise.resolve(),
       getPath: () => h.userData,
+      getVersion: () => h.version,
       on: () => {},
       quit: () => {},
       exit: () => {},
@@ -87,5 +89,24 @@ describe("main relay:getState", () => {
     const state = getState() as RelayState;
     expect(state).toHaveProperty("agentDefaults");
     expect(state.agentDefaults).toEqual({});
+  });
+
+  it("exposes provider CRUD and settings handlers and reports settings plus about", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+
+    const getState = await waitFor(() => h.handlers.get("relay:getState"));
+    const setSetting = await waitFor(() => h.handlers.get("relay:setSetting"));
+    expect(h.handlers.has("relay:saveAgent")).toBe(true);
+    expect(h.handlers.has("relay:deleteAgent")).toBe(true);
+
+    let state = getState() as RelayState;
+    expect(state.settings).toEqual({});
+    expect(state.about.version).toBe(h.version);
+    expect(state.about.dataPath).toContain("relay.db");
+
+    setSetting({}, "defaultAgentId", "a1");
+    state = getState() as RelayState;
+    expect(state.settings.defaultAgentId).toBe("a1");
   });
 });

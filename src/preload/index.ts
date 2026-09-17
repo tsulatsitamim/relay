@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
-import type { PromptAttachment, Repo, Session, TranscriptEvent } from "../shared/types.ts";
+import type {
+  AgentConfig,
+  PromptAttachment,
+  Repo,
+  Session,
+  TranscriptEvent,
+} from "../shared/types.ts";
 
 contextBridge.exposeInMainWorld("relay", {
   getState: (): Promise<RelayState> => ipcRenderer.invoke("relay:getState"),
@@ -30,6 +36,12 @@ contextBridge.exposeInMainWorld("relay", {
   addRepo: (): Promise<Repo[]> => ipcRenderer.invoke("relay:addRepo"),
   removeRepo: (path: string): Promise<Repo[]> =>
     ipcRenderer.invoke("relay:removeRepo", path),
+  saveAgent: (agent: AgentConfig): Promise<AgentConfig> =>
+    ipcRenderer.invoke("relay:saveAgent", agent),
+  deleteAgent: (id: string): Promise<void> =>
+    ipcRenderer.invoke("relay:deleteAgent", id),
+  setSetting: (key: string, value: string): Promise<void> =>
+    ipcRenderer.invoke("relay:setSetting", key, value),
   setPinned: (id: string, pinned: boolean): Promise<void> =>
     ipcRenderer.invoke("relay:setPinned", id, pinned),
   setArchived: (id: string, archived: boolean): Promise<void> =>

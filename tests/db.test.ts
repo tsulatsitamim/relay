@@ -116,6 +116,25 @@ describe("Store", () => {
     expect(store.listEvents("sess-2").map((e) => e.id)).toEqual(["other"]);
   });
 
+  it("stores settings as key/value pairs and overwrites them", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
+    const store = await openStore(file);
+    expect(store.getSetting("defaultAgentId")).toBeNull();
+    expect(store.listSettings()).toEqual({});
+
+    store.setSetting("defaultAgentId", "opencode");
+    store.setSetting("confirmDeleteProvider", "true");
+    store.setSetting("defaultAgentId", "claude-code");
+
+    const reopened = await openStore(file);
+    expect(reopened.getSetting("defaultAgentId")).toBe("claude-code");
+    expect(reopened.getSetting("missing")).toBeNull();
+    expect(reopened.listSettings()).toEqual({
+      defaultAgentId: "claude-code",
+      confirmDeleteProvider: "true",
+    });
+  });
+
   it("deletes a session and its events", async () => {
     const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
     const store = await openStore(file);

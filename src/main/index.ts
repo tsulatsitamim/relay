@@ -25,7 +25,7 @@ import { listFiles } from "./file-index.ts";
 import { listSkills } from "./skills.ts";
 import { readAttachment } from "./attachments.ts";
 import type { CreatePayload, RelayState } from "../shared/ipc.ts";
-import type { PromptAttachment, SessionStatus } from "../shared/types.ts";
+import type { AgentConfig, PromptAttachment, SessionStatus } from "../shared/types.ts";
 
 function createWindow(): BrowserWindow {
   const dir = dirname(fileURLToPath(import.meta.url));
@@ -62,7 +62,8 @@ async function main(): Promise<void> {
 
   const userData = app.getPath("userData");
   const logger = createLogger(join(userData, "relay.log"));
-  const store = await openStore(join(userData, "relay.db"));
+  const dbPath = join(userData, "relay.db");
+  const store = await openStore(dbPath);
   if (store.listAgents().length === 0) {
     store.saveAgents(defaultAgents());
   }
@@ -131,6 +132,8 @@ async function main(): Promise<void> {
       homeDir: homedir(),
       autoApprove: manager.autoApproveSessions(),
       agentDefaults: manager.agentDefaults(),
+      settings: manager.settings(),
+      about: { version: app.getVersion(), dataPath: dbPath },
     };
   });
 
@@ -259,6 +262,18 @@ async function main(): Promise<void> {
   ipcMain.handle("relay:removeRepo", async (_e, path: string) => {
     await manager.removeRepo(path);
     return manager.repos().map(withGitBranch);
+  });
+
+  ipcMain.handle("relay:saveAgent", (_e, agent: AgentConfig) =>
+    manager.saveAgent(agent),
+  );
+
+  ipcMain.handle("relay:deleteAgent", (_e, id: string) => {
+    manager.removeAgent(id);
+  });
+
+  ipcMain.handle("relay:setSetting", (_e, key: string, value: string) => {
+    manager.setSetting(key, value);
   });
 
   ipcMain.handle("relay:setPinned", (_e, id: string, pinned: boolean) => {

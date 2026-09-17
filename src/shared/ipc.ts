@@ -17,6 +17,8 @@ export type RelayState = {
   homeDir: string;
   autoApprove: string[];
   agentDefaults: Record<string, string>;
+  settings: Record<string, string>;
+  about: { version: string; dataPath: string };
 };
 
 export type RelayEvent =

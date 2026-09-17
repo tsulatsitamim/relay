@@ -19,6 +19,7 @@ export type AgentConfig = {
   command: string;
   args: string[];
   env?: Record<string, string>;
+  enabled?: boolean;
 };
 
 export type SessionModeLike = {
