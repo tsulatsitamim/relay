@@ -16,6 +16,7 @@ import {
   type PermissionPrompt,
 } from "./acp-session.ts";
 import type { Store } from "./db.ts";
+import { hasBinaryOnPath, resolveClaudeAgent } from "./agents.ts";
 import { pickAutoAllowOption } from "./permission.ts";
 import { reduceSessionUpdate } from "./transcript.ts";
 import { titleFromPrompt } from "./title.ts";
@@ -577,6 +578,7 @@ function uniqueAgentId(name: string, existing: AgentConfig[]): string {
 }
 
 export function defaultAgents(fakeAgentPath?: string): AgentConfig[] {
+  const claude = resolveClaudeAgent(hasBinaryOnPath);
   const agents: AgentConfig[] = [
     {
       id: "opencode",
@@ -587,8 +589,8 @@ export function defaultAgents(fakeAgentPath?: string): AgentConfig[] {
     {
       id: "claude-code",
       name: "Claude Code",
-      command: "npx",
-      args: ["-y", "@zed-industries/claude-code-acp"],
+      command: claude.command,
+      args: claude.args,
     },
   ];
   if (fakeAgentPath) {

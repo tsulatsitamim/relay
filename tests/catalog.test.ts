@@ -1,15 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultAgents } from "../src/main/session-manager.ts";
 
 describe("defaultAgents", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("includes OpenCode and Claude Code ACP commands", () => {
+    vi.stubEnv("PATH", "");
     const agents = defaultAgents();
     const opencode = agents.find((a) => a.id === "opencode");
     const claude = agents.find((a) => a.id === "claude-code");
     expect(opencode).toMatchObject({ command: "opencode", args: ["acp"] });
     expect(claude).toMatchObject({
       command: "npx",
-      args: ["-y", "@zed-industries/claude-code-acp"],
+      args: ["-y", "@zed-industries/claude-code-acp@0.16.2"],
     });
   });
 

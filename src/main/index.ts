@@ -13,6 +13,11 @@ import {
 import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import { SessionManager, defaultAgents } from "./session-manager.ts";
+import {
+  hasBinaryOnPath,
+  resolveClaudeAgent,
+  upgradeClaudeAgent,
+} from "./agents.ts";
 import { resolveWithinReal } from "./open-path.ts";
 import {
   isTurnFinished,
@@ -64,8 +69,15 @@ async function main(): Promise<void> {
   const logger = createLogger(join(userData, "relay.log"));
   const dbPath = join(userData, "relay.db");
   const store = await openStore(dbPath);
-  if (store.listAgents().length === 0) {
+  const existingAgents = store.listAgents();
+  if (existingAgents.length === 0) {
     store.saveAgents(defaultAgents());
+  } else {
+    const upgraded = upgradeClaudeAgent(
+      existingAgents,
+      resolveClaudeAgent(hasBinaryOnPath),
+    );
+    if (upgraded !== existingAgents) store.saveAgents(upgraded);
   }
 
   const manager = new SessionManager(store);
