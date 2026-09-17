@@ -152,6 +152,18 @@ describe("App settings entry", () => {
     expect(screen.queryByText("Default provider")).toBeNull();
   });
 
+  it("returns to chat from the back button and hints at the Escape shortcut", async () => {
+    mount(makeState());
+    await openSettings();
+
+    const back = screen.getByRole("button", { name: "Close settings" });
+    expect(back.getAttribute("title")).toMatch(/esc/i);
+
+    fireEvent.click(back);
+    await waitFor(() => expect(screen.getByText("New Chat")).toBeTruthy());
+    expect(screen.queryByText("Default provider")).toBeNull();
+  });
+
   it("shows the settings sections in the sidebar instead of the chat list", async () => {
     mount(makeState({ sessions: [makeSession("s1", "Session one")] }));
     await screen.findByText("Session one");

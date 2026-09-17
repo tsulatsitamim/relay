@@ -1,6 +1,14 @@
 import { useState, type ReactNode } from "react";
 import type { AgentConfig } from "../shared/types.ts";
-import { IconInfo, IconPlug, IconPlus, IconSliders, IconTrash, IconX } from "./icons";
+import {
+  IconArrowLeft,
+  IconInfo,
+  IconPlug,
+  IconPlus,
+  IconSliders,
+  IconTrash,
+  IconX,
+} from "./icons";
 
 export type SettingsSection = "general" | "providers" | "about";
 
@@ -451,6 +459,7 @@ export function SettingsPage({
   settings,
   about,
   sessionCount,
+  onClose,
   onSaveAgent,
   onDeleteAgent,
   onSetSetting,
@@ -460,6 +469,7 @@ export function SettingsPage({
   settings: Record<string, string>;
   about: { version: string; dataPath: string };
   sessionCount: number;
+  onClose: () => void;
   onSaveAgent: (agent: AgentConfig) => Promise<AgentConfig>;
   onDeleteAgent: (id: string) => Promise<void>;
   onSetSetting: (key: string, value: string) => void;
@@ -467,6 +477,15 @@ export function SettingsPage({
   return (
     <div className="settings">
       <div className="settings-container">
+        <button
+          type="button"
+          className="icon-btn settings-back"
+          aria-label="Close settings"
+          title="Close settings (Esc)"
+          onClick={onClose}
+        >
+          <IconArrowLeft />
+        </button>
         {section === "general" ? (
           <GeneralSection
             agents={agents}

@@ -2792,6 +2792,10 @@ input:focus-visible {
   margin: 0 auto;
 }
 
+.settings-back {
+  margin-bottom: var(--space-2);
+}
+
 .settings-heading {
   margin: 0 0 var(--space-3);
   font-size: var(--font-size-lg);
