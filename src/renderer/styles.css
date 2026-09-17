@@ -2881,7 +2881,9 @@ input:focus-visible {
 .providers-card {
   display: grid;
   grid-template-columns: 17rem minmax(0, 1fr);
-  height: 460px;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 20rem;
+  max-height: 44rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--card);
@@ -2896,6 +2898,19 @@ input:focus-visible {
   flex-direction: column;
   gap: var(--row-stack-gap);
   background: color-mix(in srgb, var(--base) 2%, var(--card));
+}
+
+@media (max-width: 720px) {
+  .providers-card {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: none;
+  }
+
+  .providers-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    max-height: 16rem;
+  }
 }
 
 .provider-row {
