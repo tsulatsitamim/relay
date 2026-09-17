@@ -46,13 +46,11 @@ import {
   type TypingTargetLike,
 } from "./keys.ts";
 import {
-  IconAutomations,
   IconCheck,
   IconArrowLeft,
   IconArrowRight,
   IconChevron,
   IconCopy,
-  IconCustomize,
   IconFilter,
   IconFolder,
   IconFolderOpen,
@@ -1048,18 +1046,6 @@ export function App() {
             </span>
             <span className="cell-content">Search</span>
           </button>
-          <button className="nav-item" type="button" disabled>
-            <span className="cell-icon">
-              <IconAutomations />
-            </span>
-            <span className="cell-content">Automations</span>
-          </button>
-          <button className="nav-item" type="button" disabled>
-            <span className="cell-icon">
-              <IconCustomize />
-            </span>
-            <span className="cell-content">Customize</span>
-          </button>
         </div>
         {searching && (
           <div className="search-box">
@@ -1440,6 +1426,7 @@ export function App() {
             <Transcript
               events={events}
               activeEventId={findOpen ? activeMatchId : null}
+              sessionId={selected.id}
               streaming={working}
               onEditUser={(text, eventId) => {
                 if (working) {

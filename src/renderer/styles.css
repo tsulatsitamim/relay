@@ -1129,6 +1129,67 @@ input:focus-visible {
   pointer-events: auto;
 }
 
+.turn-fold {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  margin-top: -10px;
+  padding: var(--space-1) var(--space-1-5);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  transition: background 120ms ease;
+}
+
+.turn-fold:hover {
+  background: var(--hover);
+}
+
+.turn-fold:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--base) 40%, transparent);
+  outline-offset: 2px;
+}
+
+.turn-fold-chevron {
+  display: inline-flex;
+  align-items: center;
+  color: var(--tertiary);
+  transform: rotate(-90deg);
+  transition: transform 120ms ease;
+}
+
+.turn-fold[aria-expanded="true"] .turn-fold-chevron {
+  transform: rotate(0deg);
+}
+
+.turn-fold-summary {
+  white-space: nowrap;
+}
+
+.turn-fold-prompt {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--tertiary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-fold,
+  .turn-fold-chevron {
+    transition: none;
+  }
+}
+
 @keyframes working-dot {
   0%,
   80%,

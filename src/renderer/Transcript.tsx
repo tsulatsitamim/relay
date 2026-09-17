@@ -11,11 +11,12 @@ import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
 import { ToolGroup } from "./ToolGroup";
 import { CopyButton } from "./CopyButton";
-import { IconArrowDown, IconCheck, IconFork, IconRewind, IconX } from "./icons";
+import { IconArrowDown, IconCheck, IconChevron, IconFork, IconRewind, IconX } from "./icons";
 import { MinimapRail } from "./MinimapRail";
-import { buildTurns, jumpTop } from "./minimap";
+import { buildTurns as buildRailTurns, jumpTop } from "./minimap";
 import { isNearBottom, nextFollowMode, type FollowMode } from "./scroll";
 import { buildRows } from "./transcript-rows";
+import { buildTurns, isTurnOpen, turnSummary } from "./turns";
 import { useVisibleAnimation } from "./visible-animation";
 
 type Props = {
@@ -32,11 +33,21 @@ type Props = {
   onSendDiffReview?: (ids: string[]) => void;
   footer?: ReactNode;
   activeEventId?: string | null;
+  sessionId?: string;
   streaming?: boolean;
 };
 
 const COLLAPSE_MAX_CHARS = 600;
 const COLLAPSE_MAX_LINES = 8;
+const DEFAULT_OPEN_TURNS = 5;
+const FOLD_PROMPT_MAX = 72;
+
+function foldPrompt(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > FOLD_PROMPT_MAX
+    ? `${flat.slice(0, FOLD_PROMPT_MAX - 1).trimEnd()}…`
+    : flat;
+}
 
 function EventRow({
   event,
@@ -395,10 +406,12 @@ export function Transcript({
   onSendDiffReview,
   footer,
   activeEventId,
+  sessionId,
   streaming = false,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<FollowMode>("following");
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const seenEventIds = useRef<Set<string>>(new Set(events.map((event) => event.id)));
@@ -412,7 +425,17 @@ export function Transcript({
     streamingSinceRef.current = null;
   }
   const rows = useMemo(() => buildRows(events), [events]);
-  const turns = useMemo(() => buildTurns(events), [events]);
+  const turns = useMemo(() => buildTurns(rows), [rows]);
+  const railTurns = useMemo(() => buildRailTurns(events), [events]);
+  const rowOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    let total = 0;
+    for (const turn of turns) {
+      offsets.push(total);
+      total += turn.rows.length;
+    }
+    return offsets;
+  }, [turns]);
   const turnIndexByEventId = useMemo(() => {
     const map = new Map<string, number>();
     let index = 0;
@@ -451,13 +474,34 @@ export function Transcript({
     el.scrollTop = el.scrollHeight;
   }, [events]);
 
+  const sessionRef = useRef(sessionId);
+  useEffect(() => {
+    if (sessionRef.current === sessionId) return;
+    sessionRef.current = sessionId;
+    setExpanded(new Set());
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!activeEventId) return;
+    const index = turns.findIndex((turn) =>
+      turn.rows.some((row) => row.event.id === activeEventId),
+    );
+    if (index < 0 || isTurnOpen(turns, index, expanded, DEFAULT_OPEN_TURNS)) return;
+    setExpanded((prev) => {
+      if (prev.has(turns[index]!.key)) return prev;
+      const next = new Set(prev);
+      next.add(turns[index]!.key);
+      return next;
+    });
+  }, [activeEventId, turns, expanded]);
+
   useEffect(() => {
     if (!activeEventId) return;
     const row = scrollRef.current?.querySelector(
       `[data-event-id="${activeEventId}"]`,
     );
     if (row instanceof HTMLElement) row.scrollIntoView?.({ block: "center" });
-  }, [activeEventId]);
+  }, [activeEventId, expanded]);
 
   function onScroll() {
     const el = scrollRef.current;
@@ -505,34 +549,72 @@ export function Transcript({
         data-streaming={streaming ? "" : undefined}
         onScroll={onScroll}
       >
-        {rows.map(({ event, time, day, showSeparator, group, groupKind }, index) => {
+        {turns.map((turn, turnIndex) => {
+          const foldable = turnIndex < turns.length - DEFAULT_OPEN_TURNS;
+          const open = isTurnOpen(turns, turnIndex, expanded, DEFAULT_OPEN_TURNS);
+          const base = rowOffsets[turnIndex] ?? 0;
+          const userTurn = turn.userEventId
+            ? turnIndexByEventId.get(turn.userEventId)
+            : undefined;
           return (
-            <Fragment key={event.id}>
-              {showSeparator ? (
-                <div className="day-separator">{day}</div>
+            <Fragment key={turn.key}>
+              {foldable ? (
+                <button
+                  type="button"
+                  className="turn-fold"
+                  aria-expanded={open}
+                  data-user-turn={open ? undefined : userTurn}
+                  onClick={() =>
+                    setExpanded((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(turn.key)) next.delete(turn.key);
+                      else next.add(turn.key);
+                      return next;
+                    })
+                  }
+                >
+                  <span className="turn-fold-chevron">
+                    <IconChevron />
+                  </span>
+                  <span className="turn-fold-summary">{turnSummary(turn)}</span>
+                  {turn.prompt ? (
+                    <span className="turn-fold-prompt">{foldPrompt(turn.prompt)}</span>
+                  ) : null}
+                </button>
               ) : null}
-              <MessageRow
-                event={event}
-                time={time}
-                isActive={event.id === activeEventId}
-                userTurn={turnIndexByEventId.get(event.id)}
-                group={group}
-                groupKind={groupKind}
-                streamingRow={
-                  streamingSinceRef.current !== null &&
-                  index >= streamingSinceRef.current
-                }
-                onEditUser={onEditUser}
-                onRewind={onRewind}
-                onFork={onFork}
-                reviewedDiffIds={reviewedDiffIds}
-                diffComments={diffComments}
-                onToggleReviewed={onToggleReviewed}
-                onOpenDiff={onOpenDiff}
-                onAddDiffComment={onAddDiffComment}
-                onDeleteDiffComment={onDeleteDiffComment}
-                onSendDiffReview={onSendDiffReview}
-              />
+              {open
+                ? turn.rows.map(
+                    ({ event, time, day, showSeparator, group, groupKind }, rowIndex) => (
+                      <Fragment key={event.id}>
+                        {showSeparator ? (
+                          <div className="day-separator">{day}</div>
+                        ) : null}
+                        <MessageRow
+                          event={event}
+                          time={time}
+                          isActive={event.id === activeEventId}
+                          userTurn={turnIndexByEventId.get(event.id)}
+                          group={group}
+                          groupKind={groupKind}
+                          streamingRow={
+                            streamingSinceRef.current !== null &&
+                            base + rowIndex >= streamingSinceRef.current
+                          }
+                          onEditUser={onEditUser}
+                          onRewind={onRewind}
+                          onFork={onFork}
+                          reviewedDiffIds={reviewedDiffIds}
+                          diffComments={diffComments}
+                          onToggleReviewed={onToggleReviewed}
+                          onOpenDiff={onOpenDiff}
+                          onAddDiffComment={onAddDiffComment}
+                          onDeleteDiffComment={onDeleteDiffComment}
+                          onSendDiffReview={onSendDiffReview}
+                        />
+                      </Fragment>
+                    ),
+                  )
+                : null}
             </Fragment>
           );
         })}
@@ -549,7 +631,7 @@ export function Transcript({
           <span>Latest</span>
         </button>
       ) : null}
-      <MinimapRail turns={turns} scrollRef={scrollRef} onJump={jumpToTurn} />
+      <MinimapRail turns={railTurns} scrollRef={scrollRef} onJump={jumpToTurn} />
     </div>
   );
 }
