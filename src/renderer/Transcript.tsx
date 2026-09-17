@@ -7,6 +7,7 @@ import { Markdown } from "./Markdown";
 import { PlanBlock } from "./PlanBlock";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
+import { ToolGroup } from "./ToolGroup";
 import { IconArrowDown, IconCheck, IconCopy, IconX } from "./icons";
 import { MinimapRail } from "./MinimapRail";
 import { buildTurns, jumpTop } from "./minimap";
@@ -248,6 +249,7 @@ function MessageRow({
   isActive,
   streamingRow,
   userTurn,
+  group,
   onEditUser,
   reviewedDiffIds,
   onToggleReviewed,
@@ -258,6 +260,7 @@ function MessageRow({
   isActive: boolean;
   streamingRow?: boolean;
   userTurn?: number;
+  group?: TranscriptEvent[];
   onEditUser?: (text: string, eventId: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
@@ -273,14 +276,18 @@ function MessageRow({
       data-user-turn={userTurn}
       data-streaming-row={streamingRow ? "" : undefined}
     >
-      <EventRow
-        event={event}
-        time={time}
-        onEditUser={onEditUser}
-        reviewedDiffIds={reviewedDiffIds}
-        onToggleReviewed={onToggleReviewed}
-        onOpenDiff={onOpenDiff}
-      />
+      {group ? (
+        <ToolGroup events={group} />
+      ) : (
+        <EventRow
+          event={event}
+          time={time}
+          onEditUser={onEditUser}
+          reviewedDiffIds={reviewedDiffIds}
+          onToggleReviewed={onToggleReviewed}
+          onOpenDiff={onOpenDiff}
+        />
+      )}
     </div>
   );
 }
@@ -403,7 +410,7 @@ export function Transcript({
         data-streaming={streaming ? "" : undefined}
         onScroll={onScroll}
       >
-        {rows.map(({ event, time, day, showSeparator }, index) => {
+        {rows.map(({ event, time, day, showSeparator, group }, index) => {
           return (
             <Fragment key={event.id}>
               {showSeparator ? (
@@ -414,6 +421,7 @@ export function Transcript({
                 time={time}
                 isActive={event.id === activeEventId}
                 userTurn={turnIndexByEventId.get(event.id)}
+                group={group}
                 streamingRow={
                   streamingSinceRef.current !== null &&
                   index >= streamingSinceRef.current

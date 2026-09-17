@@ -1988,6 +1988,75 @@ input:focus-visible {
   font-size: var(--font-size-xs);
 }
 
+.toolgroup {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+}
+
+.toolgroup-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.toolgroup-head:hover {
+  background: var(--hover);
+}
+
+.toolgroup-running .tool-status {
+  color: var(--working);
+}
+
+.toolgroup-done .tool-status {
+  color: var(--ok);
+}
+
+.toolgroup-error .tool-status {
+  color: var(--danger);
+}
+
+.toolgroup-running .tool-status svg {
+  animation: relay-spin 1s linear infinite;
+  animation-play-state: var(--visible-animation-state, running);
+}
+
+.toolgroup-title {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.toolgroup-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.toolgroup-body {
+  border-top: 1px solid var(--line);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolgroup-body .tool {
+  background: transparent;
+}
+
 .thinking {
   font-size: var(--font-size-sm);
   color: var(--muted);

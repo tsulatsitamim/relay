@@ -20,6 +20,15 @@ function event(id: string, createdAt?: number): TranscriptEvent {
   return { id, kind: "user", payload: { text: id }, createdAt };
 }
 
+function tool(id: string, createdAt?: number): TranscriptEvent {
+  return {
+    id,
+    kind: "tool_call",
+    payload: { title: id, kind: "edit", status: "completed" },
+    createdAt,
+  };
+}
+
 beforeEach(() => {
   spies.formatDay.mockReset();
   spies.formatTime.mockReset();
@@ -61,5 +70,41 @@ describe("buildRows", () => {
     const rows = buildRows([event("1"), event("2")]);
     expect(rows.map((row) => row.showSeparator)).toEqual([false, false]);
     expect(spies.formatDay).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildRows tool grouping", () => {
+  it("keeps a single tool call as its own ungrouped row", () => {
+    const rows = buildRows([tool("t1")]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.event.id).toBe("t1");
+    expect(rows[0]!.group).toBeUndefined();
+  });
+
+  it("collapses a run of two or more tool calls into one group row", () => {
+    const rows = buildRows([tool("t1"), tool("t2"), tool("t3")]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.event.id).toBe("t1");
+    expect(rows[0]!.group?.map((item) => item.id)).toEqual(["t1", "t2", "t3"]);
+  });
+
+  it("breaks a run on a non-tool event and preserves order", () => {
+    const rows = buildRows([tool("t1"), tool("t2"), event("u1"), tool("t3")]);
+    expect(rows.map((row) => row.event.id)).toEqual(["t1", "u1", "t3"]);
+    expect(rows[0]!.group?.map((item) => item.id)).toEqual(["t1", "t2"]);
+    expect(rows[2]!.group).toBeUndefined();
+  });
+
+  it("groups two separated runs independently", () => {
+    const rows = buildRows([
+      tool("a1"),
+      tool("a2"),
+      event("u1"),
+      tool("b1"),
+      tool("b2"),
+    ]);
+    expect(rows).toHaveLength(3);
+    expect(rows[0]!.group?.map((item) => item.id)).toEqual(["a1", "a2"]);
+    expect(rows[2]!.group?.map((item) => item.id)).toEqual(["b1", "b2"]);
   });
 });
