@@ -109,11 +109,12 @@ describe("conversation typography contract", () => {
     expect(decls(".markdown table")).toContain("font-size: 12px;");
   });
 
-  it("renders footer meta and the working row as 12px/14px muted tabular text", () => {
+  it("renders footer meta and the amber working row as compact tabular text", () => {
     expect(decls(".msg-time")).toContain("font-size: var(--font-size-sm);");
     expect(decls(".msg-time")).toContain("font-variant-numeric: tabular-nums;");
     const working = decls(".working-row");
-    expect(working).toContain("font-size: var(--conversation-font-size);");
+    expect(working).toContain("color: var(--working);");
+    expect(working).toContain("font-size: var(--font-size);");
     expect(working).toContain("font-variant-numeric: tabular-nums;");
     expect(working).toContain("border-bottom: 1px solid var(--line);");
   });
