@@ -915,3 +915,21 @@ describe("App queue steering", () => {
     expect(chips()).toEqual(["second", "first"]);
   });
 });
+
+describe("App prompt history", () => {
+  it("recalls the latest user prompt from the transcript", async () => {
+    mount([makeSession()], {
+      s1: [
+        { id: "u1", kind: "user", payload: { text: "first prompt" } },
+        { id: "a1", kind: "agent_message", payload: { text: "answer" } },
+        { id: "u2", kind: "user", payload: { text: "second prompt" } },
+      ],
+    });
+    const box = await openSession("Session one");
+    box.setSelectionRange(0, 0);
+    fireEvent.keyDown(box, { key: "ArrowUp" });
+    expect(box.value).toBe("second prompt");
+    fireEvent.keyDown(box, { key: "ArrowUp" });
+    expect(box.value).toBe("first prompt");
+  });
+});

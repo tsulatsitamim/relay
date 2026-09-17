@@ -27,6 +27,7 @@ type Props = {
   commands?: AvailableCommandLike[];
   cwd?: string;
   inject?: { text: string; nonce: number; fromEventId?: string };
+  history?: string[];
   plan?: PlanEntry[];
   usage?: UsageInfo;
 };
@@ -46,6 +47,7 @@ export function Composer({
   commands = [],
   cwd,
   inject,
+  history = [],
   plan,
   usage,
 }: Props) {
@@ -70,6 +72,7 @@ export function Composer({
     commands,
     cwd,
     inject,
+    history,
     onEnter: () => void submit(),
   });
   const canSubmit = hasContent && !disabled;

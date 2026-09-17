@@ -5,6 +5,7 @@ import {
   type ClipboardEvent,
   type DragEvent,
   type KeyboardEvent,
+  type SetStateAction,
 } from "react";
 import type {
   AvailableCommandLike,
@@ -12,6 +13,13 @@ import type {
 } from "../shared/types.ts";
 import { readImageFiles } from "./attachments";
 import { leadingCommands } from "./commands";
+import {
+  initialRecall,
+  recallNext,
+  recallPrev,
+  recallText,
+  type RecallState,
+} from "./history.ts";
 import type { Suggestion } from "./SuggestionMenu";
 
 const lineHeight = 24;
@@ -34,6 +42,7 @@ type Options = {
   commands?: AvailableCommandLike[];
   cwd?: string;
   inject?: { text: string; nonce: number; fromEventId?: string };
+  history?: string[];
   onEnter: () => void;
 };
 
@@ -41,6 +50,7 @@ export function useComposerInput({
   commands = [],
   cwd,
   inject,
+  history = [],
   onEnter,
 }: Options) {
   const [text, setText] = useState("");
@@ -50,8 +60,14 @@ export function useComposerInput({
   const [dismissed, setDismissed] = useState(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const submitting = useRef(false);
+  const recall = useRef<RecallState>(initialRecall);
   const enter = useRef(onEnter);
   enter.current = onEnter;
+
+  function updateText(value: SetStateAction<string>) {
+    recall.current = initialRecall;
+    setText(value);
+  }
 
   const slashMatch = slashQuery(text, commands);
   const slashItems: Suggestion[] = slashMatch !== null
@@ -83,7 +99,7 @@ export function useComposerInput({
 
   useEffect(() => {
     if (inject) {
-      setText(inject.text);
+      updateText(inject.text);
       setDismissed(false);
       field.current?.focus();
     }
@@ -126,10 +142,10 @@ export function useComposerInput({
     const item = menu.items[index];
     if (!item) return;
     if (menu.kind === "slash") {
-      setText((prev) => prev.replace(/\/([^\s\n]*)$/, () => `/${item.id} `));
+      updateText((prev) => prev.replace(/\/([^\s\n]*)$/, () => `/${item.id} `));
       return;
     }
-    setText((prev) => prev.replace(/@([^\s@]*)$/, () => `@${item.id} `));
+    updateText((prev) => prev.replace(/@([^\s@]*)$/, () => `@${item.id} `));
   }
 
   function buildPrompt(): string {
@@ -137,7 +153,7 @@ export function useComposerInput({
   }
 
   function reset() {
-    setText("");
+    updateText("");
   }
 
   async function addFiles(list: ArrayLike<File> | File[]) {
@@ -192,6 +208,26 @@ export function useComposerInput({
         return;
       }
     }
+    if (!menu && history.length > 0) {
+      if (e.key === "ArrowUp") {
+        const atStart =
+          e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0;
+        if (recall.current.index !== -1 || atStart) {
+          e.preventDefault();
+          const next = recallPrev(recall.current, history, text);
+          updateText(recallText(next, history));
+          recall.current = next;
+          return;
+        }
+      }
+      if (e.key === "ArrowDown" && recall.current.index !== -1) {
+        e.preventDefault();
+        const next = recallNext(recall.current, history);
+        updateText(recallText(next, history));
+        recall.current = next;
+        return;
+      }
+    }
     if (e.key !== "Enter" || e.shiftKey) return;
     e.preventDefault();
     enter.current();
@@ -200,7 +236,7 @@ export function useComposerInput({
   return {
     field,
     text,
-    setText,
+    setText: updateText,
     attachments,
     setAttachments,
     addFiles,

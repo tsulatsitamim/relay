@@ -31,6 +31,7 @@ import {
 import { PermissionCard } from "./PermissionCard";
 import { SessionRow } from "./SessionRow";
 import { findMatches, matchesSession } from "./search.ts";
+import { promptHistory } from "./history.ts";
 import { FindBar } from "./FindBar";
 import { HelpDialog, type ShortcutHint } from "./HelpDialog";
 import { CommandPalette, type PaletteCommand } from "./CommandPalette";
@@ -248,6 +249,7 @@ export function App() {
   const [findQuery, setFindQuery] = useState("");
   const [findIndex, setFindIndex] = useState(0);
   const flushing = useRef<Set<string>>(new Set());
+  const sentPrompts = useRef<Record<string, string[]>>({});
   const [flushTick, setFlushTick] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem("relay.sidebarCollapsed") === "1",
@@ -384,6 +386,9 @@ export function App() {
     }
     return undefined;
   }, [events]);
+  const composerHistory = selected
+    ? promptHistory(events, sentPrompts.current[selected.id] ?? [])
+    : [];
   const findResults = useMemo(
     () => (findOpen ? findMatches(events, findQuery) : []),
     [findOpen, events, findQuery],
@@ -519,6 +524,13 @@ export function App() {
       skillNames,
     );
     const first = turns[0] ?? text;
+    const trimmed = text.trim();
+    if (trimmed) {
+      sentPrompts.current[sessionId] = [
+        ...(sentPrompts.current[sessionId] ?? []),
+        trimmed,
+      ];
+    }
     if (turns.length > 1) {
       const rest = turns.slice(1);
       setQueued((prev) => ({
@@ -1402,6 +1414,7 @@ export function App() {
               inject={inject}
               plan={planEntries}
               usage={usage}
+              history={composerHistory}
             />
           </div>
         ) : (

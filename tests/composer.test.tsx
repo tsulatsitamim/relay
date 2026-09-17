@@ -566,3 +566,49 @@ describe("Composer", () => {
     ]);
   });
 });
+
+describe("Composer prompt history", () => {
+  function caretStart(field: HTMLTextAreaElement) {
+    field.setSelectionRange(0, 0);
+  }
+
+  it("recalls the last prompt when ArrowUp is pressed at the caret start", () => {
+    const { field } = setup({ history: ["latest prompt", "older prompt"] });
+    caretStart(field);
+    fireEvent.keyDown(field, { key: "ArrowUp" });
+    expect(field.value).toBe("latest prompt");
+
+    fireEvent.keyDown(field, { key: "ArrowUp" });
+    expect(field.value).toBe("older prompt");
+  });
+
+  it("returns to the draft with ArrowDown", () => {
+    const { field } = setup({ history: ["latest prompt"] });
+    fireEvent.change(field, { target: { value: "my draft" } });
+    caretStart(field);
+    fireEvent.keyDown(field, { key: "ArrowUp" });
+    expect(field.value).toBe("latest prompt");
+
+    fireEvent.keyDown(field, { key: "ArrowDown" });
+    expect(field.value).toBe("my draft");
+  });
+
+  it("does not recall when the caret is in the middle of the text", () => {
+    const { field } = setup({ history: ["latest prompt"] });
+    fireEvent.change(field, { target: { value: "abc def" } });
+    field.setSelectionRange(3, 3);
+    fireEvent.keyDown(field, { key: "ArrowUp" });
+    expect(field.value).toBe("abc def");
+  });
+
+  it("resets the walk when the user types again", () => {
+    const { field } = setup({ history: ["latest prompt"] });
+    caretStart(field);
+    fireEvent.keyDown(field, { key: "ArrowUp" });
+    expect(field.value).toBe("latest prompt");
+
+    fireEvent.change(field, { target: { value: "edited" } });
+    fireEvent.keyDown(field, { key: "ArrowDown" });
+    expect(field.value).toBe("edited");
+  });
+});
