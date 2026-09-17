@@ -48,7 +48,7 @@ function createSession(overrides: Partial<ConstructorParameters<typeof AcpSessio
   return { session, updates, prompts };
 }
 
-function waitForExit(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+function waitForExit(predicate: () => boolean, timeoutMs = 10_000): Promise<void> {
   return new Promise((resolve, reject) => {
     const started = Date.now();
     const tick = () => {

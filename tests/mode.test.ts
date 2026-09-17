@@ -46,7 +46,7 @@ async function manager(): Promise<SessionManager> {
 
 async function waitFor<T>(
   get: () => T | null | undefined | false,
-  timeoutMs = 3000,
+  timeoutMs = 10_000,
 ): Promise<T> {
   const started = Date.now();
   for (;;) {

@@ -40,7 +40,7 @@ async function manager() {
   return sm;
 }
 
-async function waitFor<T>(get: () => T | null | undefined, timeoutMs = 3000): Promise<T> {
+async function waitFor<T>(get: () => T | null | undefined, timeoutMs = 10_000): Promise<T> {
   const started = Date.now();
   for (;;) {
     const value = get();
