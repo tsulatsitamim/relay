@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { RelayState } from "../shared/ipc.ts";
 import type {
   AvailableCommandLike,
+  AgentConfig,
   PlanEntry,
   PromptAttachment,
   Repo,
@@ -13,6 +14,7 @@ import { repoFor } from "../shared/repo.ts";
 import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
+import { SettingsNav, SettingsPage, type SettingsSection } from "./Settings";
 import type { UsageInfo } from "./ContextMeter";
 import { WorkingStatus } from "./WorkingStatus";
 import { ErrorBanner } from "./ErrorBanner";
@@ -47,6 +49,7 @@ import {
   IconPlus,
   IconRedo,
   IconSearch,
+  IconSettings,
   IconTrash,
 } from "./icons";
 
@@ -62,6 +65,8 @@ const emptyState: RelayState = {
   homeDir: "",
   autoApprove: [],
   agentDefaults: {},
+  settings: {},
+  about: { version: "", dataPath: "" },
 };
 
 type MenuState =
@@ -233,6 +238,8 @@ export function App() {
   const [injectSessionId, setInjectSessionId] = useState<string | null>(null);
   const [reviewedDiffs, setReviewedDiffs] = useState<Set<string>>(() => new Set());
   const [permissionIndex, setPermissionIndex] = useState(0);
+  const [view, setView] = useState<"chat" | "settings">("chat");
+  const [section, setSection] = useState<SettingsSection>("general");
   const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   if (injectSessionId !== selectedId) {
@@ -289,8 +296,13 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    setAgentId(state.agentDefaults[repoPath || state.homeDir] ?? "");
-  }, [repoPath, state.agentDefaults]);
+    const enabled = state.agents.filter((agent) => agent.enabled !== false);
+    const preferred =
+      state.agentDefaults[repoPath || state.homeDir] ??
+      state.settings.defaultAgentId ??
+      "";
+    setAgentId(enabled.some((agent) => agent.id === preferred) ? preferred : "");
+  }, [repoPath, state.agentDefaults, state.agents, state.settings.defaultAgentId]);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -323,6 +335,10 @@ export function App() {
         if (selectedId !== null) setFindOpen((v) => !v);
       }
       if (e.key === "Escape") {
+        if (view === "settings") {
+          setView("chat");
+          return;
+        }
         if (findOpen) {
           setFindOpen(false);
           return;
@@ -338,7 +354,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, state.sessions, findOpen]);
+  }, [selectedId, state.sessions, findOpen, view]);
 
   useEffect(() => {
     setFindOpen(false);
@@ -667,6 +683,40 @@ export function App() {
     }
   }
 
+  async function saveAgent(agent: AgentConfig): Promise<AgentConfig> {
+    const saved = await window.relay.saveAgent(agent);
+    setState((prev) => {
+      const exists = prev.agents.some((item) => item.id === saved.id);
+      return {
+        ...prev,
+        agents: exists
+          ? prev.agents.map((item) => (item.id === saved.id ? saved : item))
+          : [...prev.agents, saved],
+      };
+    });
+    return saved;
+  }
+
+  async function deleteAgent(id: string) {
+    await window.relay.deleteAgent(id);
+    setState((prev) => ({
+      ...prev,
+      agents: prev.agents.filter((item) => item.id !== id),
+    }));
+  }
+
+  function setSetting(key: string, value: string) {
+    setState((prev) => ({
+      ...prev,
+      settings: { ...prev.settings, [key]: value },
+    }));
+    void window.relay.setSetting(key, value);
+  }
+
+  function toggleSettings() {
+    setView((current) => (current === "settings" ? "chat" : "settings"));
+  }
+
   function renderRow(session: Session) {
     return (
       <SessionRow
@@ -704,6 +754,10 @@ export function App() {
             />
           </div>
         )}
+        {view === "settings" ? (
+          <SettingsNav section={section} onSelect={setSection} />
+        ) : (
+          <>
         <div className="nav">
           <button
             className={`nav-item ${onHome && !searching ? "active" : ""}`}
@@ -918,6 +972,8 @@ export function App() {
             )}
           </div>
         </div>
+          </>
+        )}
         {menu?.kind === "filter" && (
           <Menu
             x={menu.x}
@@ -1023,6 +1079,18 @@ export function App() {
             </button>
           </Menu>
         )}
+        <div className="sidebar-foot">
+          <button
+            type="button"
+            className={`icon-btn${view === "settings" ? " active" : ""}`}
+            title="Settings"
+            aria-label="Settings"
+            aria-pressed={view === "settings"}
+            onClick={toggleSettings}
+          >
+            <IconSettings />
+          </button>
+        </div>
       </aside>
 
       <section className="canvas">
@@ -1051,7 +1119,18 @@ export function App() {
             </span>
           </span>
         </header>
-        {selected ? (
+        {view === "settings" ? (
+          <SettingsPage
+            section={section}
+            agents={state.agents}
+            settings={state.settings}
+            about={state.about}
+            sessionCount={state.sessions.length}
+            onSaveAgent={saveAgent}
+            onDeleteAgent={deleteAgent}
+            onSetSetting={setSetting}
+          />
+        ) : selected ? (
           <div className="thread">
             <header className="thread-head">
               <span className="thread-name">{selected.title}</span>
@@ -1169,7 +1248,7 @@ export function App() {
           </div>
         ) : (
           <HomeComposer
-            agents={state.agents}
+            agents={state.agents.filter((agent) => agent.enabled !== false)}
             repos={state.repos}
             recents={state.recents}
             agentId={agentId}

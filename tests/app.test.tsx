@@ -56,6 +56,8 @@ function stateWith(
     homeDir: "/tmp",
     autoApprove,
     agentDefaults,
+    settings: {},
+    about: { version: "0.0.0", dataPath: "/tmp/relay.db" },
   };
 }
 

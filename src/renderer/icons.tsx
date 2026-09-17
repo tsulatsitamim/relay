@@ -17,6 +17,7 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  Info,
   ListChecks,
   ListFilter,
   LoaderCircle,
@@ -25,9 +26,12 @@ import {
   PanelLeft,
   Pencil,
   Pin,
+  Plug,
   Plus,
   Redo2,
   Search,
+  Settings,
+  SlidersHorizontal,
   Square,
   SquareArrowOutUpRight,
   SquarePen,
@@ -82,3 +86,7 @@ export const IconWarning = icon(TriangleAlert, { size: 14, strokeWidth: 2 });
 export const IconThinking = icon(Brain, { size: 14, strokeWidth: 1.75 });
 export const IconPlan = icon(ListChecks, { size: 14, strokeWidth: 1.75 });
 export const IconArrowDown = icon(ArrowDown, { size: 14, strokeWidth: 2 });
+export const IconSettings = icon(Settings);
+export const IconInfo = icon(Info);
+export const IconPlug = icon(Plug);
+export const IconSliders = icon(SlidersHorizontal);
