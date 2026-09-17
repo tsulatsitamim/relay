@@ -55,7 +55,7 @@ describe("HomeComposer", () => {
       ".composer-bar select",
     ) as HTMLSelectElement;
     expect(select.value).toBe("");
-    expect(screen.getByRole("option", { name: "Pilih agent" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Select agent" })).toBeTruthy();
 
     fireEvent.change(field, { target: { value: "hello" } });
     const orb = screen.getByLabelText("Voice") as HTMLButtonElement;

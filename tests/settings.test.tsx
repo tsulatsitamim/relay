@@ -346,7 +346,7 @@ describe("Providers settings", () => {
         ".composer-bar select",
       ) as HTMLSelectElement;
       expect(Array.from(select.options).map((option) => option.textContent)).toEqual([
-        "Pilih agent",
+        "Select agent",
         "Agent One",
       ]);
     });
@@ -363,7 +363,7 @@ describe("Providers settings", () => {
         ".composer-bar select",
       ) as HTMLSelectElement;
       expect(Array.from(select.options).map((option) => option.textContent)).toEqual([
-        "Pilih agent",
+        "Select agent",
         "Agent One",
       ]);
     });

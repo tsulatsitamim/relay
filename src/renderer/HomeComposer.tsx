@@ -181,7 +181,7 @@ export function HomeComposer({
             ref={field}
             value={text}
             disabled={busy}
-            placeholder="/ untuk skill, @ untuk konteks"
+            placeholder="/ for skills, @ for context"
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
@@ -207,7 +207,7 @@ export function HomeComposer({
               <IconCirclePlus />
             </button>
             <Chip value={agentId} onChange={onAgentId}>
-              <option value="">Pilih agent</option>
+              <option value="">Select agent</option>
               {agents.map((agent) => (
                 <option key={agent.id} value={agent.id}>
                   {agent.name}

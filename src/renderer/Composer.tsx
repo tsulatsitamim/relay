@@ -190,7 +190,7 @@ export function Composer({
         <div className="dock-field">
           {text === "" && (
             <span className="dock-placeholder">
-              {disabled ? "Agent is working…" : "/ untuk skill, @ untuk konteks"}
+              {disabled ? "Agent is working…" : "/ for skills, @ for context"}
             </span>
           )}
           <ComposerMirror text={text} commands={commands} mirrorRef={mirror} />

@@ -431,7 +431,7 @@ function ProvidersSection({
                       onClick={() => void runInstall()}
                     >
                       {install.phase === "installing" ? <IconSpinner /> : <IconArrowDown />}
-                      Install claude-code-acp (lokal)
+                      Install claude-code-acp (local)
                     </button>
                     <span className="provider-install-note">
                       Installs the adapter into Relay without touching your global

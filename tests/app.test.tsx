@@ -753,7 +753,7 @@ describe("App home agent default", () => {
     const { bridge } = mount([], {}, [], [], {});
     await waitFor(() => expect(agentSelect()).toBeTruthy());
     expect(agentSelect().value).toBe("");
-    expect(screen.getByRole("option", { name: "Pilih agent" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Select agent" })).toBeTruthy();
 
     const box = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
     fireEvent.change(box, { target: { value: "hello" } });
