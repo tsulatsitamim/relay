@@ -44,4 +44,91 @@ describe("PermissionCard", () => {
       screen.queryByRole("button", { name: "Allow all for this session" }),
     ).toBeNull();
   });
+
+  it("renders a numeric hint on each option", () => {
+    const { container } = render(<PermissionCard request={request} onAnswer={vi.fn()} />);
+    const hints = Array.from(container.querySelectorAll(".permission-key")).map(
+      (node) => node.textContent,
+    );
+    expect(hints).toEqual(["1", "2"]);
+  });
+
+  it("answers the matching option when a digit is pressed", () => {
+    const onAnswer = vi.fn();
+    render(<PermissionCard request={request} onAnswer={onAnswer} />);
+    fireEvent.keyDown(window, { key: "1" });
+    expect(onAnswer).toHaveBeenCalledWith("p1", "allow");
+    onAnswer.mockClear();
+    fireEvent.keyDown(window, { key: "2" });
+    expect(onAnswer).toHaveBeenCalledWith("p1", "reject");
+  });
+
+  it("ignores a digit with a modifier held", () => {
+    const onAnswer = vi.fn();
+    render(<PermissionCard request={request} onAnswer={onAnswer} />);
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    fireEvent.keyDown(window, { key: "1", ctrlKey: true });
+    expect(onAnswer).not.toHaveBeenCalled();
+  });
+
+  it("ignores a digit typed into a text field", () => {
+    const onAnswer = vi.fn();
+    render(<PermissionCard request={request} onAnswer={onAnswer} />);
+    const input = document.createElement("textarea");
+    document.body.appendChild(input);
+    input.focus();
+    fireEvent.keyDown(input, { key: "1" });
+    input.remove();
+    expect(onAnswer).not.toHaveBeenCalled();
+  });
+
+  it("removes the key listener on unmount", () => {
+    const onAnswer = vi.fn();
+    const { unmount } = render(<PermissionCard request={request} onAnswer={onAnswer} />);
+    unmount();
+    fireEvent.keyDown(window, { key: "1" });
+    expect(onAnswer).not.toHaveBeenCalled();
+  });
+
+  it("ignores digits on an inactive card", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    render(
+      <>
+        <PermissionCard request={request} onAnswer={first} active />
+        <PermissionCard request={{ ...request, id: "p2" }} onAnswer={second} active={false} />
+      </>,
+    );
+    fireEvent.keyDown(window, { key: "1" });
+    expect(first).toHaveBeenCalledWith("p1", "allow");
+    expect(second).not.toHaveBeenCalled();
+  });
+
+  it("steps between cards with the arrow keys", () => {
+    const onStep = vi.fn();
+    render(
+      <PermissionCard
+        request={request}
+        onAnswer={vi.fn()}
+        onStep={onStep}
+        position={{ index: 0, total: 2 }}
+      />,
+    );
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(onStep).toHaveBeenCalledWith(1);
+    onStep.mockClear();
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(onStep).toHaveBeenCalledWith(-1);
+  });
+
+  it("shows the active position when more than one card is pending", () => {
+    render(
+      <PermissionCard
+        request={request}
+        onAnswer={vi.fn()}
+        position={{ index: 1, total: 3 }}
+      />,
+    );
+    expect(screen.getByText("2 of 3")).toBeTruthy();
+  });
 });

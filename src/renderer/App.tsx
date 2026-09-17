@@ -229,6 +229,7 @@ export function App() {
   const pendingTruncate = useRef<string | null>(null);
   const [injectSessionId, setInjectSessionId] = useState<string | null>(null);
   const [reviewedDiffs, setReviewedDiffs] = useState<Set<string>>(() => new Set());
+  const [permissionIndex, setPermissionIndex] = useState(0);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   if (injectSessionId !== selectedId) {
@@ -403,6 +404,20 @@ export function App() {
   const permissions = selected
     ? state.permissions.filter((request) => request.sessionId === selected.id)
     : [];
+  const permissionCount = permissions.length;
+  useEffect(() => {
+    setPermissionIndex((index) =>
+      permissionCount === 0 ? 0 : Math.min(index, permissionCount - 1),
+    );
+  }, [permissionCount]);
+  const activePermissionIndex = Math.min(
+    permissionIndex,
+    Math.max(0, permissionCount - 1),
+  );
+  const stepPermission = (delta: number) => {
+    if (permissionCount === 0) return;
+    setPermissionIndex((index) => (index + delta + permissionCount) % permissionCount);
+  };
   const permissionSessionIds = new Set(
     state.permissions.map((request) => request.sessionId),
   );
@@ -1069,10 +1084,13 @@ export function App() {
             />
             {permissions.length > 0 ? (
               <div className="permission-dock">
-                {permissions.map((request) => (
+                {permissions.map((request, index) => (
                   <PermissionCard
                     key={request.id}
                     request={request}
+                    active={index === activePermissionIndex}
+                    position={{ index, total: permissionCount }}
+                    onStep={permissionCount > 1 ? stepPermission : undefined}
                     onAnswer={answerPermission}
                     onAllowAll={(requestId, optionId) =>
                       allowAllForSession(request.sessionId, requestId, optionId)

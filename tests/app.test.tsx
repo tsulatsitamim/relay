@@ -539,8 +539,53 @@ describe("App diff review", () => {
   });
 });
 
-describe("App auto-approve", () => {
-  it("shows the indicator after allowing all and dismisses it when turned off", async () => {
+describe("App permission navigation", () => {
+  function request(id: string) {
+    return {
+      id,
+      sessionId: "s1",
+      title: `Request ${id}`,
+      kind: "edit",
+      options: [
+        { optionId: `${id}-allow`, name: "Allow once", kind: "allow_once" },
+        { optionId: `${id}-reject`, name: "Reject", kind: "reject_once" },
+      ],
+    };
+  }
+
+  it("answers the active card after stepping with ArrowRight", async () => {
+    const { bridge, emit } = mount([makeSession({ id: "s1", title: "Session one" })]);
+    await openSession("Session one");
+
+    act(() => {
+      emit({ type: "permission", sessionId: "s1", request: request("p1") });
+    });
+    act(() => {
+      emit({ type: "permission", sessionId: "s1", request: request("p2") });
+    });
+    expect(await screen.findAllByRole("alertdialog")).toHaveLength(2);
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "1" });
+
+    expect(bridge.permission).toHaveBeenCalledTimes(1);
+    expect(bridge.permission).toHaveBeenCalledWith("p2", "p2-allow");
+  });
+
+  it("answers the first card with its first option by digit", async () => {
+    const { bridge, emit } = mount([makeSession({ id: "s1", title: "Session one" })]);
+    await openSession("Session one");
+    act(() => {
+      emit({ type: "permission", sessionId: "s1", request: request("p1") });
+    });
+    await screen.findByRole("alertdialog");
+
+    fireEvent.keyDown(window, { key: "2" });
+    expect(bridge.permission).toHaveBeenCalledWith("p1", "p1-reject");
+  });
+});
+
+describe("App auto-approve", () => {  it("shows the indicator after allowing all and dismisses it when turned off", async () => {
     const { bridge, emit } = mount([
       makeSession({ id: "s1", title: "Session one" }),
     ]);

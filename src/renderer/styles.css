@@ -1121,7 +1121,6 @@ input:focus-visible {
   gap: var(--space-2);
   min-width: 0;
 }
-
 .permission-kicker {
   flex-shrink: 0;
   font-size: var(--font-size-xs);
@@ -1188,6 +1187,38 @@ input:focus-visible {
 
 .permission-btn.allow-all:hover {
   background: color-mix(in srgb, var(--working) 14%, var(--card));
+}
+
+.permission-active {
+  border-color: color-mix(in srgb, var(--working) 70%, var(--line));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--working) 28%, transparent);
+}
+
+.permission-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--hover);
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.permission-btn.allow .permission-key {
+  background: color-mix(in srgb, var(--editor) 22%, transparent);
+  color: var(--editor);
+}
+
+.permission-position {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--tertiary);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .transcript-wrap {
