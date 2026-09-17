@@ -2,8 +2,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { PlanEntry, TranscriptEvent } from "../shared/types.ts";
 import { DiffBlock } from "./DiffBlock";
+import { DiffGroup } from "./DiffGroup";
 import { formatUsage } from "./format";
 import { Markdown } from "./Markdown";
+import { AGENT_MESSAGE_CAP, capAgentMessage } from "./message-cap";
 import { PlanBlock } from "./PlanBlock";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
@@ -25,6 +27,9 @@ type Props = {
   activeEventId?: string | null;
   streaming?: boolean;
 };
+
+const COLLAPSE_MAX_CHARS = 600;
+const COLLAPSE_MAX_LINES = 8;
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -73,6 +78,7 @@ function EventRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [expanded, setExpanded] = useState(false);
   const editRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -90,6 +96,9 @@ function EventRow({
     const attachments = event.payload.attachments as
       | { name: string; thumb?: string }[]
       | undefined;
+    const isLong =
+      text.length > COLLAPSE_MAX_CHARS ||
+      text.split("\n").length > COLLAPSE_MAX_LINES;
     const save = () => {
       setEditing(false);
       onEditUser?.(draft, event.id);
@@ -152,7 +161,25 @@ function EventRow({
             </div>
           ) : (
             <>
-              {text}
+              {isLong ? (
+                <div className={`msg-text${expanded ? " expanded" : " collapsed"}`}>
+                  {text}
+                </div>
+              ) : (
+                text
+              )}
+              {isLong ? (
+                <button
+                  type="button"
+                  className="msg-expand"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded((value) => !value);
+                  }}
+                >
+                  {expanded ? "Show less" : "Show full message"}
+                </button>
+              ) : null}
               {attachments?.length ? (
                 <div className="msg-attachments">
                   {attachments.map((a, index) => (
@@ -182,9 +209,15 @@ function EventRow({
 
   if (event.kind === "agent_message") {
     const text = String(event.payload.text ?? "");
+    const { text: shownText, capped } = capAgentMessage(text);
     return (
       <div className="msg agent">
-        <Markdown text={text} />
+        <Markdown text={shownText} />
+        {capped ? (
+          <div className="msg-cap">
+            Message capped at {AGENT_MESSAGE_CAP.toLocaleString("en-US")} characters
+          </div>
+        ) : null}
         <div className="msg-foot">
           <div className="msg-actions">
             <CopyButton text={text} />
@@ -250,6 +283,7 @@ function MessageRow({
   streamingRow,
   userTurn,
   group,
+  groupKind,
   onEditUser,
   reviewedDiffIds,
   onToggleReviewed,
@@ -261,6 +295,7 @@ function MessageRow({
   streamingRow?: boolean;
   userTurn?: number;
   group?: TranscriptEvent[];
+  groupKind?: "tool" | "diff";
   onEditUser?: (text: string, eventId: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
@@ -277,7 +312,16 @@ function MessageRow({
       data-streaming-row={streamingRow ? "" : undefined}
     >
       {group ? (
-        <ToolGroup events={group} />
+        groupKind === "diff" ? (
+          <DiffGroup
+            events={group}
+            reviewedDiffIds={reviewedDiffIds}
+            onToggleReviewed={onToggleReviewed}
+            onOpenDiff={onOpenDiff}
+          />
+        ) : (
+          <ToolGroup events={group} />
+        )
       ) : (
         <EventRow
           event={event}
@@ -410,7 +454,7 @@ export function Transcript({
         data-streaming={streaming ? "" : undefined}
         onScroll={onScroll}
       >
-        {rows.map(({ event, time, day, showSeparator, group }, index) => {
+        {rows.map(({ event, time, day, showSeparator, group, groupKind }, index) => {
           return (
             <Fragment key={event.id}>
               {showSeparator ? (
@@ -422,6 +466,7 @@ export function Transcript({
                 isActive={event.id === activeEventId}
                 userTurn={turnIndexByEventId.get(event.id)}
                 group={group}
+                groupKind={groupKind}
                 streamingRow={
                   streamingSinceRef.current !== null &&
                   index >= streamingSinceRef.current

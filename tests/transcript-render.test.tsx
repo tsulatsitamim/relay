@@ -483,3 +483,135 @@ describe("Transcript rendering", () => {
     expect(container.querySelectorAll(".msg-row[data-streaming-row]")).toHaveLength(0);
   });
 });
+
+describe("user message collapse", () => {
+  const long = "x".repeat(700);
+
+  it("renders a long user message collapsed with a show button", () => {
+    const { container } = render(
+      <Transcript events={[{ id: "1", kind: "user", payload: { text: long } }]} />,
+    );
+    const text = container.querySelector(".msg-text");
+    expect(text).toBeTruthy();
+    expect(text!.classList.contains("collapsed")).toBe(true);
+    expect(screen.getByRole("button", { name: "Show full message" })).toBeTruthy();
+  });
+
+  it("expands a collapsed message and flips the label to show less", () => {
+    const { container } = render(
+      <Transcript events={[{ id: "1", kind: "user", payload: { text: long } }]} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show full message" }));
+    expect(container.querySelector(".msg-text")!.classList.contains("collapsed")).toBe(false);
+    expect(screen.getByRole("button", { name: "Show less" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Show full message" })).toBeNull();
+  });
+
+  it("collapses a message that exceeds the line limit", () => {
+    const lines = Array.from({ length: 9 }, (_, i) => `line ${i}`).join("\n");
+    render(
+      <Transcript events={[{ id: "1", kind: "user", payload: { text: lines } }]} />,
+    );
+    expect(screen.getByRole("button", { name: "Show full message" })).toBeTruthy();
+  });
+
+  it("does not collapse a short user message", () => {
+    const { container } = render(
+      <Transcript
+        events={[{ id: "1", kind: "user", payload: { text: "short note" } }]}
+      />,
+    );
+    expect(container.querySelector(".msg-text")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show full message" })).toBeNull();
+  });
+
+  it("does not open the inline editor when the expand button is clicked", () => {
+    const onEditUser = vi.fn();
+    render(
+      <Transcript
+        events={[{ id: "1", kind: "user", payload: { text: long } }]}
+        onEditUser={onEditUser}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show full message" }));
+    expect(screen.queryByRole("textbox", { name: "Edit message text" })).toBeNull();
+  });
+
+  it("shows the full text in the editor when editing a collapsed message", () => {
+    const onEditUser = vi.fn();
+    const { container } = render(
+      <Transcript
+        events={[{ id: "1", kind: "user", payload: { text: long } }]}
+        onEditUser={onEditUser}
+      />,
+    );
+    fireEvent.click(container.querySelector(".msg.user")!);
+    const box = screen.getByRole("textbox", {
+      name: "Edit message text",
+    }) as HTMLTextAreaElement;
+    expect(box.value).toBe(long);
+  });
+
+  it("keeps attachments and the footer on a long collapsed message", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const ts = new Date(2026, 0, 2, 9, 5).getTime();
+    const { container } = render(
+      <Transcript
+        events={[
+          {
+            id: "1",
+            kind: "user",
+            payload: {
+              text: long,
+              attachments: [{ name: "shot.png", mimeType: "image/png" }],
+            },
+            createdAt: ts,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("shot.png")).toBeTruthy();
+    const foot = container.querySelector(".msg.user .msg-foot");
+    expect(foot?.querySelector(".msg-time")?.textContent).toBe(formatTime(ts));
+    fireEvent.click(screen.getByRole("button", { name: "Copy message" }));
+    expect(writeText).toHaveBeenCalledWith(long);
+  });
+});
+
+describe("agent message cap", () => {
+  const big = "a".repeat(40000);
+
+  it("caps a giant agent message and shows a notice", () => {
+    const { container } = render(
+      <Transcript
+        events={[{ id: "1", kind: "agent_message", payload: { text: big } }]}
+      />,
+    );
+    expect(screen.getByText("Message capped at 32,000 characters")).toBeTruthy();
+    const rendered = container.querySelector(".markdown")?.textContent ?? "";
+    expect(rendered.length).toBeGreaterThan(0);
+    expect(rendered.length).toBeLessThan(big.length);
+  });
+
+  it("does not cap a short agent message", () => {
+    const { container } = render(
+      <Transcript
+        events={[{ id: "1", kind: "agent_message", payload: { text: "brief" } }]}
+      />,
+    );
+    expect(container.querySelector(".msg-cap")).toBeNull();
+  });
+
+  it("copies the full uncapped agent message text", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(
+      <Transcript
+        events={[{ id: "1", kind: "agent_message", payload: { text: big } }]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Copy message" }));
+    expect(writeText).toHaveBeenCalledWith(big);
+  });
+});

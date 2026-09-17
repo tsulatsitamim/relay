@@ -7,6 +7,7 @@ export type TranscriptRow = {
   day: string | null;
   showSeparator: boolean;
   group?: TranscriptEvent[];
+  groupKind?: "tool" | "diff";
 };
 
 export function buildRows(events: TranscriptEvent[]): TranscriptRow[] {
@@ -24,16 +25,20 @@ export function buildRows(events: TranscriptEvent[]): TranscriptRow[] {
   let index = 0;
   while (index < events.length) {
     const event = events[index]!;
-    if (event.kind !== "tool_call") {
+    if (event.kind !== "tool_call" && event.kind !== "diff") {
       push(event);
       index += 1;
       continue;
     }
+    const groupKind = event.kind === "diff" ? "diff" : "tool";
     let end = index + 1;
-    while (end < events.length && events[end]!.kind === "tool_call") end += 1;
+    while (end < events.length && events[end]!.kind === event.kind) end += 1;
     const run = events.slice(index, end);
     push(event);
-    if (run.length >= 2) rows[rows.length - 1]!.group = run;
+    if (run.length >= 2) {
+      rows[rows.length - 1]!.group = run;
+      rows[rows.length - 1]!.groupKind = groupKind;
+    }
     index = end;
   }
 

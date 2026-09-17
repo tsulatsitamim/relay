@@ -2357,15 +2357,19 @@ input:focus-visible {
   border: 1px solid var(--line);
   background: var(--card);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow: clip;
 }
 
 .diff-head {
+  position: sticky;
+  top: calc(-1 * var(--space-5));
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
   padding: 8px 10px;
+  background: var(--card);
   color: var(--muted);
   font-family: var(--mono);
   font-size: var(--font-size);
@@ -2450,6 +2454,141 @@ input:focus-visible {
 
 .diff-hunk {
   color: var(--tertiary);
+}
+
+.diffgroup {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: var(--radius);
+  overflow: clip;
+}
+
+.diffgroup-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  color: var(--text);
+  text-align: left;
+}
+
+.diffgroup-head:hover {
+  background: var(--hover);
+}
+
+.diffgroup-title {
+  font-weight: 500;
+}
+
+.diffgroup-total {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: var(--font-size-xs);
+  flex-shrink: 0;
+}
+
+.diffgroup-total .diff-add,
+.diffgroup-file .diff-add {
+  color: var(--ok);
+}
+
+.diffgroup-total .diff-del,
+.diffgroup-file .diff-del {
+  color: var(--danger);
+}
+
+.diffgroup-chevron {
+  display: inline-flex;
+  color: var(--tertiary);
+  flex-shrink: 0;
+  transition: transform 0.12s ease;
+}
+
+.diffgroup-chevron.open {
+  transform: rotate(90deg);
+}
+
+.diffgroup-list {
+  margin: 0;
+  padding: 0 10px 8px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.diffgroup-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+}
+
+.diffgroup-file .diff-path {
+  flex: 1;
+}
+
+.diffgroup-file .diff-stat {
+  margin-left: auto;
+}
+
+.diffgroup-body {
+  border-top: 1px solid var(--line);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.msg-text.collapsed {
+  position: relative;
+  max-height: 13em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 44px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 44px),
+    transparent 100%
+  );
+}
+
+.msg-expand {
+  display: block;
+  margin-top: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.msg-expand:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.msg-cap {
+  margin-top: var(--space-2);
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--hover);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--font-size-sm);
 }
 
 @keyframes relay-spin {

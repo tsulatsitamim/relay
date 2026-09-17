@@ -29,6 +29,15 @@ function tool(id: string, createdAt?: number): TranscriptEvent {
   };
 }
 
+function diff(id: string, createdAt?: number): TranscriptEvent {
+  return {
+    id,
+    kind: "diff",
+    payload: { path: `${id}.ts`, oldText: "a\n", newText: "b\n" },
+    createdAt,
+  };
+}
+
 beforeEach(() => {
   spies.formatDay.mockReset();
   spies.formatTime.mockReset();
@@ -85,6 +94,7 @@ describe("buildRows tool grouping", () => {
     const rows = buildRows([tool("t1"), tool("t2"), tool("t3")]);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.event.id).toBe("t1");
+    expect(rows[0]!.groupKind).toBe("tool");
     expect(rows[0]!.group?.map((item) => item.id)).toEqual(["t1", "t2", "t3"]);
   });
 
@@ -106,5 +116,43 @@ describe("buildRows tool grouping", () => {
     expect(rows).toHaveLength(3);
     expect(rows[0]!.group?.map((item) => item.id)).toEqual(["a1", "a2"]);
     expect(rows[2]!.group?.map((item) => item.id)).toEqual(["b1", "b2"]);
+  });
+});
+
+describe("buildRows diff grouping", () => {
+  it("keeps a single diff as its own ungrouped row", () => {
+    const rows = buildRows([diff("d1")]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.event.id).toBe("d1");
+    expect(rows[0]!.group).toBeUndefined();
+    expect(rows[0]!.groupKind).toBeUndefined();
+  });
+
+  it("collapses a run of two or more diffs into one group row", () => {
+    const rows = buildRows([diff("d1"), diff("d2"), diff("d3")]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.event.id).toBe("d1");
+    expect(rows[0]!.groupKind).toBe("diff");
+    expect(rows[0]!.group?.map((item) => item.id)).toEqual(["d1", "d2", "d3"]);
+  });
+
+  it("breaks a diff run on a non-diff event and preserves order", () => {
+    const rows = buildRows([
+      diff("d1"),
+      diff("d2"),
+      event("u1"),
+      diff("d3"),
+    ]);
+    expect(rows.map((row) => row.event.id)).toEqual(["d1", "u1", "d3"]);
+    expect(rows[0]!.group?.map((item) => item.id)).toEqual(["d1", "d2"]);
+    expect(rows[2]!.group).toBeUndefined();
+  });
+
+  it("does not merge a diff run with an adjacent tool run", () => {
+    const rows = buildRows([tool("t1"), diff("d1"), diff("d2")]);
+    expect(rows.map((row) => row.event.id)).toEqual(["t1", "d1"]);
+    expect(rows[0]!.group).toBeUndefined();
+    expect(rows[1]!.groupKind).toBe("diff");
+    expect(rows[1]!.group?.map((item) => item.id)).toEqual(["d1", "d2"]);
   });
 });
