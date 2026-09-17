@@ -21,7 +21,7 @@ import { BranchPill } from "./BranchPill";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { TurnFooter } from "./TurnFooter";
 import { ErrorBanner } from "./ErrorBanner";
-import { nextQueued, promoteQueued, pruneQueued } from "./queue";
+import { nextQueued, promoteQueued, pruneQueued, queuedNowMode } from "./queue";
 import {
   commandsForAgent,
   lastCommands,
@@ -578,6 +578,29 @@ export function App() {
       ...prev,
       [sessionId]: promoteQueued(prev[sessionId] ?? [], index),
     }));
+  };
+
+  const sendQueuedNow = (sessionId: string, index: number) => {
+    const item = (queued[sessionId] ?? [])[index];
+    if (item == null) return;
+    pendingTruncate.current = null;
+    const session = state.sessions.find((entry) => entry.id === sessionId);
+    if (queuedNowMode(session?.status ?? "idle") === "send") {
+      removeQueued(sessionId, index);
+      void sendToSession(sessionId, item);
+      return;
+    }
+    setQueued((prev) => ({
+      ...prev,
+      [sessionId]: promoteQueued(prev[sessionId] ?? [], index),
+    }));
+    void window.relay.cancel(sessionId).catch((err) => {
+      setChatError({
+        sessionId,
+        message: err instanceof Error ? err.message : String(err),
+        prompt: item,
+      });
+    });
   };
 
   useEffect(() => {
@@ -1373,6 +1396,7 @@ export function App() {
               onClearQueued={() => clearQueued(selected.id)}
               onEditQueued={(index) => editQueued(selected.id, index)}
               onSendQueued={(index) => sendQueuedNext(selected.id, index)}
+              onSendQueuedNow={(index) => sendQueuedNow(selected.id, index)}
               commands={commandList}
               cwd={selected.workingDirectory}
               inject={inject}

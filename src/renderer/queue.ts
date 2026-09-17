@@ -8,6 +8,12 @@ export function promoteQueued(queue: string[], index: number): string[] {
   return [queue[index]!, ...queue.slice(0, index), ...queue.slice(index + 1)];
 }
 
+export function queuedNowMode(status: string): "send" | "steer" {
+  return status === "starting" || status === "working" || status === "cancelling"
+    ? "steer"
+    : "send";
+}
+
 export function pruneQueued(
   queued: Record<string, string[]>,
   sessionIds: string[],

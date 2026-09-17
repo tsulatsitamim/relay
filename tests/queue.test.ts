@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextQueued, promoteQueued, pruneQueued } from "../src/renderer/queue.ts";
+import { nextQueued, promoteQueued, pruneQueued, queuedNowMode } from "../src/renderer/queue.ts";
 
 describe("pruneQueued", () => {
   it("drops entries for sessions that no longer exist", () => {
@@ -48,5 +48,19 @@ describe("promoteQueued", () => {
   it("returns the same reference for an out-of-range index", () => {
     const queue = ["a", "b"];
     expect(promoteQueued(queue, 5)).toBe(queue);
+  });
+});
+
+describe("queuedNowMode", () => {
+  it("steers while a turn is running", () => {
+    expect(queuedNowMode("starting")).toBe("steer");
+    expect(queuedNowMode("working")).toBe("steer");
+    expect(queuedNowMode("cancelling")).toBe("steer");
+  });
+
+  it("sends directly when the session is not running", () => {
+    expect(queuedNowMode("idle")).toBe("send");
+    expect(queuedNowMode("error")).toBe("send");
+    expect(queuedNowMode("exited")).toBe("send");
   });
 });

@@ -856,3 +856,62 @@ describe("App keybinding registry", () => {
     expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
   });
 });
+
+describe("App queue steering", () => {
+  async function enqueue(box: HTMLTextAreaElement, values: string[]) {
+    for (const value of values) {
+      fireEvent.change(box, { target: { value } });
+      fireEvent.keyDown(box, { key: "Enter" });
+    }
+  }
+
+  function chips(): string[] {
+    return Array.from(document.querySelectorAll(".queued-chip .queued-text")).map(
+      (node) => node.textContent ?? "",
+    );
+  }
+
+  it("cancels a running turn and sends the steered item once the session settles", async () => {
+    const { send, bridge, emit } = mount([makeSession({ status: "working" })]);
+    const box = await openSession("Session one");
+    await enqueue(box, ["first", "second"]);
+
+    fireEvent.click(screen.getAllByLabelText("Send queued message now")[1]);
+    expect(bridge.cancel).toHaveBeenCalledWith("s1");
+    expect(chips()).toEqual(["second", "first"]);
+
+    await act(async () => {
+      emit({ type: "sessions", sessions: [makeSession({ status: "idle" })] });
+    });
+    await waitFor(() => expect(send).toHaveBeenCalled());
+    expect(send.mock.calls[0]?.slice(0, 2)).toEqual(["s1", "second"]);
+  });
+
+  it("sends the steered item immediately when the session is not running", async () => {
+    const { send, emit } = mount([makeSession({ status: "working" })]);
+    const box = await openSession("Session one");
+    await enqueue(box, ["first", "second", "third"]);
+    send.mockImplementation(() => new Promise<void>(() => {}));
+
+    await act(async () => {
+      emit({ type: "sessions", sessions: [makeSession({ status: "idle" })] });
+    });
+    await waitFor(() => expect(send.mock.calls.length).toBe(1));
+    expect(send.mock.calls[0]?.slice(0, 2)).toEqual(["s1", "first"]);
+
+    fireEvent.click(screen.getAllByLabelText("Send queued message now")[1]);
+    expect(send.mock.calls[1]?.slice(0, 2)).toEqual(["s1", "third"]);
+    expect(chips()).toEqual(["second"]);
+  });
+
+  it("keeps the item queued and surfaces the error when cancel fails", async () => {
+    const { bridge } = mount([makeSession({ status: "working" })]);
+    const box = await openSession("Session one");
+    await enqueue(box, ["first", "second"]);
+    bridge.cancel.mockRejectedValueOnce(new Error("cannot cancel"));
+
+    fireEvent.click(screen.getAllByLabelText("Send queued message now")[1]);
+    await waitFor(() => expect(screen.getByText("cannot cancel")).toBeTruthy());
+    expect(chips()).toEqual(["second", "first"]);
+  });
+});

@@ -23,6 +23,7 @@ type Props = {
   onClearQueued?: () => void;
   onEditQueued?: (index: number) => void;
   onSendQueued?: (index: number) => void;
+  onSendQueuedNow?: (index: number) => void;
   commands?: AvailableCommandLike[];
   cwd?: string;
   inject?: { text: string; nonce: number; fromEventId?: string };
@@ -41,6 +42,7 @@ export function Composer({
   onClearQueued,
   onEditQueued,
   onSendQueued,
+  onSendQueuedNow,
   commands = [],
   cwd,
   inject,
@@ -125,6 +127,16 @@ export function Composer({
                   onClick={() => onSendQueued(index)}
                 >
                   Send next
+                </button>
+              ) : null}
+              {onSendQueuedNow ? (
+                <button
+                  type="button"
+                  className="queued-action"
+                  aria-label="Send queued message now"
+                  onClick={() => onSendQueuedNow(index)}
+                >
+                  Send now
                 </button>
               ) : null}
               <button

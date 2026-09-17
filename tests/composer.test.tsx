@@ -148,6 +148,7 @@ describe("Composer", () => {
   it("offers edit and send-next actions on queued chips", () => {
     const onEditQueued = vi.fn();
     const onSendQueued = vi.fn();
+    const onSendQueuedNow = vi.fn();
     render(
       <Composer
         disabled={false}
@@ -157,12 +158,15 @@ describe("Composer", () => {
         queued={["first", "second"]}
         onEditQueued={onEditQueued}
         onSendQueued={onSendQueued}
+        onSendQueuedNow={onSendQueuedNow}
       />,
     );
     fireEvent.click(screen.getAllByLabelText("Edit queued message")[1]);
     expect(onEditQueued).toHaveBeenCalledWith(1);
     fireEvent.click(screen.getAllByLabelText("Send queued message next")[0]);
     expect(onSendQueued).toHaveBeenCalledWith(0);
+    fireEvent.click(screen.getAllByLabelText("Send queued message now")[1]);
+    expect(onSendQueuedNow).toHaveBeenCalledWith(1);
   });
 
   it("hides the queued chip actions without handlers", () => {
@@ -177,6 +181,7 @@ describe("Composer", () => {
     );
     expect(screen.queryByLabelText("Edit queued message")).toBeNull();
     expect(screen.queryByLabelText("Send queued message next")).toBeNull();
+    expect(screen.queryByLabelText("Send queued message now")).toBeNull();
   });
 
   it("offers slash commands and inserts a picked one into the input", () => {
