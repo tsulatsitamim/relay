@@ -289,7 +289,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    setAgentId(state.agentDefaults[repoPath] ?? "");
+    setAgentId(state.agentDefaults[repoPath || state.homeDir] ?? "");
   }, [repoPath, state.agentDefaults]);
 
   useEffect(() => {
