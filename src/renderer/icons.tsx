@@ -22,6 +22,7 @@ import {
   ListFilter,
   LoaderCircle,
   Mic,
+  Minus,
   Monitor,
   PanelLeft,
   Pencil,
@@ -81,6 +82,9 @@ export const IconCheck = icon(Check, { size: 14, strokeWidth: 2 });
 export const IconPencil = icon(Pencil, { size: 14, strokeWidth: 1.75 });
 export const IconCopy = icon(Copy, { size: 13, strokeWidth: 1.75 });
 export const IconX = icon(X, { size: 14, strokeWidth: 2 });
+export const IconTrafficClose = icon(X, { size: 8, strokeWidth: 2.25 });
+export const IconTrafficMin = icon(Minus, { size: 8, strokeWidth: 2.25 });
+export const IconTrafficMax = icon(Plus, { size: 8, strokeWidth: 2.25 });
 export const IconSpinner = icon(LoaderCircle, { size: 14, strokeWidth: 2 });
 export const IconWarning = icon(TriangleAlert, { size: 14, strokeWidth: 2 });
 export const IconThinking = icon(Brain, { size: 14, strokeWidth: 1.75 });

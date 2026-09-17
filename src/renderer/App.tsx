@@ -51,6 +51,9 @@ import {
   IconSearch,
   IconSettings,
   IconTrash,
+  IconTrafficClose,
+  IconTrafficMax,
+  IconTrafficMin,
 } from "./icons";
 
 const shortcutMod = navigator.platform.includes("Mac") ? "⌘" : "Ctrl+";
@@ -116,7 +119,9 @@ function WindowLights() {
         aria-label="Close"
         onClick={() => void window.relay.windowControl("close")}
         onMouseDown={(e) => e.preventDefault()}
-      />
+      >
+        <IconTrafficClose />
+      </button>
       <button
         type="button"
         className="traffic-btn min"
@@ -124,7 +129,9 @@ function WindowLights() {
         aria-label="Minimize"
         onClick={() => void window.relay.windowControl("min")}
         onMouseDown={(e) => e.preventDefault()}
-      />
+      >
+        <IconTrafficMin />
+      </button>
       <button
         type="button"
         className="traffic-btn max"
@@ -132,7 +139,9 @@ function WindowLights() {
         aria-label="Maximize"
         onClick={() => void window.relay.windowControl("max")}
         onMouseDown={(e) => e.preventDefault()}
-      />
+      >
+        <IconTrafficMax />
+      </button>
     </span>
   );
 }
