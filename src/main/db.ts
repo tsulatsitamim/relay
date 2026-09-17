@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS repos (
   name TEXT NOT NULL,
   added_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS agent_defaults (
+  cwd TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL
+);
 `;
 
 export class Store {
@@ -162,6 +166,23 @@ export class Store {
       path: String(v[0]),
       name: String(v[1]),
       addedAt: Number(v[2]),
+    }));
+  }
+
+  setAgentDefault(cwd: string, agentId: string): void {
+    this.db.run(
+      "INSERT OR REPLACE INTO agent_defaults (cwd, agent_id) VALUES (?, ?)",
+      [cwd, agentId],
+    );
+    this.flush();
+  }
+
+  listAgentDefaults(): Array<{ cwd: string; agentId: string }> {
+    const rows = this.db.exec("SELECT cwd, agent_id FROM agent_defaults");
+    if (!rows[0]) return [];
+    return rows[0].values.map((v) => ({
+      cwd: String(v[0]),
+      agentId: String(v[1]),
     }));
   }
 

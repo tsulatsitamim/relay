@@ -80,6 +80,14 @@ export class SessionManager {
     return this.store.listRepos();
   }
 
+  agentDefaults(): Record<string, string> {
+    const defaults: Record<string, string> = {};
+    for (const { cwd, agentId } of this.store.listAgentDefaults()) {
+      defaults[cwd] = agentId;
+    }
+    return defaults;
+  }
+
   addRepo(repo: Repo): void {
     this.store.addRepo(repo);
   }
@@ -227,6 +235,7 @@ export class SessionManager {
     }
     this.store.saveSession(session);
     this.store.touchRecent(input.cwd);
+    this.store.setAgentDefault(session.workingDirectory, input.agent.id);
     this.events.set(session.id, []);
     this.append(session.id, {
       kind: "user",

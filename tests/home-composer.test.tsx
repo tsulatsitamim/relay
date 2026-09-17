@@ -49,6 +49,26 @@ describe("HomeComposer", () => {
     expect(screen.queryByText("This Mac")).toBeNull();
   });
 
+  it("leaves the agent select empty and disables sending without an agent", () => {
+    const { field } = setup([], { agentId: "" });
+    const select = document.querySelector(
+      ".composer-bar select",
+    ) as HTMLSelectElement;
+    expect(select.value).toBe("");
+    expect(screen.getByRole("option", { name: "Pilih agent" })).toBeTruthy();
+
+    fireEvent.change(field, { target: { value: "hello" } });
+    const orb = screen.getByLabelText("Voice") as HTMLButtonElement;
+    expect(orb.disabled).toBe(true);
+  });
+
+  it("enables sending once an agent is selected", () => {
+    const { field } = setup();
+    fireEvent.change(field, { target: { value: "hello" } });
+    const orb = screen.getByLabelText("Send") as HTMLButtonElement;
+    expect(orb.disabled).toBe(false);
+  });
+
   it("submits on Enter", () => {
     const { onSubmit, field } = setup();
     fireEvent.change(field, { target: { value: "hello" } });

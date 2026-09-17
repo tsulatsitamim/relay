@@ -54,6 +54,24 @@ describe("Store", () => {
     expect(reopened.listEvents("sess-1")[0].payload).toEqual({ text: "hello" });
   });
 
+  it("stores an agent default per working directory and overwrites it", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
+    const store = await openStore(file);
+    expect(store.listAgentDefaults()).toEqual([]);
+
+    store.setAgentDefault("/tmp/a", "opencode");
+    store.setAgentDefault("/tmp/b", "claude-code");
+    store.setAgentDefault("/tmp/a", "claude-code");
+
+    const reopened = await openStore(file);
+    expect(
+      reopened.listAgentDefaults().sort((a, b) => a.cwd.localeCompare(b.cwd)),
+    ).toEqual([
+      { cwd: "/tmp/a", agentId: "claude-code" },
+      { cwd: "/tmp/b", agentId: "claude-code" },
+    ]);
+  });
+
   it("starts with no repositories and persists added ones", async () => {
     const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
     const store = await openStore(file);

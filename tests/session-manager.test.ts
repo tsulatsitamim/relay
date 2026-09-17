@@ -67,6 +67,26 @@ function firstPermission(events: ManagerEvent[]): PermissionRequest | null {
 }
 
 describe("SessionManager", () => {
+  it("records the agent used for a cwd and overwrites it for a later create", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "relay-db-"));
+    const store = await openStore(join(dir, "relay.db"));
+    const sm = new SessionManager(store);
+    managers.push(sm);
+
+    expect(sm.agentDefaults()).toEqual({});
+
+    await sm.create({ agent: fakeAgent(), cwd: "/tmp/proj-a", prompt: "one" });
+    expect(sm.agentDefaults()).toEqual({ "/tmp/proj-a": "fake" });
+
+    const other = { ...fakeAgent(), id: "fake-2", name: "Fake 2" };
+    await sm.create({ agent: other, cwd: "/tmp/proj-a", prompt: "two" });
+    await sm.create({ agent: other, cwd: "/tmp/proj-b", prompt: "three" });
+    expect(sm.agentDefaults()).toEqual({
+      "/tmp/proj-a": "fake-2",
+      "/tmp/proj-b": "fake-2",
+    });
+  });
+
   it("runs two sessions at once and switches snapshots instantly", async () => {
     const sm = await manager();
     const agent = fakeAgent();

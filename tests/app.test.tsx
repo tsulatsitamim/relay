@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { App } from "../src/renderer/App";
 import type { RelayState } from "../src/shared/ipc";
-import type { PromptAttachment, Session } from "../src/shared/types";
+import type { AgentConfig, PromptAttachment, Repo, Session } from "../src/shared/types";
 
 afterEach(() => {
   cleanup();
@@ -18,6 +18,12 @@ afterEach(() => {
 });
 
 const repo = { path: "/tmp/repo", name: "repo", addedAt: 0 };
+const otherRepo = { path: "/tmp/other", name: "other", addedAt: 0 };
+const blankRepo = { path: "/tmp/blank", name: "blank", addedAt: 0 };
+const agents: AgentConfig[] = [
+  { id: "a1", name: "Agent One", command: "one", args: [] },
+  { id: "a2", name: "Agent Two", command: "two", args: [] },
+];
 
 function makeSession(overrides: Partial<Session> = {}): Session {
   return {
@@ -37,16 +43,19 @@ function stateWith(
   sessions: Session[],
   transcripts: RelayState["transcripts"] = {},
   autoApprove: string[] = [],
+  agentDefaults: Record<string, string> = {},
+  repos: Repo[] = [repo],
 ): RelayState {
   return {
     sessions,
-    agents: [],
+    agents,
     recents: [],
-    repos: [repo],
+    repos,
     transcripts,
     permissions: [],
     homeDir: "/tmp",
     autoApprove,
+    agentDefaults,
   };
 }
 
@@ -55,18 +64,23 @@ function mount(
   transcripts: RelayState["transcripts"] = {},
   skills: string[] = [],
   autoApprove: string[] = [],
+  agentDefaults: Record<string, string> = {},
+  repos: Repo[] = [repo],
 ) {
   let listener: ((event: unknown) => void) | null = null;
   const send = vi.fn().mockResolvedValue(undefined);
   const truncate = vi.fn().mockResolvedValue([]);
   const bridge = {
-    getState: vi.fn().mockResolvedValue(stateWith(sessions, transcripts, autoApprove)),
+    getState: vi
+      .fn()
+      .mockResolvedValue(stateWith(sessions, transcripts, autoApprove, agentDefaults, repos)),
     subscribe: vi.fn((fn: (event: unknown) => void) => {
       listener = fn;
       return () => {
         listener = null;
       };
     }),
+    create: vi.fn().mockResolvedValue(makeSession()),
     send,
     truncate,
     cancel: vi.fn().mockResolvedValue(undefined),
@@ -717,5 +731,51 @@ describe("App auto-approve", () => {  it("shows the indicator after allowing all
     mount([makeSession({ id: "s1", title: "Session one" })], {}, [], ["s1"]);
     await openSession("Session one");
     expect(await screen.findByText("Auto-approve on")).toBeTruthy();
+  });
+});
+
+describe("App home agent default", () => {
+  function agentSelect(): HTMLSelectElement {
+    return document.querySelector(".composer-bar select") as HTMLSelectElement;
+  }
+  function repoSelect(): HTMLSelectElement {
+    return document.querySelector(".context select") as HTMLSelectElement;
+  }
+
+  it("shows the stored default agent for the selected project", async () => {
+    mount([], {}, [], [], { "/tmp/repo": "a2" });
+    await waitFor(() => expect(agentSelect()?.value).toBe("a2"));
+  });
+
+  it("leaves the agent empty and blocks sending when the project has no default", async () => {
+    const { bridge } = mount([], {}, [], [], {});
+    await waitFor(() => expect(agentSelect()).toBeTruthy());
+    expect(agentSelect().value).toBe("");
+    expect(screen.getByRole("option", { name: "Pilih agent" })).toBeTruthy();
+
+    const box = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "hello" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    expect(await screen.findByText("Choose an agent.")).toBeTruthy();
+    expect(bridge.create).not.toHaveBeenCalled();
+  });
+
+  it("switches to another project's default and to empty when it has none", async () => {
+    mount(
+      [],
+      {},
+      [],
+      [],
+      { "/tmp/repo": "a2", "/tmp/other": "a1" },
+      [repo, otherRepo, blankRepo],
+    );
+    await waitFor(() => expect(agentSelect()?.value).toBe("a2"));
+
+    fireEvent.change(repoSelect(), { target: { value: "/tmp/other" } });
+    await waitFor(() => expect(agentSelect().value).toBe("a1"));
+
+    fireEvent.change(repoSelect(), { target: { value: "/tmp/blank" } });
+    await waitFor(() => expect(agentSelect().value).toBe(""));
   });
 });

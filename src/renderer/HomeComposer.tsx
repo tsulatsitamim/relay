@@ -87,7 +87,7 @@ export function HomeComposer({
     cwd: repoPath || undefined,
     onEnter: () => void submit(),
   });
-  const canSend = hasContent && !busy;
+  const canSend = hasContent && !busy && Boolean(agentId);
   const mirror = useRef<HTMLDivElement>(null);
 
   async function submit() {
@@ -207,6 +207,7 @@ export function HomeComposer({
               <IconCirclePlus />
             </button>
             <Chip value={agentId} onChange={onAgentId}>
+              <option value="">Pilih agent</option>
               {agents.map((agent) => (
                 <option key={agent.id} value={agent.id}>
                   {agent.name}

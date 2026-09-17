@@ -61,6 +61,7 @@ const emptyState: RelayState = {
   permissions: [],
   homeDir: "",
   autoApprove: [],
+  agentDefaults: {},
 };
 
 type MenuState =
@@ -247,7 +248,6 @@ export function App() {
       .then((next) => {
         setState(next);
         setAutoApprove(new Set(next.autoApprove));
-        setAgentId((id) => id || next.agents[0]?.id || "");
         setRepoPath((path) => path || next.repos[0]?.path || "");
       })
       .catch((err) => console.error(err));
@@ -287,6 +287,10 @@ export function App() {
       });
     });
   }, []);
+
+  useEffect(() => {
+    setAgentId(state.agentDefaults[repoPath] ?? "");
+  }, [repoPath, state.agentDefaults]);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;

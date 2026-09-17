@@ -16,6 +16,7 @@ export type RelayState = {
   permissions: PermissionRequest[];
   homeDir: string;
   autoApprove: string[];
+  agentDefaults: Record<string, string>;
 };
 
 export type RelayEvent =

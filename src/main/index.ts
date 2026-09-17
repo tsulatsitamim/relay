@@ -24,7 +24,7 @@ import { repoNameFromPath, withGitBranch } from "./repo-name.ts";
 import { listFiles } from "./file-index.ts";
 import { listSkills } from "./skills.ts";
 import { readAttachment } from "./attachments.ts";
-import type { CreatePayload } from "../shared/ipc.ts";
+import type { CreatePayload, RelayState } from "../shared/ipc.ts";
 import type { PromptAttachment, SessionStatus } from "../shared/types.ts";
 
 function createWindow(): BrowserWindow {
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
     broadcast("relay:event", event);
   });
 
-  ipcMain.handle("relay:getState", () => {
+  ipcMain.handle("relay:getState", (): RelayState => {
     const sessions = manager.list();
     const transcripts: Record<string, ReturnType<typeof manager.transcript>> = {};
     for (const session of sessions) {
@@ -130,6 +130,7 @@ async function main(): Promise<void> {
       permissions: manager.pendingPermissions(),
       homeDir: homedir(),
       autoApprove: manager.autoApproveSessions(),
+      agentDefaults: manager.agentDefaults(),
     };
   });
 
