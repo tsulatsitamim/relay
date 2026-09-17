@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
 import type {
   AgentConfig,
+  ClaudeInstallResult,
   PromptAttachment,
   Repo,
   Session,
@@ -40,6 +41,19 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:saveAgent", agent),
   deleteAgent: (id: string): Promise<void> =>
     ipcRenderer.invoke("relay:deleteAgent", id),
+  installClaudeAdapter: (
+    onOutput?: (line: string) => void,
+  ): Promise<ClaudeInstallResult> => {
+    const handler = (_e: unknown, line: string) => onOutput?.(line);
+    if (onOutput) ipcRenderer.on("relay:claudeInstallProgress", handler);
+    return ipcRenderer
+      .invoke("relay:installClaudeAdapter")
+      .finally(() => {
+        if (onOutput) {
+          ipcRenderer.removeListener("relay:claudeInstallProgress", handler);
+        }
+      });
+  },
   setSetting: (key: string, value: string): Promise<void> =>
     ipcRenderer.invoke("relay:setSetting", key, value),
   setPinned: (id: string, pinned: boolean): Promise<void> =>

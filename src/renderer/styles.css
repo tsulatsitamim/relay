@@ -2961,6 +2961,67 @@ input:focus-visible {
   color: var(--muted);
 }
 
+.provider-install {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--base) 2%, var(--card));
+  min-width: 0;
+}
+
+.provider-install-label {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+
+.provider-install-path {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--font-size-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.provider-install-note {
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  line-height: 16px;
+}
+
+.provider-install-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--font-size-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.provider-install-status svg {
+  flex-shrink: 0;
+  animation: relay-spin 1s linear infinite;
+  animation-play-state: var(--visible-animation-state, running);
+}
+
+.provider-install-status.ok {
+  color: var(--ok);
+}
+
+.provider-install-status.err {
+  color: var(--danger);
+}
+
+.provider-install-status.ok svg,
+.provider-install-status.err svg {
+  animation: none;
+}
+
 .field {
   display: flex;
   flex-direction: column;

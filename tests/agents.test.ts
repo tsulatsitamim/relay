@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  disableBuiltinClaudeAgent,
   hasBinaryOnPath,
   resolveClaudeAgent,
   upgradeClaudeAgent,
@@ -64,6 +65,79 @@ describe("upgradeClaudeAgent", () => {
     };
     const upgraded = upgradeClaudeAgent([opencode, claude()], resolved);
     expect(upgraded[0]).toMatchObject({ command: "opencode", args: ["acp"] });
+  });
+});
+
+describe("disableBuiltinClaudeAgent", () => {
+  const builtinPinned = (): AgentConfig => ({
+    id: "claude-code",
+    name: "Claude Code",
+    command: "npx",
+    args: ["-y", PINNED],
+  });
+  const builtinLegacy = (): AgentConfig => ({
+    id: "claude-code",
+    name: "Claude Code",
+    command: "npx",
+    args: ["-y", "@zed-industries/claude-code-acp"],
+  });
+  const builtinLocal = (): AgentConfig => ({
+    id: "claude-code",
+    name: "Claude Code",
+    command: "claude-code-acp",
+    args: [],
+  });
+
+  it("disables a built-in npx entry when no local adapter is present", () => {
+    const next = disableBuiltinClaudeAgent([builtinPinned()], false);
+    expect(next[0]?.enabled).toBe(false);
+  });
+
+  it("disables a legacy unpinned npx entry too", () => {
+    const next = disableBuiltinClaudeAgent([builtinLegacy()], false);
+    expect(next[0]?.enabled).toBe(false);
+  });
+
+  it("disables the local-binary built-in shape when no adapter is present", () => {
+    const next = disableBuiltinClaudeAgent([builtinLocal()], false);
+    expect(next[0]?.enabled).toBe(false);
+  });
+
+  it("keeps the user's enabled value when a local adapter is present", () => {
+    const enabled = disableBuiltinClaudeAgent(
+      [{ ...builtinPinned(), enabled: true }],
+      true,
+    );
+    expect(enabled[0]?.enabled).toBe(true);
+    const untouched = disableBuiltinClaudeAgent([builtinPinned()], true);
+    expect(untouched[0]?.enabled).toBeUndefined();
+  });
+
+  it("never modifies an entry the user customised", () => {
+    const custom = builtinPinned();
+    custom.command = "my-claude";
+    custom.args = ["--acp"];
+    const next = disableBuiltinClaudeAgent([custom], false);
+    expect(next[0]).toMatchObject({ command: "my-claude", args: ["--acp"] });
+    expect(next[0]?.enabled).toBeUndefined();
+  });
+
+  it("leaves other agents untouched", () => {
+    const opencode: AgentConfig = {
+      id: "opencode",
+      name: "OpenCode",
+      command: "opencode",
+      args: ["acp"],
+    };
+    const next = disableBuiltinClaudeAgent([opencode, builtinPinned()], false);
+    expect(next[0]).toBe(opencode);
+  });
+
+  it("is idempotent and returns the same list when nothing changes", () => {
+    const list = [{ ...builtinPinned(), enabled: false }];
+    expect(disableBuiltinClaudeAgent(list, false)).toBe(list);
+    const untouched = [builtinPinned()];
+    expect(disableBuiltinClaudeAgent(untouched, true)).toBe(untouched);
   });
 });
 

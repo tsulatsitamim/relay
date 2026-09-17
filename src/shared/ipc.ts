@@ -1,5 +1,6 @@
 import type {
   AgentConfig,
+  ClaudeAdapterInfo,
   PermissionRequest,
   PromptAttachment,
   Repo,
@@ -19,6 +20,7 @@ export type RelayState = {
   agentDefaults: Record<string, string>;
   settings: Record<string, string>;
   about: { version: string; dataPath: string };
+  claudeAdapter?: ClaudeAdapterInfo;
 };
 
 export type RelayEvent =

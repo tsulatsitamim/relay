@@ -22,6 +22,15 @@ export type AgentConfig = {
   enabled?: boolean;
 };
 
+export type ClaudeAdapterInfo = {
+  available: boolean;
+  path: string | null;
+};
+
+export type ClaudeInstallResult =
+  | { ok: true; binaryPath: string }
+  | { ok: false; error: string };
+
 export type SessionModeLike = {
   id: string;
   name?: string;

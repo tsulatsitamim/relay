@@ -24,10 +24,10 @@ export function resolveClaudeAgent(
   };
 }
 
-export function hasBinaryOnPath(name: string): boolean {
+export function findBinaryOnPath(name: string): string | null {
   try {
     const path = process.env.PATH;
-    if (!path) return false;
+    if (!path) return null;
     const extensions =
       process.platform === "win32"
         ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")
@@ -35,22 +35,54 @@ export function hasBinaryOnPath(name: string): boolean {
     for (const dir of path.split(delimiter)) {
       if (!dir) continue;
       for (const extension of extensions) {
+        const candidate = join(dir, name + extension);
         try {
-          accessSync(join(dir, name + extension), constants.X_OK);
-          return true;
+          accessSync(candidate, constants.X_OK);
+          return candidate;
         } catch {
           continue;
         }
       }
     }
-    return false;
+    return null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function hasBinaryOnPath(name: string): boolean {
+  return findBinaryOnPath(name) !== null;
 }
 
 const LEGACY_CLAUDE_COMMAND = "npx";
 const LEGACY_CLAUDE_ARGS = ["-y", "@zed-industries/claude-code-acp"];
+const CLAUDE_PACKAGE = "@zed-industries/claude-code-acp";
+
+function isBuiltinClaudeEntry(agent: AgentConfig): boolean {
+  if (agent.id !== "claude-code") return false;
+  if (agent.command === "claude-code-acp") return agent.args.length === 0;
+  if (agent.command !== LEGACY_CLAUDE_COMMAND || agent.args.length !== 2) {
+    return false;
+  }
+  if (agent.args[0] !== "-y") return false;
+  const spec = agent.args[1] ?? "";
+  return spec === CLAUDE_PACKAGE || spec.startsWith(`${CLAUDE_PACKAGE}@`);
+}
+
+export function disableBuiltinClaudeAgent(
+  agents: AgentConfig[],
+  hasLocalAdapter: boolean,
+): AgentConfig[] {
+  if (hasLocalAdapter) return agents;
+  let changed = false;
+  const next = agents.map((agent) => {
+    if (!isBuiltinClaudeEntry(agent)) return agent;
+    if (agent.enabled === false) return agent;
+    changed = true;
+    return { ...agent, enabled: false };
+  });
+  return changed ? next : agents;
+}
 
 export function upgradeClaudeAgent(
   agents: AgentConfig[],

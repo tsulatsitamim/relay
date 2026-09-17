@@ -1,11 +1,18 @@
 import { useState, type ReactNode } from "react";
-import type { AgentConfig } from "../shared/types.ts";
+import type {
+  AgentConfig,
+  ClaudeAdapterInfo,
+  ClaudeInstallResult,
+} from "../shared/types.ts";
 import {
+  IconArrowDown,
   IconArrowLeft,
+  IconCheck,
   IconInfo,
   IconPlug,
   IconPlus,
   IconSliders,
+  IconSpinner,
   IconTrash,
   IconX,
 } from "./icons";
@@ -170,16 +177,28 @@ function rowsToEnv(rows: EnvRow[]): Record<string, string> | undefined {
   return Object.keys(env).length > 0 ? env : undefined;
 }
 
+type InstallPhase =
+  | { phase: "idle" }
+  | { phase: "installing"; line?: string }
+  | { phase: "done" }
+  | { phase: "error"; error: string };
+
 function ProvidersSection({
   agents,
   confirmDelete,
+  claudeAdapter,
   onSaveAgent,
   onDeleteAgent,
+  onInstallClaudeAdapter,
 }: {
   agents: AgentConfig[];
   confirmDelete: boolean;
+  claudeAdapter?: ClaudeAdapterInfo;
   onSaveAgent: (agent: AgentConfig) => Promise<AgentConfig>;
   onDeleteAgent: (id: string) => Promise<void>;
+  onInstallClaudeAdapter: (
+    onOutput?: (line: string) => void,
+  ) => Promise<ClaudeInstallResult>;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(
     agents[0]?.id ?? null,
@@ -188,6 +207,7 @@ function ProvidersSection({
   const [envRows, setEnvRows] = useState<EnvRow[]>(() => envToRows(agents[0]?.env));
   const [argsText, setArgsText] = useState(() => (agents[0]?.args ?? []).join("\n"));
   const [confirming, setConfirming] = useState(false);
+  const [install, setInstall] = useState<InstallPhase>({ phase: "idle" });
 
   const select = (agent: AgentConfig) => {
     setSelectedId(agent.id);
@@ -195,6 +215,25 @@ function ProvidersSection({
     setEnvRows(envToRows(agent.env));
     setArgsText(agent.args.join("\n"));
     setConfirming(false);
+    setInstall({ phase: "idle" });
+  };
+
+  const runInstall = async () => {
+    setInstall({ phase: "installing" });
+    const result = await onInstallClaudeAdapter((line) =>
+      setInstall({ phase: "installing", line }),
+    );
+    if (!result.ok) {
+      setInstall({ phase: "error", error: result.error });
+      return;
+    }
+    setInstall({ phase: "done" });
+    setDraft((prev) =>
+      prev && prev.id === "claude-code"
+        ? { ...prev, command: result.binaryPath, args: [], enabled: true }
+        : prev,
+    );
+    setArgsText("");
   };
 
   const save = async () => {
@@ -377,6 +416,45 @@ function ProvidersSection({
                   </div>
                 ))}
               </div>
+              {draft.id === "claude-code" && claudeAdapter ? (
+                claudeAdapter.available ? (
+                  <div className="provider-install">
+                    <span className="provider-install-label">claude-code-acp</span>
+                    <span className="provider-install-path">{claudeAdapter.path}</span>
+                  </div>
+                ) : (
+                  <div className="provider-install">
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={install.phase === "installing"}
+                      onClick={() => void runInstall()}
+                    >
+                      {install.phase === "installing" ? <IconSpinner /> : <IconArrowDown />}
+                      Install claude-code-acp (lokal)
+                    </button>
+                    <span className="provider-install-note">
+                      Installs the adapter into Relay without touching your global
+                      npm setup.
+                    </span>
+                    {install.phase === "installing" ? (
+                      <span className="provider-install-status" role="status">
+                        <IconSpinner />
+                        {install.line ?? "Installing…"}
+                      </span>
+                    ) : install.phase === "done" ? (
+                      <span className="provider-install-status ok" role="status">
+                        <IconCheck />
+                        Installed
+                      </span>
+                    ) : install.phase === "error" ? (
+                      <span className="provider-install-status err" role="status">
+                        {install.error}
+                      </span>
+                    ) : null}
+                  </div>
+                )
+              ) : null}
               <SettingRow label="Enabled">
                 <Switch
                   label="Enabled"
@@ -473,18 +551,24 @@ export function SettingsPage({
   settings,
   about,
   sessionCount,
+  claudeAdapter,
   onSaveAgent,
   onDeleteAgent,
   onSetSetting,
+  onInstallClaudeAdapter,
 }: {
   section: SettingsSection;
   agents: AgentConfig[];
   settings: Record<string, string>;
   about: { version: string; dataPath: string };
   sessionCount: number;
+  claudeAdapter?: ClaudeAdapterInfo;
   onSaveAgent: (agent: AgentConfig) => Promise<AgentConfig>;
   onDeleteAgent: (id: string) => Promise<void>;
   onSetSetting: (key: string, value: string) => void;
+  onInstallClaudeAdapter: (
+    onOutput?: (line: string) => void,
+  ) => Promise<ClaudeInstallResult>;
 }) {
   return (
     <div className="settings">
@@ -499,8 +583,10 @@ export function SettingsPage({
           <ProvidersSection
             agents={agents}
             confirmDelete={settings.confirmDeleteProvider !== "false"}
+            claudeAdapter={claudeAdapter}
             onSaveAgent={onSaveAgent}
             onDeleteAgent={onDeleteAgent}
+            onInstallClaudeAdapter={onInstallClaudeAdapter}
           />
         ) : (
           <AboutSection

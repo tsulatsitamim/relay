@@ -14,10 +14,15 @@ import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import { SessionManager, defaultAgents } from "./session-manager.ts";
 import {
+  disableBuiltinClaudeAgent,
   hasBinaryOnPath,
   resolveClaudeAgent,
   upgradeClaudeAgent,
 } from "./agents.ts";
+import {
+  findClaudeAdapter,
+  installAndEnableClaudeAdapter,
+} from "./claude-adapter.ts";
 import { resolveWithinReal } from "./open-path.ts";
 import {
   isTurnFinished,
@@ -66,6 +71,7 @@ async function main(): Promise<void> {
   await applyLoginPath();
 
   const userData = app.getPath("userData");
+  const toolsDir = join(userData, "tools");
   const logger = createLogger(join(userData, "relay.log"));
   const dbPath = join(userData, "relay.db");
   const store = await openStore(dbPath);
@@ -77,7 +83,11 @@ async function main(): Promise<void> {
       existingAgents,
       resolveClaudeAgent(hasBinaryOnPath),
     );
-    if (upgraded !== existingAgents) store.saveAgents(upgraded);
+    const migrated = disableBuiltinClaudeAgent(
+      upgraded,
+      findClaudeAdapter(toolsDir) !== null,
+    );
+    if (migrated !== existingAgents) store.saveAgents(migrated);
   }
 
   const manager = new SessionManager(store);
@@ -146,6 +156,10 @@ async function main(): Promise<void> {
       agentDefaults: manager.agentDefaults(),
       settings: manager.settings(),
       about: { version: app.getVersion(), dataPath: dbPath },
+      claudeAdapter: (() => {
+        const path = findClaudeAdapter(toolsDir);
+        return { available: path !== null, path };
+      })(),
     };
   });
 
@@ -282,6 +296,18 @@ async function main(): Promise<void> {
 
   ipcMain.handle("relay:deleteAgent", (_e, id: string) => {
     manager.removeAgent(id);
+  });
+
+  ipcMain.handle("relay:installClaudeAdapter", async () => {
+    logger.info("install claude adapter", { prefix: toolsDir });
+    const result = await installAndEnableClaudeAdapter({
+      prefix: toolsDir,
+      agents: manager.agents(),
+      onOutput: (line) => broadcast("relay:claudeInstallProgress", line),
+    });
+    if (!result.ok) return result;
+    manager.saveAgents(result.agents);
+    return { ok: true as const, binaryPath: result.binaryPath };
   });
 
   ipcMain.handle("relay:setSetting", (_e, key: string, value: string) => {

@@ -28,6 +28,13 @@ const agentTwo: AgentConfig = {
   command: "two",
   args: [],
 };
+const claudeAgent: AgentConfig = {
+  id: "claude-code",
+  name: "Claude Code",
+  command: "npx",
+  args: ["-y", "@zed-industries/claude-code-acp@0.16.2"],
+  enabled: false,
+};
 
 function makeSession(id: string, title: string): Session {
   return {
@@ -83,6 +90,21 @@ function mount(initial: RelayState) {
   const setSetting = vi.fn(async (key: string, value: string) => {
     current = { ...current, settings: { ...current.settings, [key]: value } };
   });
+  const installClaudeAdapter = vi.fn(
+    async (onOutput?: (line: string) => void) => {
+      onOutput?.("added 1 package");
+      const binaryPath = "/data/tools/node_modules/.bin/claude-code-acp";
+      current = {
+        ...current,
+        agents: current.agents.map((item) =>
+          item.id === "claude-code"
+            ? { ...item, command: binaryPath, args: [], enabled: true }
+            : item,
+        ),
+      };
+      return { ok: true as const, binaryPath };
+    },
+  );
   const bridge = {
     getState: vi.fn(async () => current),
     subscribe: vi.fn(() => () => {}),
@@ -103,6 +125,7 @@ function mount(initial: RelayState) {
     saveAgent,
     deleteAgent,
     setSetting,
+    installClaudeAdapter,
     setPinned: vi.fn().mockResolvedValue(undefined),
     setArchived: vi.fn().mockResolvedValue(undefined),
     rename: vi.fn().mockResolvedValue(undefined),
@@ -112,7 +135,7 @@ function mount(initial: RelayState) {
   };
   (window as any).relay = bridge;
   render(<App />);
-  return { bridge, saveAgent, deleteAgent, setSetting };
+  return { bridge, saveAgent, deleteAgent, setSetting, installClaudeAdapter };
 }
 
 async function openSettings(): Promise<void> {
@@ -327,6 +350,69 @@ describe("Providers settings", () => {
         "Agent One",
       ]);
     });
+  });
+
+  it("excludes a provider that starts disabled from the home composer picker", async () => {
+    mount(
+      makeState({ agents: [agentOne, { ...agentTwo, enabled: false }] }),
+    );
+    await screen.findByText("New Chat");
+
+    await waitFor(() => {
+      const select = document.querySelector(
+        ".composer-bar select",
+      ) as HTMLSelectElement;
+      expect(Array.from(select.options).map((option) => option.textContent)).toEqual([
+        "Pilih agent",
+        "Agent One",
+      ]);
+    });
+  });
+
+  it("offers to install the claude adapter and auto-enables the provider", async () => {
+    const { bridge } = mount(
+      makeState({
+        agents: [claudeAgent, agentOne],
+        claudeAdapter: { available: false, path: null },
+      }),
+    );
+    await openProviders();
+
+    fireEvent.click(await screen.findByText("Claude Code"));
+    const install = await screen.findByRole("button", {
+      name: /install claude-code-acp/i,
+    });
+    expect(screen.getByText(/without touching your global npm/i)).toBeTruthy();
+
+    fireEvent.click(install);
+    await waitFor(() => expect(bridge.installClaudeAdapter).toHaveBeenCalled());
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("switch", { name: "Enabled" }).getAttribute("aria-checked"),
+      ).toBe("true"),
+    );
+    expect(
+      screen.getByRole("switch", { name: "Claude Code enabled" }).getAttribute(
+        "aria-checked",
+      ),
+    ).toBe("true");
+  });
+
+  it("shows the resolved adapter path instead of the install button when present", async () => {
+    mount(
+      makeState({
+        agents: [claudeAgent, agentOne],
+        claudeAdapter: { available: true, path: "/usr/local/bin/claude-code-acp" },
+      }),
+    );
+    await openProviders();
+    fireEvent.click(await screen.findByText("Claude Code"));
+
+    expect(
+      screen.queryByRole("button", { name: /install claude-code-acp/i }),
+    ).toBeNull();
+    expect(screen.getByText("/usr/local/bin/claude-code-acp")).toBeTruthy();
   });
 });
 

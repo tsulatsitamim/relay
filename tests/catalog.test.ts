@@ -15,6 +15,7 @@ describe("defaultAgents", () => {
     expect(claude).toMatchObject({
       command: "npx",
       args: ["-y", "@zed-industries/claude-code-acp@0.16.2"],
+      enabled: false,
     });
   });
 

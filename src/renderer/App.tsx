@@ -714,6 +714,12 @@ export function App() {
     }));
   }
 
+  async function installClaudeAdapter(onOutput?: (line: string) => void) {
+    const result = await window.relay.installClaudeAdapter(onOutput);
+    if (result.ok) await refresh();
+    return result;
+  }
+
   function setSetting(key: string, value: string) {
     setState((prev) => ({
       ...prev,
@@ -1135,9 +1141,11 @@ export function App() {
             settings={state.settings}
             about={state.about}
             sessionCount={state.sessions.length}
+            claudeAdapter={state.claudeAdapter}
             onSaveAgent={saveAgent}
             onDeleteAgent={deleteAgent}
             onSetSetting={setSetting}
+            onInstallClaudeAdapter={installClaudeAdapter}
           />
         ) : selected ? (
           <div className="thread">

@@ -119,6 +119,7 @@ export class SessionManager {
 
   saveAgents(agents: AgentConfig[]): void {
     this.store.saveAgents(agents);
+    this.emitSessions();
   }
 
   saveAgent(agent: AgentConfig): AgentConfig {
@@ -591,6 +592,7 @@ export function defaultAgents(fakeAgentPath?: string): AgentConfig[] {
       name: "Claude Code",
       command: claude.command,
       args: claude.args,
+      enabled: false,
     },
   ];
   if (fakeAgentPath) {

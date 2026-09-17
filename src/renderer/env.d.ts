@@ -1,6 +1,7 @@
 import type { CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
 import type {
   AgentConfig,
+  ClaudeInstallResult,
   PromptAttachment,
   Repo,
   Session,
@@ -26,6 +27,9 @@ export type RelayBridge = {
   removeRepo: (path: string) => Promise<Repo[]>;
   saveAgent: (agent: AgentConfig) => Promise<AgentConfig>;
   deleteAgent: (id: string) => Promise<void>;
+  installClaudeAdapter: (
+    onOutput?: (line: string) => void,
+  ) => Promise<ClaudeInstallResult>;
   setSetting: (key: string, value: string) => Promise<void>;
   setPinned: (id: string, pinned: boolean) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
