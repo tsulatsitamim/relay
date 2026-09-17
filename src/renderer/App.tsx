@@ -755,7 +755,7 @@ export function App() {
           </div>
         )}
         {view === "settings" ? (
-          <SettingsNav section={section} onSelect={setSection} />
+          <SettingsNav section={section} onSelect={setSection} onClose={toggleSettings} />
         ) : (
           <>
         <div className="nav">
@@ -1126,7 +1126,6 @@ export function App() {
             settings={state.settings}
             about={state.about}
             sessionCount={state.sessions.length}
-            onClose={toggleSettings}
             onSaveAgent={saveAgent}
             onDeleteAgent={deleteAgent}
             onSetSetting={setSetting}

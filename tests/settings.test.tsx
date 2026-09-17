@@ -152,11 +152,13 @@ describe("App settings entry", () => {
     expect(screen.queryByText("Default provider")).toBeNull();
   });
 
-  it("returns to chat from the back button and hints at the Escape shortcut", async () => {
+  it("returns to chat from the back button in the sidebar and hints at the Escape shortcut", async () => {
     mount(makeState());
     await openSettings();
 
+    const sidebar = document.querySelector(".sidebar");
     const back = screen.getByRole("button", { name: "Close settings" });
+    expect(sidebar?.contains(back)).toBe(true);
     expect(back.getAttribute("title")).toMatch(/esc/i);
 
     fireEvent.click(back);

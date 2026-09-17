@@ -23,12 +23,26 @@ const REPO_URL = "https://github.com/tsulatsitamim/relay";
 export function SettingsNav({
   section,
   onSelect,
+  onClose,
 }: {
   section: SettingsSection;
   onSelect: (section: SettingsSection) => void;
+  onClose: () => void;
 }) {
   return (
     <div className="nav settings-nav">
+      <button
+        type="button"
+        className="nav-item settings-back"
+        aria-label="Close settings"
+        title="Back to chat (Esc)"
+        onClick={onClose}
+      >
+        <span className="cell-icon">
+          <IconArrowLeft />
+        </span>
+        <span className="cell-content">Back</span>
+      </button>
       <div className="settings-nav-title">Settings</div>
       {SECTIONS.map(({ id, label, icon }) => (
         <button
@@ -459,7 +473,6 @@ export function SettingsPage({
   settings,
   about,
   sessionCount,
-  onClose,
   onSaveAgent,
   onDeleteAgent,
   onSetSetting,
@@ -469,7 +482,6 @@ export function SettingsPage({
   settings: Record<string, string>;
   about: { version: string; dataPath: string };
   sessionCount: number;
-  onClose: () => void;
   onSaveAgent: (agent: AgentConfig) => Promise<AgentConfig>;
   onDeleteAgent: (id: string) => Promise<void>;
   onSetSetting: (key: string, value: string) => void;
@@ -477,15 +489,6 @@ export function SettingsPage({
   return (
     <div className="settings">
       <div className="settings-container">
-        <button
-          type="button"
-          className="icon-btn settings-back"
-          aria-label="Close settings"
-          title="Close settings (Esc)"
-          onClick={onClose}
-        >
-          <IconArrowLeft />
-        </button>
         {section === "general" ? (
           <GeneralSection
             agents={agents}
