@@ -11,7 +11,7 @@ import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
 import { ToolGroup } from "./ToolGroup";
 import { CopyButton } from "./CopyButton";
-import { IconArrowDown, IconCheck, IconX } from "./icons";
+import { IconArrowDown, IconCheck, IconFork, IconRewind, IconX } from "./icons";
 import { MinimapRail } from "./MinimapRail";
 import { buildTurns, jumpTop } from "./minimap";
 import { isNearBottom, nextFollowMode, type FollowMode } from "./scroll";
@@ -21,6 +21,8 @@ import { useVisibleAnimation } from "./visible-animation";
 type Props = {
   events: TranscriptEvent[];
   onEditUser?: (text: string, eventId: string) => void;
+  onRewind?: (eventId: string, text: string) => void;
+  onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
@@ -36,6 +38,8 @@ function EventRow({
   event,
   time,
   onEditUser,
+  onRewind,
+  onFork,
   reviewedDiffIds,
   onToggleReviewed,
   onOpenDiff,
@@ -43,6 +47,8 @@ function EventRow({
   event: TranscriptEvent;
   time: string | null;
   onEditUser?: (text: string, eventId: string) => void;
+  onRewind?: (eventId: string, text: string) => void;
+  onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
@@ -170,6 +176,34 @@ function EventRow({
           <div className="msg-foot" onClick={(e) => e.stopPropagation()}>
             <div className="msg-actions">
               <CopyButton text={text} />
+              {onRewind ? (
+                <button
+                  type="button"
+                  className="msg-action"
+                  aria-label="Rewind to this message"
+                  title="Rewind"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRewind(event.id, text);
+                  }}
+                >
+                  <IconRewind />
+                </button>
+              ) : null}
+              {onFork ? (
+                <button
+                  type="button"
+                  className="msg-action"
+                  aria-label="Fork as new chat"
+                  title="Fork"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFork(text);
+                  }}
+                >
+                  <IconFork />
+                </button>
+              ) : null}
             </div>
             {time != null ? <span className="msg-time">{time}</span> : null}
           </div>
@@ -256,6 +290,8 @@ function MessageRow({
   group,
   groupKind,
   onEditUser,
+  onRewind,
+  onFork,
   reviewedDiffIds,
   onToggleReviewed,
   onOpenDiff,
@@ -268,6 +304,8 @@ function MessageRow({
   group?: TranscriptEvent[];
   groupKind?: "tool" | "diff";
   onEditUser?: (text: string, eventId: string) => void;
+  onRewind?: (eventId: string, text: string) => void;
+  onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
@@ -298,6 +336,8 @@ function MessageRow({
           event={event}
           time={time}
           onEditUser={onEditUser}
+          onRewind={onRewind}
+          onFork={onFork}
           reviewedDiffIds={reviewedDiffIds}
           onToggleReviewed={onToggleReviewed}
           onOpenDiff={onOpenDiff}
@@ -310,6 +350,8 @@ function MessageRow({
 export function Transcript({
   events,
   onEditUser,
+  onRewind,
+  onFork,
   reviewedDiffIds,
   onToggleReviewed,
   onOpenDiff,
@@ -443,6 +485,8 @@ export function Transcript({
                   index >= streamingSinceRef.current
                 }
                 onEditUser={onEditUser}
+                onRewind={onRewind}
+                onFork={onFork}
                 reviewedDiffIds={reviewedDiffIds}
                 onToggleReviewed={onToggleReviewed}
                 onOpenDiff={onOpenDiff}

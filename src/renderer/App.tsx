@@ -258,6 +258,9 @@ export function App() {
   const [inject, setInject] = useState<
     { text: string; nonce: number; fromEventId?: string } | undefined
   >();
+  const [homeInject, setHomeInject] = useState<
+    { text: string; nonce: number } | undefined
+  >();
   const pendingTruncate = useRef<string | null>(null);
   const [injectSessionId, setInjectSessionId] = useState<string | null>(null);
   const [reviewedDiffs, setReviewedDiffs] = useState<Set<string>>(() => new Set());
@@ -507,6 +510,28 @@ export function App() {
   const openDiff = (path: string) => {
     if (!selected) return Promise.resolve(false);
     return window.relay.openPath(selected.workingDirectory, path);
+  };
+
+  const rewind = async (sessionId: string, eventId: string, text: string) => {
+    const session = state.sessions.find((s) => s.id === sessionId);
+    if (
+      !session ||
+      ["starting", "working", "cancelling"].includes(session.status)
+    ) {
+      return;
+    }
+    pendingTruncate.current = null;
+    try {
+      await window.relay.truncate(sessionId, eventId);
+    } catch (err) {
+      setChatError({
+        sessionId,
+        message: err instanceof Error ? err.message : String(err),
+        prompt: text,
+      });
+      return;
+    }
+    setInject({ text, nonce: Date.now() });
   };
 
   const sendToSession = async (
@@ -1357,6 +1382,13 @@ export function App() {
                 setInject(undefined);
                 void sendToSession(selected.id, text);
               }}
+              onRewind={(eventId, text) => void rewind(selected.id, eventId, text)}
+              onFork={(text) => {
+                setSelectedId(null);
+                setRepoPath(selected.workingDirectory);
+                setAgentId(selected.agentConfigId);
+                setHomeInject({ text, nonce: Date.now() });
+              }}
               reviewedDiffIds={reviewedDiffs}
               onToggleReviewed={toggleDiffReviewed}
               onOpenDiff={openDiff}
@@ -1439,6 +1471,7 @@ export function App() {
             busy={busy}
             error={error}
             commands={commandList}
+            inject={homeInject}
             onAgentId={setAgentId}
             onRepoPath={setRepoPath}
             onSubmit={async (prompt, attachments) => {

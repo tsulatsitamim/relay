@@ -615,3 +615,47 @@ describe("agent message cap", () => {
     expect(writeText).toHaveBeenCalledWith(big);
   });
 });
+
+describe("user message rewind and fork actions", () => {
+  const events: TranscriptEvent[] = [
+    { id: "u1", kind: "user", payload: { text: "hello there" } },
+    { id: "a1", kind: "agent_message", payload: { text: "world" } },
+  ];
+
+  it("renders the actions only when their callbacks are provided", () => {
+    const { rerender } = render(<Transcript events={events} />);
+    expect(screen.queryByRole("button", { name: "Rewind to this message" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Fork as new chat" })).toBeNull();
+
+    rerender(<Transcript events={events} onRewind={vi.fn()} onFork={vi.fn()} />);
+    expect(screen.getAllByRole("button", { name: "Rewind to this message" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Fork as new chat" })).toHaveLength(1);
+  });
+
+  it("does not add the actions to agent messages", () => {
+    const { container } = render(<Transcript events={events} onRewind={vi.fn()} onFork={vi.fn()} />);
+    const agent = container.querySelector(".msg.agent")!;
+    expect(agent.querySelector('[aria-label="Rewind to this message"]')).toBeNull();
+    expect(agent.querySelector('[aria-label="Fork as new chat"]')).toBeNull();
+  });
+
+  it("calls the callbacks with the message text and event id", () => {
+    const onRewind = vi.fn();
+    const onFork = vi.fn();
+    render(<Transcript events={events} onRewind={onRewind} onFork={onFork} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rewind to this message" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fork as new chat" }));
+    expect(onRewind).toHaveBeenCalledWith("u1", "hello there");
+    expect(onFork).toHaveBeenCalledWith("hello there");
+  });
+
+  it("exposes matching tooltips on the icon actions", () => {
+    render(<Transcript events={events} onRewind={vi.fn()} onFork={vi.fn()} />);
+    expect(
+      screen.getByRole("button", { name: "Rewind to this message" }).getAttribute("title"),
+    ).toBe("Rewind");
+    expect(
+      screen.getByRole("button", { name: "Fork as new chat" }).getAttribute("title"),
+    ).toBe("Fork");
+  });
+});

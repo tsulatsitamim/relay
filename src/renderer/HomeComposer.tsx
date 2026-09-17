@@ -21,6 +21,7 @@ type Props = {
   busy: boolean;
   error: string | null;
   commands?: AvailableCommandLike[];
+  inject?: { text: string; nonce: number };
   onAgentId: (id: string) => void;
   onRepoPath: (path: string) => void;
   onSubmit: (prompt: string, attachments?: PromptAttachment[]) => Promise<void>;
@@ -57,6 +58,7 @@ export function HomeComposer({
   busy,
   error,
   commands = [],
+  inject,
   onAgentId,
   onRepoPath,
   onSubmit,
@@ -85,6 +87,7 @@ export function HomeComposer({
   } = useComposerInput({
     commands,
     cwd: repoPath || undefined,
+    inject,
     onEnter: () => void submit(),
   });
   const canSend = hasContent && !busy && Boolean(agentId);

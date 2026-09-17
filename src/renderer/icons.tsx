@@ -17,10 +17,12 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  GitFork,
   Info,
   ListChecks,
   ListFilter,
   LoaderCircle,
+  MessageSquarePlus,
   Mic,
   Minus,
   Monitor,
@@ -30,6 +32,7 @@ import {
   Plug,
   Plus,
   Redo2,
+  RotateCcw,
   Search,
   Settings,
   SlidersHorizontal,
@@ -90,6 +93,9 @@ export const IconWarning = icon(TriangleAlert, { size: 14, strokeWidth: 2 });
 export const IconThinking = icon(Brain, { size: 14, strokeWidth: 1.75 });
 export const IconPlan = icon(ListChecks, { size: 14, strokeWidth: 1.75 });
 export const IconArrowDown = icon(ArrowDown, { size: 14, strokeWidth: 2 });
+export const IconRewind = icon(RotateCcw, { size: 13, strokeWidth: 1.75 });
+export const IconFork = icon(GitFork, { size: 13, strokeWidth: 1.75 });
+export const IconComment = icon(MessageSquarePlus, { size: 13, strokeWidth: 1.75 });
 export const IconSettings = icon(Settings);
 export const IconInfo = icon(Info);
 export const IconPlug = icon(Plug);

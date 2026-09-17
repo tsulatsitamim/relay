@@ -970,3 +970,60 @@ describe("App draft stash", () => {
     expect(screen.queryByText("Draft stashed")).toBeNull();
   });
 });
+
+describe("App rewind and fork", () => {
+  function homeBox(): HTMLTextAreaElement {
+    return document.querySelector(".home textarea") as HTMLTextAreaElement;
+  }
+  function homeRepo(): HTMLSelectElement {
+    return document.querySelector(".context select") as HTMLSelectElement;
+  }
+  function homeAgent(): HTMLSelectElement {
+    return document.querySelector(".composer-bar select") as HTMLSelectElement;
+  }
+
+  it("rewinds to a user message and seeds the composer without sending", async () => {
+    const { send, truncate } = mount([makeSession()], {
+      s1: [
+        { id: "u1", kind: "user", payload: { text: "original" } },
+        { id: "a1", kind: "agent_message", payload: { text: "answer" } },
+      ],
+    });
+    const box = await openSession("Session one");
+    await screen.findByText("original");
+    fireEvent.click(screen.getByRole("button", { name: "Rewind to this message" }));
+
+    await waitFor(() => expect(truncate).toHaveBeenCalledWith("s1", "u1"));
+    await waitFor(() => expect(box.value).toBe("original"));
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("ignores rewind while the session is working", async () => {
+    const { send, truncate } = mount([makeSession({ status: "working" })], {
+      s1: [{ id: "u1", kind: "user", payload: { text: "original" } }],
+    });
+    await openSession("Session one");
+    fireEvent.click(screen.getByRole("button", { name: "Rewind to this message" }));
+
+    expect(truncate).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("forks the prompt back to the home composer with the repo and agent prefilled", async () => {
+    const { bridge } = mount(
+      [makeSession()],
+      { s1: [{ id: "u1", kind: "user", payload: { text: "do the thing" } }] },
+      [],
+      [],
+      { "/tmp/repo": "a1" },
+    );
+    await openSession("Session one");
+    fireEvent.click(screen.getByRole("button", { name: "Fork as new chat" }));
+
+    await waitFor(() => expect(document.querySelector(".home")).toBeTruthy());
+    await waitFor(() => expect(homeBox().value).toBe("do the thing"));
+    expect(homeRepo().value).toBe("/tmp/repo");
+    expect(homeAgent().value).toBe("a1");
+    expect(bridge.create).not.toHaveBeenCalled();
+  });
+});
