@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextQueued, pruneQueued } from "../src/renderer/queue.ts";
+import { nextQueued, promoteQueued, pruneQueued } from "../src/renderer/queue.ts";
 
 describe("pruneQueued", () => {
   it("drops entries for sessions that no longer exist", () => {
@@ -32,5 +32,21 @@ describe("nextQueued", () => {
   it("holds the queue when the session errored or exited", () => {
     expect(nextQueued(["second"], "error")).toBeNull();
     expect(nextQueued(["second"], "exited")).toBeNull();
+  });
+});
+
+describe("promoteQueued", () => {
+  it("moves the chosen item to the front", () => {
+    expect(promoteQueued(["a", "b", "c"], 2)).toEqual(["c", "a", "b"]);
+  });
+
+  it("returns the same reference when the item is already first", () => {
+    const queue = ["a", "b"];
+    expect(promoteQueued(queue, 0)).toBe(queue);
+  });
+
+  it("returns the same reference for an out-of-range index", () => {
+    const queue = ["a", "b"];
+    expect(promoteQueued(queue, 5)).toBe(queue);
   });
 });

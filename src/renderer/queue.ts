@@ -3,6 +3,11 @@ export function nextQueued(queue: string[], status: string): string | null {
   return status === "idle" ? queue[0] : null;
 }
 
+export function promoteQueued(queue: string[], index: number): string[] {
+  if (index <= 0 || index >= queue.length) return queue;
+  return [queue[index]!, ...queue.slice(0, index), ...queue.slice(index + 1)];
+}
+
 export function pruneQueued(
   queued: Record<string, string[]>,
   sessionIds: string[],

@@ -192,6 +192,46 @@ describe("App clearing the queue", () => {
   });
 });
 
+describe("App queued message actions", () => {
+  async function enqueueTwo(box: HTMLTextAreaElement) {
+    fireEvent.change(box, { target: { value: "first" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.change(box, { target: { value: "second" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+  }
+
+  it("moves an edited queued message into the composer and removes its chip", async () => {
+    mount([makeSession({ status: "working" })]);
+    const box = await openSession("Session one");
+    await enqueueTwo(box);
+    expect(document.querySelectorAll(".queued-chip")).toHaveLength(2);
+
+    fireEvent.click(screen.getAllByLabelText("Edit queued message")[0]);
+
+    await waitFor(() => expect(box.value).toBe("first"));
+    expect(document.querySelectorAll(".queued-chip")).toHaveLength(1);
+    expect(document.activeElement).toBe(box);
+  });
+
+  it("sends the promoted message first once the session is idle", async () => {
+    const { send, emit } = mount([makeSession({ status: "working" })]);
+    const box = await openSession("Session one");
+    await enqueueTwo(box);
+
+    fireEvent.click(screen.getAllByLabelText("Send queued message next")[1]);
+    const chips = Array.from(
+      document.querySelectorAll(".queued-chip .queued-text"),
+    ).map((node) => node.textContent);
+    expect(chips).toEqual(["second", "first"]);
+
+    await act(async () => {
+      emit({ type: "sessions", sessions: [makeSession({ status: "idle" })] });
+    });
+    await waitFor(() => expect(send.mock.calls.length).toBeGreaterThan(0));
+    expect(send.mock.calls[0]?.slice(0, 2)).toEqual(["s1", "second"]);
+  });
+});
+
 describe("App multi-command turns", () => {
   it("sends each leading command as its own turn", async () => {
     const { send } = mount([makeSession()], {

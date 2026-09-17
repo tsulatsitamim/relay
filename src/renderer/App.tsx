@@ -16,7 +16,7 @@ import { Composer } from "./Composer";
 import type { UsageInfo } from "./ContextMeter";
 import { WorkingStatus } from "./WorkingStatus";
 import { ErrorBanner } from "./ErrorBanner";
-import { nextQueued, pruneQueued } from "./queue";
+import { nextQueued, promoteQueued, pruneQueued } from "./queue";
 import {
   commandsForAgent,
   lastCommands,
@@ -544,6 +544,21 @@ export function App() {
     setQueued((prev) => ({
       ...prev,
       [sessionId]: [],
+    }));
+  };
+
+  const editQueued = (sessionId: string, index: number) => {
+    const text = (queued[sessionId] ?? [])[index];
+    if (text == null) return;
+    removeQueued(sessionId, index);
+    setInject({ text, nonce: Date.now() });
+  };
+
+  const sendQueuedNext = (sessionId: string, index: number) => {
+    pendingTruncate.current = null;
+    setQueued((prev) => ({
+      ...prev,
+      [sessionId]: promoteQueued(prev[sessionId] ?? [], index),
     }));
   };
 
@@ -1139,6 +1154,8 @@ export function App() {
               onQueue={(text) => enqueue(selected.id, text)}
               onRemoveQueued={(index) => removeQueued(selected.id, index)}
               onClearQueued={() => clearQueued(selected.id)}
+              onEditQueued={(index) => editQueued(selected.id, index)}
+              onSendQueued={(index) => sendQueuedNext(selected.id, index)}
               commands={commandList}
               cwd={selected.workingDirectory}
               inject={inject}

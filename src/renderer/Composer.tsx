@@ -21,6 +21,8 @@ type Props = {
   onQueue?: (text: string) => void;
   onRemoveQueued?: (index: number) => void;
   onClearQueued?: () => void;
+  onEditQueued?: (index: number) => void;
+  onSendQueued?: (index: number) => void;
   commands?: AvailableCommandLike[];
   cwd?: string;
   inject?: { text: string; nonce: number; fromEventId?: string };
@@ -37,6 +39,8 @@ export function Composer({
   onQueue,
   onRemoveQueued,
   onClearQueued,
+  onEditQueued,
+  onSendQueued,
   commands = [],
   cwd,
   inject,
@@ -103,6 +107,26 @@ export function Composer({
           {queued.map((item, index) => (
             <span className="queued-chip" key={`${index}-${item}`}>
               <span className="queued-text">{item}</span>
+              {onEditQueued ? (
+                <button
+                  type="button"
+                  className="queued-action"
+                  aria-label="Edit queued message"
+                  onClick={() => onEditQueued(index)}
+                >
+                  Edit
+                </button>
+              ) : null}
+              {onSendQueued ? (
+                <button
+                  type="button"
+                  className="queued-action"
+                  aria-label="Send queued message next"
+                  onClick={() => onSendQueued(index)}
+                >
+                  Send next
+                </button>
+              ) : null}
               <button
                 className="queued-remove"
                 aria-label="Remove queued message"

@@ -2671,6 +2671,23 @@ input:focus-visible {
   color: var(--text);
 }
 
+.queued-action {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.queued-action:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
 .queued-clear {
   align-self: center;
   border: none;
