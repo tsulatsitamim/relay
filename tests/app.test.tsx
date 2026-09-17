@@ -46,6 +46,7 @@ function stateWith(
   autoApprove: string[] = [],
   agentDefaults: Record<string, string> = {},
   repos: Repo[] = [repo],
+  diffComments: RelayState["diffComments"] = {},
 ): RelayState {
   return {
     sessions,
@@ -53,6 +54,7 @@ function stateWith(
     recents: [],
     repos,
     transcripts,
+    diffComments,
     permissions: [],
     homeDir: "/tmp",
     autoApprove,
@@ -69,6 +71,7 @@ function mount(
   autoApprove: string[] = [],
   agentDefaults: Record<string, string> = {},
   repos: Repo[] = [repo],
+  diffComments: RelayState["diffComments"] = {},
 ) {
   let listener: ((event: unknown) => void) | null = null;
   const send = vi.fn().mockResolvedValue(undefined);
@@ -76,7 +79,9 @@ function mount(
   const bridge = {
     getState: vi
       .fn()
-      .mockResolvedValue(stateWith(sessions, transcripts, autoApprove, agentDefaults, repos)),
+      .mockResolvedValue(
+        stateWith(sessions, transcripts, autoApprove, agentDefaults, repos, diffComments),
+      ),
     subscribe: vi.fn((fn: (event: unknown) => void) => {
       listener = fn;
       return () => {
@@ -104,6 +109,16 @@ function mount(
     copyDebug: vi.fn().mockResolvedValue(undefined),
     windowControl: vi.fn().mockResolvedValue(undefined),
     openPath: vi.fn().mockResolvedValue(true),
+    addDiffComment: vi.fn(
+      async (sessionId: string, input: Record<string, unknown>) => ({
+        id: "nc1",
+        sessionId,
+        ...input,
+        createdAt: 0,
+      }),
+    ),
+    deleteDiffComment: vi.fn().mockResolvedValue(undefined),
+    markDiffCommentsSent: vi.fn().mockResolvedValue(undefined),
   };
   (window as any).relay = bridge;
   render(<App />);
@@ -1025,5 +1040,137 @@ describe("App rewind and fork", () => {
     expect(homeRepo().value).toBe("/tmp/repo");
     expect(homeAgent().value).toBe("a1");
     expect(bridge.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("App diff comments", () => {
+  const diffEvents = [
+    {
+      id: "d1",
+      kind: "diff",
+      payload: { path: "src/a.ts", oldText: "a\nb\nc\n", newText: "a\nB\nc\nd\n" },
+    },
+  ] as RelayState["transcripts"][string];
+
+  const seeded = [
+    {
+      id: "c1",
+      sessionId: "s1",
+      eventId: "d1",
+      path: "src/a.ts",
+      startLine: 2,
+      endLine: 4,
+      body: "rename this",
+      createdAt: 0,
+    },
+  ] as RelayState["diffComments"][string];
+
+  it("persists a new comment through the bridge and renders it", async () => {
+    const { bridge } = mount([makeSession()], { s1: diffEvents });
+    await openSession("Session one");
+    fireEvent.click(await screen.findByRole("button", { name: "Comment on line 1" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Comment body" }), {
+      target: { value: "needs a test" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add comment" }));
+
+    await waitFor(() =>
+      expect(bridge.addDiffComment).toHaveBeenCalledWith("s1", {
+        eventId: "d1",
+        path: "src/a.ts",
+        startLine: 1,
+        endLine: 1,
+        body: "needs a test",
+      }),
+    );
+    expect(await screen.findByText("needs a test")).toBeTruthy();
+  });
+
+  it("deletes a comment through the bridge and drops it from the diff", async () => {
+    const { bridge } = mount([makeSession()], { s1: diffEvents }, [], [], {}, [repo], {
+      s1: seeded,
+    });
+    await openSession("Session one");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete comment" }));
+
+    await waitFor(() => expect(bridge.deleteDiffComment).toHaveBeenCalledWith("c1"));
+    await waitFor(() => expect(screen.queryByText("rename this")).toBeNull());
+  });
+
+  it("seeds the composer with the review draft without sending", async () => {
+    const { send, bridge } = mount([makeSession()], { s1: diffEvents }, [], [], {}, [repo], {
+      s1: seeded,
+    });
+    const box = await openSession("Session one");
+    fireEvent.click(await screen.findByRole("button", { name: "Send review" }));
+
+    await waitFor(() =>
+      expect(box.value).toBe("> src/a.ts:2-4\nrename this"),
+    );
+    expect(send).not.toHaveBeenCalled();
+    expect(bridge.markDiffCommentsSent).not.toHaveBeenCalled();
+  });
+
+  it("marks the comments sent only after the review is sent", async () => {
+    const { send, bridge } = mount([makeSession()], { s1: diffEvents }, [], [], {}, [repo], {
+      s1: seeded,
+    });
+    const box = await openSession("Session one");
+    fireEvent.click(await screen.findByRole("button", { name: "Send review" }));
+    await waitFor(() => expect(box.value).toBe("> src/a.ts:2-4\nrename this"));
+
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(bridge.markDiffCommentsSent).toHaveBeenCalledWith("s1", ["c1"]),
+    );
+    await waitFor(() =>
+      expect(document.querySelector(".diff-comment.sent")).toBeTruthy(),
+    );
+  });
+
+  it("keeps the pending review when the send fails and marks it on retry", async () => {
+    const { send, bridge } = mount([makeSession()], { s1: diffEvents }, [], [], {}, [repo], {
+      s1: seeded,
+    });
+    send.mockRejectedValueOnce(new Error("boom"));
+    const box = await openSession("Session one");
+    fireEvent.click(await screen.findByRole("button", { name: "Send review" }));
+    await waitFor(() => expect(box.value).toBe("> src/a.ts:2-4\nrename this"));
+
+    fireEvent.keyDown(box, { key: "Enter" });
+    const retry = await screen.findByRole("button", { name: "Retry" });
+    expect(bridge.markDiffCommentsSent).not.toHaveBeenCalled();
+
+    fireEvent.click(retry);
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(bridge.markDiffCommentsSent).toHaveBeenCalledWith("s1", ["c1"]),
+    );
+  });
+
+  it("drops the pending review when switching sessions", async () => {
+    const { send, bridge } = mount(
+      [makeSession({ id: "s1" }), makeSession({ id: "s2", title: "Session two" })],
+      { s1: diffEvents, s2: [] },
+      [],
+      [],
+      {},
+      [repo],
+      { s1: seeded },
+    );
+    const box = await openSession("Session one");
+    fireEvent.click(await screen.findByRole("button", { name: "Send review" }));
+    await waitFor(() => expect(box.value).toBe("> src/a.ts:2-4\nrename this"));
+
+    fireEvent.click(screen.getByText("Session two"));
+    const nextBox = await screen.findByRole("textbox");
+    expect(nextBox.value).toBe("");
+    fireEvent.change(nextBox, { target: { value: "other topic" } });
+    fireEvent.keyDown(nextBox, { key: "Enter" });
+
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send.mock.calls[0]).toEqual(["s2", "other topic", undefined]);
+    expect(bridge.markDiffCommentsSent).not.toHaveBeenCalled();
   });
 });

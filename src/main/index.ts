@@ -34,7 +34,7 @@ import { branchInfo, repoNameFromPath, withGitBranch } from "./repo-name.ts";
 import { listFiles } from "./file-index.ts";
 import { listSkills } from "./skills.ts";
 import { readAttachment } from "./attachments.ts";
-import type { CreatePayload, RelayState } from "../shared/ipc.ts";
+import type { CreatePayload, DiffCommentInput, RelayState } from "../shared/ipc.ts";
 import type { AgentConfig, PromptAttachment, SessionStatus } from "../shared/types.ts";
 
 function createWindow(): BrowserWindow {
@@ -150,6 +150,7 @@ async function main(): Promise<void> {
       recents: manager.recents(),
       repos: manager.repos().map(withGitBranch),
       transcripts,
+      diffComments: manager.diffCommentsBySession(),
       permissions: manager.pendingPermissions(),
       homeDir: homedir(),
       autoApprove: manager.autoApproveSessions(),
@@ -214,6 +215,23 @@ async function main(): Promise<void> {
     logger.info("set mode", { sessionId: id, modeId });
     await manager.setMode(id, modeId);
   });
+
+  ipcMain.handle(
+    "relay:addDiffComment",
+    (_e, sessionId: string, input: DiffCommentInput) =>
+      manager.addDiffComment(sessionId, input),
+  );
+
+  ipcMain.handle("relay:deleteDiffComment", (_e, id: string) => {
+    manager.deleteDiffComment(id);
+  });
+
+  ipcMain.handle(
+    "relay:markDiffCommentsSent",
+    (_e, sessionId: string, ids: string[]) => {
+      manager.markDiffCommentsSent(sessionId, ids);
+    },
+  );
 
   ipcMain.handle("relay:restart", async (_e, id: string) => {
     logger.info("restart", { sessionId: id });

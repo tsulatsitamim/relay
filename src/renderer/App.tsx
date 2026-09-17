@@ -4,6 +4,7 @@ import type { RelayState } from "../shared/ipc.ts";
 import type {
   AvailableCommandLike,
   AgentConfig,
+  DiffComment,
   PlanEntry,
   PromptAttachment,
   Repo,
@@ -14,6 +15,8 @@ import { repoFor } from "../shared/repo.ts";
 import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
+import type { DiffCommentDraft } from "./DiffBlock.tsx";
+import { composeReview, unsentComments } from "./review.ts";
 import { SettingsNav, SettingsPage, type SettingsSection } from "./Settings";
 import type { UsageInfo } from "./ContextMeter";
 import { WorkingStatus } from "./WorkingStatus";
@@ -77,6 +80,7 @@ const emptyState: RelayState = {
   recents: [],
   repos: [],
   transcripts: {},
+  diffComments: {},
   permissions: [],
   homeDir: "",
   autoApprove: [],
@@ -264,6 +268,8 @@ export function App() {
   const pendingTruncate = useRef<string | null>(null);
   const [injectSessionId, setInjectSessionId] = useState<string | null>(null);
   const [reviewedDiffs, setReviewedDiffs] = useState<Set<string>>(() => new Set());
+  const [diffComments, setDiffComments] = useState<Record<string, DiffComment[]>>({});
+  const pendingReview = useRef<string[] | null>(null);
   const [permissionIndex, setPermissionIndex] = useState(0);
   const [view, setView] = useState<"chat" | "settings">("chat");
   const [section, setSection] = useState<SettingsSection>("general");
@@ -285,6 +291,7 @@ export function App() {
       .then((next) => {
         setState(next);
         setAutoApprove(new Set(next.autoApprove));
+        setDiffComments(next.diffComments ?? {});
         setRepoPath((path) => path || next.repos[0]?.path || "");
       })
       .catch((err) => console.error(err));
@@ -365,6 +372,7 @@ export function App() {
     setFindQuery("");
     setFindIndex(0);
     pendingTruncate.current = null;
+    pendingReview.current = null;
   }, [selectedId]);
 
   const selected = useMemo(
@@ -512,6 +520,64 @@ export function App() {
     return window.relay.openPath(selected.workingDirectory, path);
   };
 
+  const addDiffComment = (
+    sessionId: string,
+    eventId: string,
+    input: DiffCommentDraft,
+  ) => {
+    void window.relay
+      .addDiffComment(sessionId, { eventId, ...input })
+      .then((comment) => {
+        setDiffComments((prev) => ({
+          ...prev,
+          [sessionId]: [...(prev[sessionId] ?? []), comment],
+        }));
+      })
+      .catch((err) => console.error(err));
+  };
+
+  const deleteDiffComment = (id: string) => {
+    void window.relay
+      .deleteDiffComment(id)
+      .then(() => {
+        setDiffComments((prev) => {
+          const next: Record<string, DiffComment[]> = {};
+          for (const [key, list] of Object.entries(prev)) {
+            next[key] = list.filter((comment) => comment.id !== id);
+          }
+          return next;
+        });
+      })
+      .catch((err) => console.error(err));
+  };
+
+  const markPendingReviewSent = (sessionId: string) => {
+    const ids = pendingReview.current;
+    if (!ids || ids.length === 0) return;
+    void window.relay
+      .markDiffCommentsSent(sessionId, ids)
+      .then(() => {
+        pendingReview.current = null;
+        const when = Date.now();
+        setDiffComments((prev) => ({
+          ...prev,
+          [sessionId]: (prev[sessionId] ?? []).map((comment) =>
+            ids.includes(comment.id) ? { ...comment, sentAt: when } : comment,
+          ),
+        }));
+      })
+      .catch((err) => console.error(err));
+  };
+
+  const sendDiffReview = (sessionId: string, ids: string[]) => {
+    const picked = unsentComments(
+      (diffComments[sessionId] ?? []).filter((comment) => ids.includes(comment.id)),
+    );
+    if (picked.length === 0) return;
+    pendingReview.current = picked.map((comment) => comment.id);
+    setInject({ text: composeReview(picked), nonce: Date.now() });
+  };
+
   const rewind = async (sessionId: string, eventId: string, text: string) => {
     const session = state.sessions.find((s) => s.id === sessionId);
     if (
@@ -567,8 +633,10 @@ export function App() {
     setBusy(true);
     setChatError(null);
     markSending(sessionId);
+    let sent = false;
     try {
       await window.relay.send(sessionId, first, attachments);
+      sent = true;
     } catch (err) {
       setChatError({
         sessionId,
@@ -579,6 +647,7 @@ export function App() {
     } finally {
       setBusy(false);
     }
+    if (sent) markPendingReviewSent(sessionId);
   };
 
   const enqueue = (sessionId: string, text: string) => {
@@ -1390,8 +1459,14 @@ export function App() {
                 setHomeInject({ text, nonce: Date.now() });
               }}
               reviewedDiffIds={reviewedDiffs}
+              diffComments={diffComments[selected.id] ?? []}
               onToggleReviewed={toggleDiffReviewed}
               onOpenDiff={openDiff}
+              onAddDiffComment={(eventId, input) =>
+                addDiffComment(selected.id, eventId, input)
+              }
+              onDeleteDiffComment={deleteDiffComment}
+              onSendDiffReview={(ids) => sendDiffReview(selected.id, ids)}
               footer={
                 <TurnFooter
                   events={events}

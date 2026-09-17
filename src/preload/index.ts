@@ -1,8 +1,15 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { BranchInfo, CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
+import type {
+  BranchInfo,
+  CreatePayload,
+  DiffCommentInput,
+  RelayEvent,
+  RelayState,
+} from "../shared/ipc.ts";
 import type {
   AgentConfig,
   ClaudeInstallResult,
+  DiffComment,
   PromptAttachment,
   Repo,
   Session,
@@ -20,6 +27,15 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:truncate", id, fromEventId),
   setMode: (sessionId: string, modeId: string): Promise<void> =>
     ipcRenderer.invoke("relay:setMode", sessionId, modeId),
+  addDiffComment: (
+    sessionId: string,
+    input: DiffCommentInput,
+  ): Promise<DiffComment> =>
+    ipcRenderer.invoke("relay:addDiffComment", sessionId, input),
+  deleteDiffComment: (id: string): Promise<void> =>
+    ipcRenderer.invoke("relay:deleteDiffComment", id),
+  markDiffCommentsSent: (sessionId: string, ids: string[]): Promise<void> =>
+    ipcRenderer.invoke("relay:markDiffCommentsSent", sessionId, ids),
   permission: (requestId: string, optionId: string | null): Promise<void> =>
     ipcRenderer.invoke("relay:permission", requestId, optionId),
   setAutoApprove: (id: string, enabled: boolean): Promise<void> =>

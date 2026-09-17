@@ -1,6 +1,7 @@
 import type {
   AgentConfig,
   ClaudeAdapterInfo,
+  DiffComment,
   PermissionRequest,
   PromptAttachment,
   Repo,
@@ -14,6 +15,7 @@ export type RelayState = {
   recents: string[];
   repos: Repo[];
   transcripts: Record<string, TranscriptEvent[]>;
+  diffComments: Record<string, DiffComment[]>;
   permissions: PermissionRequest[];
   homeDir: string;
   autoApprove: string[];
@@ -21,6 +23,14 @@ export type RelayState = {
   settings: Record<string, string>;
   about: { version: string; dataPath: string };
   claudeAdapter?: ClaudeAdapterInfo;
+};
+
+export type DiffCommentInput = {
+  eventId: string;
+  path: string;
+  startLine: number;
+  endLine: number;
+  body: string;
 };
 
 export type RelayEvent =

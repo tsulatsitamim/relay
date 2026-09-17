@@ -56,6 +56,7 @@ function makeState(overrides: Partial<RelayState> = {}): RelayState {
     recents: [],
     repos: [],
     transcripts: {},
+    diffComments: {},
     permissions: [],
     homeDir: "/tmp",
     autoApprove: [],

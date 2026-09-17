@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { PlanEntry, TranscriptEvent } from "../shared/types.ts";
-import { DiffBlock } from "./DiffBlock";
+import type { DiffComment, PlanEntry, TranscriptEvent } from "../shared/types.ts";
+import { DiffBlock, type DiffCommentDraft } from "./DiffBlock";
 import { DiffGroup } from "./DiffGroup";
 import { formatUsage } from "./format";
 import { Markdown } from "./Markdown";
@@ -24,8 +24,12 @@ type Props = {
   onRewind?: (eventId: string, text: string) => void;
   onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
+  diffComments?: DiffComment[];
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
+  onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
+  onDeleteDiffComment?: (id: string) => void;
+  onSendDiffReview?: (ids: string[]) => void;
   footer?: ReactNode;
   activeEventId?: string | null;
   streaming?: boolean;
@@ -41,8 +45,12 @@ function EventRow({
   onRewind,
   onFork,
   reviewedDiffIds,
+  diffComments,
   onToggleReviewed,
   onOpenDiff,
+  onAddDiffComment,
+  onDeleteDiffComment,
+  onSendDiffReview,
 }: {
   event: TranscriptEvent;
   time: string | null;
@@ -50,8 +58,12 @@ function EventRow({
   onRewind?: (eventId: string, text: string) => void;
   onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
+  diffComments?: DiffComment[];
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
+  onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
+  onDeleteDiffComment?: (id: string) => void;
+  onSendDiffReview?: (ids: string[]) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -266,10 +278,16 @@ function EventRow({
         oldText={(event.payload.oldText as string | null) ?? null}
         newText={String(event.payload.newText ?? "")}
         reviewed={reviewedDiffIds?.has(event.id)}
+        comments={(diffComments ?? []).filter((comment) => comment.eventId === event.id)}
         onToggleReviewed={
           onToggleReviewed ? () => onToggleReviewed(event.id) : undefined
         }
         onOpen={onOpenDiff ? () => onOpenDiff(path) : undefined}
+        onAddComment={
+          onAddDiffComment ? (input) => onAddDiffComment(event.id, input) : undefined
+        }
+        onDeleteComment={onDeleteDiffComment}
+        onSendReview={onSendDiffReview}
       />
     );
   }
@@ -293,8 +311,12 @@ function MessageRow({
   onRewind,
   onFork,
   reviewedDiffIds,
+  diffComments,
   onToggleReviewed,
   onOpenDiff,
+  onAddDiffComment,
+  onDeleteDiffComment,
+  onSendDiffReview,
 }: {
   event: TranscriptEvent;
   time: string | null;
@@ -307,8 +329,12 @@ function MessageRow({
   onRewind?: (eventId: string, text: string) => void;
   onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
+  diffComments?: DiffComment[];
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
+  onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
+  onDeleteDiffComment?: (id: string) => void;
+  onSendDiffReview?: (ids: string[]) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useVisibleAnimation(ref);
@@ -325,8 +351,12 @@ function MessageRow({
           <DiffGroup
             events={group}
             reviewedDiffIds={reviewedDiffIds}
+            comments={diffComments}
             onToggleReviewed={onToggleReviewed}
             onOpenDiff={onOpenDiff}
+            onAddComment={onAddDiffComment}
+            onDeleteComment={onDeleteDiffComment}
+            onSendReview={onSendDiffReview}
           />
         ) : (
           <ToolGroup events={group} />
@@ -339,8 +369,12 @@ function MessageRow({
           onRewind={onRewind}
           onFork={onFork}
           reviewedDiffIds={reviewedDiffIds}
+          diffComments={diffComments}
           onToggleReviewed={onToggleReviewed}
           onOpenDiff={onOpenDiff}
+          onAddDiffComment={onAddDiffComment}
+          onDeleteDiffComment={onDeleteDiffComment}
+          onSendDiffReview={onSendDiffReview}
         />
       )}
     </div>
@@ -353,8 +387,12 @@ export function Transcript({
   onRewind,
   onFork,
   reviewedDiffIds,
+  diffComments,
   onToggleReviewed,
   onOpenDiff,
+  onAddDiffComment,
+  onDeleteDiffComment,
+  onSendDiffReview,
   footer,
   activeEventId,
   streaming = false,
@@ -488,8 +526,12 @@ export function Transcript({
                 onRewind={onRewind}
                 onFork={onFork}
                 reviewedDiffIds={reviewedDiffIds}
+                diffComments={diffComments}
                 onToggleReviewed={onToggleReviewed}
                 onOpenDiff={onOpenDiff}
+                onAddDiffComment={onAddDiffComment}
+                onDeleteDiffComment={onDeleteDiffComment}
+                onSendDiffReview={onSendDiffReview}
               />
             </Fragment>
           );

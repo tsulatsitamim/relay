@@ -109,4 +109,27 @@ describe("main relay:getState", () => {
     state = getState() as RelayState;
     expect(state.settings.defaultAgentId).toBe("a1");
   });
+
+  it("reports diff comments in state and registers their handlers", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+
+    const getState = await waitFor(() => h.handlers.get("relay:getState"));
+    const state = getState() as RelayState;
+    expect(state.diffComments).toEqual({});
+    expect(h.handlers.has("relay:addDiffComment")).toBe(true);
+    expect(h.handlers.has("relay:deleteDiffComment")).toBe(true);
+    expect(h.handlers.has("relay:markDiffCommentsSent")).toBe(true);
+
+    const add = h.handlers.get("relay:addDiffComment")!;
+    expect(() =>
+      add({}, "missing", {
+        eventId: "e1",
+        path: "a.ts",
+        startLine: 1,
+        endLine: 1,
+        body: "note",
+      }),
+    ).toThrow();
+  });
 });

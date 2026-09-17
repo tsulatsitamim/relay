@@ -1,7 +1,14 @@
-import type { BranchInfo, CreatePayload, RelayEvent, RelayState } from "../shared/ipc.ts";
+import type {
+  BranchInfo,
+  CreatePayload,
+  DiffCommentInput,
+  RelayEvent,
+  RelayState,
+} from "../shared/ipc.ts";
 import type {
   AgentConfig,
   ClaudeInstallResult,
+  DiffComment,
   PromptAttachment,
   Repo,
   Session,
@@ -15,6 +22,12 @@ export type RelayBridge = {
   cancel: (id: string) => Promise<void>;
   truncate: (id: string, fromEventId: string) => Promise<TranscriptEvent[]>;
   setMode: (sessionId: string, modeId: string) => Promise<void>;
+  addDiffComment: (
+    sessionId: string,
+    input: DiffCommentInput,
+  ) => Promise<DiffComment>;
+  deleteDiffComment: (id: string) => Promise<void>;
+  markDiffCommentsSent: (sessionId: string, ids: string[]) => Promise<void>;
   permission: (requestId: string, optionId: string | null) => Promise<void>;
   setAutoApprove: (id: string, enabled: boolean) => Promise<void>;
   restart: (id: string) => Promise<void>;

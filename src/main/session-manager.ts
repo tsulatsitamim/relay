@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type {
   AgentConfig,
+  DiffComment,
   PermissionRequest,
   PromptAttachment,
   Repo,
@@ -159,6 +160,54 @@ export class SessionManager {
 
   transcript(sessionId: string): TranscriptEvent[] {
     return this.events.get(sessionId) ?? [];
+  }
+
+  addDiffComment(
+    sessionId: string,
+    input: {
+      eventId: string;
+      path: string;
+      startLine: number;
+      endLine: number;
+      body: string;
+    },
+  ): DiffComment {
+    this.require(sessionId);
+    const body = input.body.trim();
+    if (!body) throw new Error("diff comment body is required");
+    const comment: DiffComment = {
+      id: randomUUID(),
+      sessionId,
+      eventId: input.eventId,
+      path: input.path,
+      startLine: input.startLine,
+      endLine: input.endLine,
+      body,
+      createdAt: Date.now(),
+    };
+    this.store.addDiffComment(comment);
+    return comment;
+  }
+
+  diffComments(sessionId: string): DiffComment[] {
+    return this.store.listDiffComments(sessionId);
+  }
+
+  diffCommentsBySession(): Record<string, DiffComment[]> {
+    const grouped: Record<string, DiffComment[]> = {};
+    for (const session of this.list()) {
+      const comments = this.store.listDiffComments(session.id);
+      if (comments.length > 0) grouped[session.id] = comments;
+    }
+    return grouped;
+  }
+
+  deleteDiffComment(id: string): void {
+    this.store.deleteDiffComment(id);
+  }
+
+  markDiffCommentsSent(sessionId: string, ids: string[]): void {
+    this.store.markDiffCommentsSent(ids, Date.now());
   }
 
   pendingPermissions(): PermissionRequest[] {

@@ -160,4 +160,84 @@ describe("Store", () => {
     expect(store.listSessions()).toEqual([]);
     expect(store.listEvents("sess-1")).toEqual([]);
   });
+
+  it("stores, lists, deletes, and marks diff comments sent", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
+    const store = await openStore(file);
+    store.addDiffComment({
+      id: "c2",
+      sessionId: "s1",
+      eventId: "e1",
+      path: "b.ts",
+      startLine: 2,
+      endLine: 2,
+      body: "second",
+      createdAt: 20,
+    });
+    store.addDiffComment({
+      id: "c1",
+      sessionId: "s1",
+      eventId: "e1",
+      path: "a.ts",
+      startLine: 1,
+      endLine: 3,
+      body: "first",
+      createdAt: 10,
+    });
+    store.addDiffComment({
+      id: "c3",
+      sessionId: "s2",
+      eventId: "e9",
+      path: "c.ts",
+      startLine: 1,
+      endLine: 1,
+      body: "other session",
+      createdAt: 5,
+    });
+
+    expect(store.listDiffComments("s1").map((c) => c.id)).toEqual(["c1", "c2"]);
+    expect(store.listDiffComments("s2").map((c) => c.id)).toEqual(["c3"]);
+
+    const reopened = await openStore(file);
+    expect(reopened.listDiffComments("s1").map((c) => c.body)).toEqual([
+      "first",
+      "second",
+    ]);
+
+    store.markDiffCommentsSent(["c1"], 999);
+    expect(store.listDiffComments("s1").find((c) => c.id === "c1")?.sentAt).toBe(999);
+    expect(
+      store.listDiffComments("s1").find((c) => c.id === "c2")?.sentAt,
+    ).toBeUndefined();
+
+    store.deleteDiffComment("c1");
+    expect(store.listDiffComments("s1").map((c) => c.id)).toEqual(["c2"]);
+  });
+
+  it("removes diff comments when their session is deleted", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "relay-store-")), "relay.db");
+    const store = await openStore(file);
+    store.saveSession({
+      id: "sess-1",
+      title: "x",
+      agentConfigId: "a",
+      agentName: "A",
+      workingDirectory: "/tmp",
+      status: "idle",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    store.addDiffComment({
+      id: "c1",
+      sessionId: "sess-1",
+      eventId: "e1",
+      path: "a.ts",
+      startLine: 1,
+      endLine: 1,
+      body: "note",
+      createdAt: 1,
+    });
+    store.deleteSession("sess-1");
+    expect(store.listDiffComments("sess-1")).toEqual([]);
+  });
 });

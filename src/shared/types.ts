@@ -87,6 +87,18 @@ export type PromptAttachment = {
   thumb?: string;
 };
 
+export type DiffComment = {
+  id: string;
+  sessionId: string;
+  eventId: string;
+  path: string;
+  startLine: number;
+  endLine: number;
+  body: string;
+  createdAt: number;
+  sentAt?: number;
+};
+
 export type AvailableCommandLike = {
   name: string;
   description: string;

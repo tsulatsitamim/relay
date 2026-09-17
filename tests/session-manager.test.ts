@@ -550,4 +550,83 @@ describe("SessionManager agent management", () => {
     expect(() => sm.removeAgent("only")).toThrow(/last/);
     expect(sm.agents()).toHaveLength(1);
   });
+
+  it("adds, lists, deletes, and marks diff comments sent", async () => {
+    const sm = await manager();
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "review this",
+    });
+
+    const comment = sm.addDiffComment(session.id, {
+      eventId: "e1",
+      path: "a.ts",
+      startLine: 1,
+      endLine: 2,
+      body: "  needs work  ",
+    });
+    expect(comment.body).toBe("needs work");
+    expect(comment.sessionId).toBe(session.id);
+    expect(comment.createdAt).toBeGreaterThan(0);
+    expect(comment.sentAt).toBeUndefined();
+    expect(sm.diffComments(session.id).map((c) => c.id)).toEqual([comment.id]);
+    expect(sm.diffCommentsBySession()[session.id]).toHaveLength(1);
+
+    sm.markDiffCommentsSent(session.id, [comment.id]);
+    expect(sm.diffComments(session.id)[0].sentAt).toBeGreaterThan(0);
+
+    sm.deleteDiffComment(comment.id);
+    expect(sm.diffComments(session.id)).toEqual([]);
+  });
+
+  it("rejects an empty diff comment body", async () => {
+    const sm = await manager();
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "review this",
+    });
+    expect(() =>
+      sm.addDiffComment(session.id, {
+        eventId: "e1",
+        path: "a.ts",
+        startLine: 1,
+        endLine: 1,
+        body: "   ",
+      }),
+    ).toThrow(/body/);
+  });
+
+  it("rejects a diff comment for an unknown session", async () => {
+    const sm = await manager();
+    expect(() =>
+      sm.addDiffComment("missing", {
+        eventId: "e1",
+        path: "a.ts",
+        startLine: 1,
+        endLine: 1,
+        body: "note",
+      }),
+    ).toThrow(/unknown session/);
+  });
+
+  it("drops diff comments when the session is deleted", async () => {
+    const sm = await manager();
+    const session = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "review this",
+    });
+    sm.addDiffComment(session.id, {
+      eventId: "e1",
+      path: "a.ts",
+      startLine: 1,
+      endLine: 1,
+      body: "note",
+    });
+    await sm.delete(session.id);
+    expect(sm.diffComments(session.id)).toEqual([]);
+    expect(sm.diffCommentsBySession()[session.id]).toBeUndefined();
+  });
 });

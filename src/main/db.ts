@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createRequire } from "node:module";
 import initSqlJs, { type Database } from "sql.js";
-import type { AgentConfig, Repo, Session, SessionStatus, TranscriptEvent } from "../shared/types.ts";
+import type { AgentConfig, DiffComment, Repo, Session, SessionStatus, TranscriptEvent } from "../shared/types.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -37,6 +37,11 @@ CREATE TABLE IF NOT EXISTS agent_defaults (
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS diff_comments (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  json TEXT NOT NULL
 );
 `;
 
@@ -83,7 +88,7 @@ export class Store {
   deleteSession(id: string): void {
     this.db.run("DELETE FROM sessions WHERE id = ?", [id]);
     this.db.run("DELETE FROM events WHERE session_id = ?", [id]);
-    this.flush();
+    this.deleteDiffCommentsForSession(id);
   }
 
   appendEvent(event: TranscriptEvent): void {
@@ -130,6 +135,57 @@ export class Store {
     const seq = Number(stmt.getAsObject().m ?? 0) + 1;
     stmt.free();
     return seq;
+  }
+
+  addDiffComment(comment: DiffComment): void {
+    this.db.run(
+      "INSERT OR REPLACE INTO diff_comments (id, session_id, json) VALUES (?, ?, ?)",
+      [comment.id, comment.sessionId, JSON.stringify(comment)],
+    );
+    this.flush();
+  }
+
+  listDiffComments(sessionId: string): DiffComment[] {
+    const stmt = this.db.prepare(
+      "SELECT json FROM diff_comments WHERE session_id = ?",
+    );
+    stmt.bind([sessionId]);
+    const comments: DiffComment[] = [];
+    while (stmt.step()) {
+      const row = stmt.getAsObject();
+      comments.push(JSON.parse(String(row.json)) as DiffComment);
+    }
+    stmt.free();
+    return comments.sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  deleteDiffComment(id: string): void {
+    this.db.run("DELETE FROM diff_comments WHERE id = ?", [id]);
+    this.flush();
+  }
+
+  deleteDiffCommentsForSession(sessionId: string): void {
+    this.db.run("DELETE FROM diff_comments WHERE session_id = ?", [sessionId]);
+    this.flush();
+  }
+
+  markDiffCommentsSent(ids: string[], when: number): void {
+    for (const id of ids) {
+      const stmt = this.db.prepare("SELECT json FROM diff_comments WHERE id = ?");
+      stmt.bind([id]);
+      const found = stmt.step();
+      const comment = found
+        ? (JSON.parse(String(stmt.getAsObject().json)) as DiffComment)
+        : null;
+      stmt.free();
+      if (!comment) continue;
+      comment.sentAt = when;
+      this.db.run(
+        "INSERT OR REPLACE INTO diff_comments (id, session_id, json) VALUES (?, ?, ?)",
+        [comment.id, comment.sessionId, JSON.stringify(comment)],
+      );
+    }
+    this.flush();
   }
 
   touchRecent(path: string): void {

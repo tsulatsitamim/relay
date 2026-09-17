@@ -1,21 +1,29 @@
 import { useState } from "react";
 import { diffStat } from "../shared/diff.ts";
-import type { TranscriptEvent } from "../shared/types.ts";
-import { DiffBlock } from "./DiffBlock";
+import type { DiffComment, TranscriptEvent } from "../shared/types.ts";
+import { DiffBlock, type DiffCommentDraft } from "./DiffBlock";
 import { IconChevronRight } from "./icons";
 
 type Props = {
   events: TranscriptEvent[];
   reviewedDiffIds?: Set<string>;
+  comments?: DiffComment[];
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
+  onAddComment?: (eventId: string, input: DiffCommentDraft) => void;
+  onDeleteComment?: (id: string) => void;
+  onSendReview?: (ids: string[]) => void;
 };
 
 export function DiffGroup({
   events,
   reviewedDiffIds,
+  comments,
   onToggleReviewed,
   onOpenDiff,
+  onAddComment,
+  onDeleteComment,
+  onSendReview,
 }: Props) {
   const [open, setOpen] = useState(false);
   const files = events.map((event) => {
@@ -27,6 +35,9 @@ export function DiffGroup({
   const adds = files.reduce((sum, file) => sum + file.adds, 0);
   const dels = files.reduce((sum, file) => sum + file.dels, 0);
   const count = files.length;
+  const fileComments = (comments ?? []).filter((comment) =>
+    events.some((event) => event.id === comment.eventId),
+  );
 
   return (
     <section className="diffgroup">
@@ -39,6 +50,9 @@ export function DiffGroup({
         <span className="diffgroup-title">
           {count} changed {count === 1 ? "file" : "files"}
         </span>
+        {fileComments.length > 0 ? (
+          <span className="diff-comment-count">{fileComments.length}</span>
+        ) : null}
         <span className="diffgroup-total">
           <span className="diff-add">+{adds}</span>
           <span className="diff-del">-{dels}</span>
@@ -67,10 +81,16 @@ export function DiffGroup({
               oldText={oldText}
               newText={newText}
               reviewed={reviewedDiffIds?.has(event.id)}
+              comments={fileComments.filter((comment) => comment.eventId === event.id)}
               onToggleReviewed={
                 onToggleReviewed ? () => onToggleReviewed(event.id) : undefined
               }
               onOpen={onOpenDiff ? () => onOpenDiff(path) : undefined}
+              onAddComment={
+                onAddComment ? (input) => onAddComment(event.id, input) : undefined
+              }
+              onDeleteComment={onDeleteComment}
+              onSendReview={onSendReview}
             />
           ))}
         </div>

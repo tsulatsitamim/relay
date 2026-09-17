@@ -659,3 +659,98 @@ describe("user message rewind and fork actions", () => {
     ).toBe("Fork");
   });
 });
+
+describe("Transcript diff comments", () => {
+  const diffEvents: TranscriptEvent[] = [
+    {
+      id: "d1",
+      kind: "diff",
+      payload: { path: "src/a.ts", oldText: "a\nb\nc\n", newText: "a\nB\nc\nd\n" },
+    },
+  ];
+
+  const comments = [
+    {
+      id: "c1",
+      sessionId: "s1",
+      eventId: "d1",
+      path: "src/a.ts",
+      startLine: 2,
+      endLine: 4,
+      body: "collapse these",
+      createdAt: 0,
+    },
+  ];
+
+  it("threads comments into a single rendered diff", () => {
+    const { container } = render(
+      <Transcript events={diffEvents} diffComments={comments} />,
+    );
+    const list = container.querySelector(".diff-comments");
+    expect(list?.textContent).toContain("src/a.ts:2-4");
+    expect(list?.textContent).toContain("collapse these");
+    expect(container.querySelector(".diff-comment.sent")).toBeNull();
+  });
+
+  it("keeps diff comments out of unrelated events", () => {
+    const { container } = render(
+      <Transcript
+        events={[
+          ...diffEvents,
+          { id: "a1", kind: "agent_message", payload: { text: "done" } },
+        ]}
+        diffComments={[{ ...comments[0]!, eventId: "other" }]}
+      />,
+    );
+    expect(container.querySelector(".diff-comments")).toBeNull();
+  });
+
+  it("adds a comment through the transcript callback with the event id", () => {
+    const onAddDiffComment = vi.fn();
+    render(
+      <Transcript
+        events={diffEvents}
+        diffComments={comments}
+        onAddDiffComment={onAddDiffComment}
+        onToggleReviewed={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Comment on line 1" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Comment body" }), {
+      target: { value: "rename" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add comment" }));
+    expect(onAddDiffComment).toHaveBeenCalledWith("d1", {
+      path: "src/a.ts",
+      startLine: 1,
+      endLine: 1,
+      body: "rename",
+    });
+  });
+
+  it("deletes a comment through the transcript callback", () => {
+    const onDeleteDiffComment = vi.fn();
+    render(
+      <Transcript
+        events={diffEvents}
+        diffComments={comments}
+        onDeleteDiffComment={onDeleteDiffComment}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete comment" }));
+    expect(onDeleteDiffComment).toHaveBeenCalledWith("c1");
+  });
+
+  it("sends the unsent ids through the transcript callback", () => {
+    const onSendDiffReview = vi.fn();
+    render(
+      <Transcript
+        events={diffEvents}
+        diffComments={[...comments, { ...comments[0]!, id: "c2", sentAt: 5 }]}
+        onSendDiffReview={onSendDiffReview}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send review" }));
+    expect(onSendDiffReview).toHaveBeenCalledWith(["c1"]);
+  });
+});
