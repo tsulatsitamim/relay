@@ -93,6 +93,7 @@ function mount(
     pickDirectory: vi.fn().mockResolvedValue(null),
     listFiles: vi.fn().mockResolvedValue([]),
     listSkills: vi.fn().mockResolvedValue(skills),
+    branchInfo: vi.fn().mockResolvedValue(null),
     pickImages: vi.fn().mockResolvedValue([]),
     addRepo: vi.fn().mockResolvedValue([]),
     removeRepo: vi.fn().mockResolvedValue([]),

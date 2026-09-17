@@ -17,6 +17,9 @@ import { Composer } from "./Composer";
 import { SettingsNav, SettingsPage, type SettingsSection } from "./Settings";
 import type { UsageInfo } from "./ContextMeter";
 import { WorkingStatus } from "./WorkingStatus";
+import { BranchPill } from "./BranchPill";
+import { ConnectionStatus } from "./ConnectionStatus";
+import { TurnFooter } from "./TurnFooter";
 import { ErrorBanner } from "./ErrorBanner";
 import { nextQueued, promoteQueued, pruneQueued } from "./queue";
 import {
@@ -1151,6 +1154,8 @@ export function App() {
           <div className="thread">
             <header className="thread-head">
               <span className="thread-name">{selected.title}</span>
+              <ConnectionStatus status={selected.status} />
+              <BranchPill cwd={selected.workingDirectory} />
               <WorkingStatus active={working} since={selected.lastPromptAt} />
               {autoApprove.has(selected.id) ? (
                 <span className="auto-approve-pill">
@@ -1208,10 +1213,10 @@ export function App() {
               onToggleReviewed={toggleDiffReviewed}
               onOpenDiff={openDiff}
               footer={
-                <WorkingStatus
-                  active={working}
-                  since={selected.lastPromptAt}
-                  variant="row"
+                <TurnFooter
+                  events={events}
+                  lastPromptAt={selected.lastPromptAt}
+                  working={working}
                 />
               }
             />

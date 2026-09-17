@@ -972,6 +972,58 @@ input:focus-visible {
   font-size: var(--font-size-sm);
 }
 
+.conn-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tertiary);
+}
+
+.conn-dot.connected {
+  background: var(--ok);
+}
+
+.conn-dot.connecting {
+  background: var(--working);
+  animation: working-dot 1.2s ease-in-out infinite;
+  animation-play-state: var(--visible-animation-state, running);
+}
+
+.conn-dot.error {
+  background: var(--danger);
+}
+
+.branch-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  max-width: 220px;
+  height: var(--height-xs);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: var(--font-size-xs);
+}
+
+.branch-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-worktree {
+  flex-shrink: 0;
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--tertiary);
+  font-size: var(--font-size-xs);
+}
+
 .auto-approve-pill {
   display: inline-flex;
   align-items: center;
@@ -1037,6 +1089,46 @@ input:focus-visible {
   border-bottom: 1px solid var(--line);
 }
 
+.turn-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: -10px;
+  padding: var(--space-1) 0;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--line);
+}
+
+.turn-footer .turn-time {
+  display: none;
+}
+
+.turn-footer:hover .turn-duration,
+.turn-footer:focus-within .turn-duration {
+  display: none;
+}
+
+.turn-footer:hover .turn-time,
+.turn-footer:focus-within .turn-time {
+  display: inline;
+}
+
+.turn-actions {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.turn-footer:hover .turn-actions,
+.turn-footer:focus-within .turn-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 @keyframes working-dot {
   0%,
   80%,
@@ -1052,6 +1144,10 @@ input:focus-visible {
   .dots i {
     animation: none;
     opacity: 0.7;
+  }
+
+  .conn-dot.connecting {
+    animation: none;
   }
 }
 

@@ -119,6 +119,7 @@ function mount(initial: RelayState) {
     pickDirectory: vi.fn().mockResolvedValue(null),
     listFiles: vi.fn().mockResolvedValue([]),
     listSkills: vi.fn().mockResolvedValue([]),
+    branchInfo: vi.fn().mockResolvedValue(null),
     pickImages: vi.fn().mockResolvedValue([]),
     addRepo: vi.fn().mockResolvedValue([]),
     removeRepo: vi.fn().mockResolvedValue([]),
