@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type KeyboardEvent } from "react";
 import type {
   AvailableCommandLike,
   PlanEntry,
@@ -28,6 +28,9 @@ type Props = {
   cwd?: string;
   inject?: { text: string; nonce: number; fromEventId?: string };
   history?: string[];
+  stash?: string | null;
+  onStash?: (text: string) => void;
+  onRestoreStash?: () => void;
   plan?: PlanEntry[];
   usage?: UsageInfo;
 };
@@ -48,6 +51,9 @@ export function Composer({
   cwd,
   inject,
   history = [],
+  stash,
+  onStash,
+  onRestoreStash,
   plan,
   usage,
 }: Props) {
@@ -77,6 +83,33 @@ export function Composer({
   });
   const canSubmit = hasContent && !disabled;
   const mirror = useRef<HTMLDivElement>(null);
+  const stashing = Boolean(onStash && onRestoreStash);
+
+  function restoreStash() {
+    if (stash == null) return;
+    setText(stash);
+    onRestoreStash?.();
+  }
+
+  function stashDraft() {
+    onStash?.(text);
+    setText("");
+  }
+
+  function onFieldKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (
+      stashing &&
+      !menu &&
+      (event.metaKey || event.ctrlKey) &&
+      event.key.toLowerCase() === "s"
+    ) {
+      event.preventDefault();
+      if (stash != null) restoreStash();
+      else stashDraft();
+      return;
+    }
+    onKeyDown(event);
+  }
 
   async function submit() {
     if (submitting.current) return;
@@ -163,6 +196,21 @@ export function Composer({
           ) : null}
         </div>
       ) : null}
+      {stash != null ? (
+        <div className="composer-queued">
+          <span className="queued-chip">
+            <span className="queued-text">Draft stashed</span>
+            <button
+              type="button"
+              className="queued-action"
+              aria-label="Restore stashed draft"
+              onClick={restoreStash}
+            >
+              Restore
+            </button>
+          </span>
+        </div>
+      ) : null}
       {attachments.length > 0 ? (
         <div className="composer-queued">
           {attachments.map((attachment, index) => (
@@ -214,7 +262,7 @@ export function Composer({
             value={text}
             disabled={disabled}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={onKeyDown}
+            onKeyDown={onFieldKeyDown}
             onPaste={onPaste}
             onScroll={(e) => {
               const node = mirror.current;

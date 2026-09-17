@@ -245,6 +245,7 @@ export function App() {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [queued, setQueued] = useState<Record<string, string[]>>({});
+  const [stashes, setStashes] = useState<Record<string, string>>({});
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
   const [findIndex, setFindIndex] = useState(0);
@@ -1415,6 +1416,17 @@ export function App() {
               plan={planEntries}
               usage={usage}
               history={composerHistory}
+              stash={stashes[selected.id] ?? null}
+              onStash={(text) =>
+                setStashes((prev) => ({ ...prev, [selected.id]: text }))
+              }
+              onRestoreStash={() =>
+                setStashes((prev) => {
+                  const next = { ...prev };
+                  delete next[selected.id];
+                  return next;
+                })
+              }
             />
           </div>
         ) : (

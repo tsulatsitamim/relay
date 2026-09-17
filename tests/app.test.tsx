@@ -933,3 +933,40 @@ describe("App prompt history", () => {
     expect(box.value).toBe("first prompt");
   });
 });
+
+describe("App draft stash", () => {
+  it("stashes and restores the draft per session", async () => {
+    mount([
+      makeSession({ id: "s1", title: "Session one" }),
+      makeSession({ id: "s2", title: "Session two" }),
+    ]);
+    const box = await openSession("Session one");
+    fireEvent.change(box, { target: { value: "draft one" } });
+    fireEvent.keyDown(box, { key: "s", metaKey: true });
+    expect(box.value).toBe("");
+    expect(screen.getByText("Draft stashed")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Session two"));
+    await screen.findByRole("textbox");
+    expect(screen.queryByText("Draft stashed")).toBeNull();
+
+    fireEvent.click(screen.getByText("Session one"));
+    const back = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    expect(screen.getByText("Draft stashed")).toBeTruthy();
+    fireEvent.keyDown(back, { key: "s", metaKey: true });
+    expect(back.value).toBe("draft one");
+  });
+
+  it("does not stash while typing in another field", async () => {
+    mount([makeSession()]);
+    const box = await openSession("Session one");
+    fireEvent.change(box, { target: { value: "draft" } });
+
+    fireEvent.keyDown(window, { key: "f", metaKey: true });
+    const find = await screen.findByLabelText("Find in conversation");
+    fireEvent.keyDown(find, { key: "s", metaKey: true });
+
+    expect(box.value).toBe("draft");
+    expect(screen.queryByText("Draft stashed")).toBeNull();
+  });
+});
