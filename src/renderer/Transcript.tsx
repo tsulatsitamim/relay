@@ -10,7 +10,8 @@ import { PlanBlock } from "./PlanBlock";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { ToolCallCard, type ToolCallData } from "./ToolCallCard";
 import { ToolGroup } from "./ToolGroup";
-import { IconArrowDown, IconCheck, IconCopy, IconX } from "./icons";
+import { CopyButton } from "./CopyButton";
+import { IconArrowDown, IconCheck, IconX } from "./icons";
 import { MinimapRail } from "./MinimapRail";
 import { buildTurns, jumpTop } from "./minimap";
 import { isNearBottom, nextFollowMode, type FollowMode } from "./scroll";
@@ -30,36 +31,6 @@ type Props = {
 
 const COLLAPSE_MAX_CHARS = 600;
 const COLLAPSE_MAX_LINES = 8;
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const revert = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (revert.current !== null) window.clearTimeout(revert.current);
-    };
-  }, []);
-
-  function copy() {
-    void navigator.clipboard?.writeText(text);
-    setCopied(true);
-    if (revert.current !== null) window.clearTimeout(revert.current);
-    revert.current = window.setTimeout(() => setCopied(false), 1200);
-  }
-
-  return (
-    <button
-      type="button"
-      className="msg-action"
-      aria-label="Copy message"
-      title="Copy"
-      onClick={copy}
-    >
-      {copied ? <IconCheck /> : <IconCopy />}
-    </button>
-  );
-}
 
 function EventRow({
   event,
