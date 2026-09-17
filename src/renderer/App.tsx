@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { RelayState } from "../shared/ipc.ts";
 import type {
   AvailableCommandLike,
+  PlanEntry,
   PromptAttachment,
   Repo,
   Session,
@@ -12,6 +13,7 @@ import { repoFor } from "../shared/repo.ts";
 import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
+import type { UsageInfo } from "./ContextMeter";
 import { WorkingStatus } from "./WorkingStatus";
 import { ErrorBanner } from "./ErrorBanner";
 import { nextQueued, pruneQueued } from "./queue";
@@ -348,6 +350,22 @@ export function App() {
   const events: TranscriptEvent[] = selected
     ? (state.transcripts[selected.id] ?? [])
     : [];
+  const planEntries = useMemo(() => {
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const event = events[index]!;
+      if (event.kind === "plan") {
+        return (event.payload.entries as PlanEntry[] | undefined) ?? [];
+      }
+    }
+    return [];
+  }, [events]);
+  const usage = useMemo(() => {
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const event = events[index]!;
+      if (event.kind === "usage") return event.payload as UsageInfo;
+    }
+    return undefined;
+  }, [events]);
   const findResults = useMemo(
     () => (findOpen ? findMatches(events, findQuery) : []),
     [findOpen, events, findQuery],
@@ -1124,6 +1142,8 @@ export function App() {
               commands={commandList}
               cwd={selected.workingDirectory}
               inject={inject}
+              plan={planEntries}
+              usage={usage}
             />
           </div>
         ) : (

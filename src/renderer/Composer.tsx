@@ -1,9 +1,12 @@
 import { useRef } from "react";
 import type {
   AvailableCommandLike,
+  PlanEntry,
   PromptAttachment,
 } from "../shared/types.ts";
 import { ComposerMirror } from "./ComposerMirror";
+import { ContextMeter, type UsageInfo } from "./ContextMeter";
+import { PlanBadge } from "./PlanBadge";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
 import { withThumbs } from "./thumbs";
@@ -21,6 +24,8 @@ type Props = {
   commands?: AvailableCommandLike[];
   cwd?: string;
   inject?: { text: string; nonce: number; fromEventId?: string };
+  plan?: PlanEntry[];
+  usage?: UsageInfo;
 };
 
 export function Composer({
@@ -35,6 +40,8 @@ export function Composer({
   commands = [],
   cwd,
   inject,
+  plan,
+  usage,
 }: Props) {
   const {
     field,
@@ -177,6 +184,8 @@ export function Composer({
             rows={1}
           />
         </div>
+        <PlanBadge entries={plan} />
+        <ContextMeter usage={usage} />
         {working ? (
           <button className="send-orb stop" onClick={onCancel} aria-label="Stop" title="Stop">
             <IconStop />

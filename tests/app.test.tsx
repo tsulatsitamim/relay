@@ -539,6 +539,57 @@ describe("App diff review", () => {
   });
 });
 
+describe("App plan badge", () => {
+  it("threads the latest plan event into the composer badge", async () => {
+    mount([makeSession({ id: "s1", title: "Session one" })], {
+      s1: [
+        {
+          id: "p1",
+          kind: "plan",
+          payload: {
+            entries: [
+              { content: "Old step", status: "pending" },
+              { content: "Old step two", status: "pending" },
+              { content: "Old step three", status: "pending" },
+            ],
+          },
+        },
+        {
+          id: "p2",
+          kind: "plan",
+          payload: {
+            entries: [
+              { content: "First step", status: "completed" },
+              { content: "Second step", status: "pending" },
+            ],
+          },
+        },
+      ],
+    });
+    await openSession("Session one");
+    expect(await screen.findByText("1/2 tasks")).toBeTruthy();
+  });
+
+  it("hides the badge without a plan", async () => {
+    mount([makeSession({ id: "s1", title: "Session one" })]);
+    await openSession("Session one");
+    expect(document.querySelector(".plan-badge")).toBeNull();
+  });
+});
+
+describe("App context meter", () => {
+  it("shows the ring from the latest usage event", async () => {
+    mount([makeSession({ id: "s1", title: "Session one" })], {
+      s1: [
+        { id: "u1", kind: "usage", payload: { used: 1000, size: 10000 } },
+        { id: "u2", kind: "usage", payload: { used: 5000, size: 10000 } },
+      ],
+    });
+    await openSession("Session one");
+    expect(await screen.findByText("50%")).toBeTruthy();
+  });
+});
+
 describe("App permission navigation", () => {
   function request(id: string) {
     return {
