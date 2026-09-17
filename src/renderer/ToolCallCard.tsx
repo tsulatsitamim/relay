@@ -12,6 +12,7 @@ import {
   IconWarning,
 } from "./icons";
 import { prettyValue, toolIcon, toolStatusMeta } from "./toolFormat";
+import { AnimatedHeight } from "./AnimatedHeight";
 
 export type ToolCallData = {
   toolCallId?: string;
@@ -101,25 +102,27 @@ export function ToolCallCard({ toolCall }: { toolCall: ToolCallData }) {
           <IconChevronRight />
         </span>
       </button>
-      {open ? (
-        <div className="tool-body">
-          {input ? (
-            <div className="tool-section">
-              <span className="tool-section-label">Input</span>
-              <pre className="tool-pre">{input}</pre>
-            </div>
-          ) : null}
-          {output ? (
-            <div className="tool-section">
-              <span className="tool-section-label">Output</span>
-              <pre className="tool-pre">{output}</pre>
-            </div>
-          ) : null}
-          {!input && !output ? (
-            <div className="tool-section tool-empty">No details</div>
-          ) : null}
-        </div>
-      ) : null}
+      <AnimatedHeight open={open}>
+        {open ? (
+          <div className="tool-body">
+            {input ? (
+              <div className="tool-section">
+                <span className="tool-section-label">Input</span>
+                <pre className="tool-pre">{input}</pre>
+              </div>
+            ) : null}
+            {output ? (
+              <div className="tool-section">
+                <span className="tool-section-label">Output</span>
+                <pre className="tool-pre">{output}</pre>
+              </div>
+            ) : null}
+            {!input && !output ? (
+              <div className="tool-section tool-empty">No details</div>
+            ) : null}
+          </div>
+        ) : null}
+      </AnimatedHeight>
     </section>
   );
 }

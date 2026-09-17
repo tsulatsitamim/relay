@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { subscribeTick } from "./clock";
 
 type Props = {
   active: boolean;
@@ -21,8 +22,7 @@ export function WorkingStatus({ active, since, variant = "head" }: Props) {
       if (node) node.textContent = formatLabel(since);
     };
     update();
-    const timer = setInterval(update, 1000);
-    return () => clearInterval(timer);
+    return subscribeTick(update);
   }, [active, since]);
 
   if (!active) return null;

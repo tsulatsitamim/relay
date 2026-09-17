@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AnimatedHeight } from "./AnimatedHeight";
 import { IconChevronRight } from "./icons";
 
 export function ExpandableBadge({
@@ -33,7 +34,9 @@ export function ExpandableBadge({
           <IconChevronRight />
         </span>
       </button>
-      {open ? <div className="badge-body">{children}</div> : null}
+      <AnimatedHeight open={open}>
+        {open ? <div className="badge-body">{children}</div> : null}
+      </AnimatedHeight>
     </>
   );
 }

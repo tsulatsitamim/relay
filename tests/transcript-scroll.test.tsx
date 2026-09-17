@@ -33,6 +33,22 @@ describe("Transcript smart scroll", () => {
     expect(screen.queryByRole("button", { name: /jump to latest/i })).toBeNull();
   });
 
+  it("toggles data-visible without unmounting the jump button", () => {
+    const { container } = render(<Transcript events={events} />);
+    const scroller = container.querySelector(".transcript") as HTMLElement;
+    const pill = container.querySelector(".jump-latest") as HTMLElement;
+    expect(pill).toBeTruthy();
+    expect(pill.getAttribute("data-visible")).toBe("false");
+
+    setMetrics(scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 200 });
+    fireEvent.scroll(scroller);
+    expect(pill.getAttribute("data-visible")).toBe("true");
+
+    setMetrics(scroller, { scrollTop: 795, scrollHeight: 1000, clientHeight: 200 });
+    fireEvent.scroll(scroller);
+    expect(pill.getAttribute("data-visible")).toBe("false");
+  });
+
   it("returns to the bottom when the jump button is clicked", () => {
     const { container } = render(<Transcript events={events} />);
     const scroller = container.querySelector(".transcript") as HTMLElement;

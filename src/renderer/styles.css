@@ -1646,7 +1646,7 @@ input:focus-visible {
   position: absolute;
   left: 50%;
   bottom: 12px;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(4px);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1654,16 +1654,33 @@ input:focus-visible {
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--text);
   font-size: var(--font-size-sm);
   box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
   z-index: 5;
+}
+
+.jump-latest[data-visible="true"] {
+  opacity: 1;
+  transform: translateX(-50%);
+  pointer-events: auto;
 }
 
 .jump-latest:hover {
   background: var(--hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jump-latest {
+    transition: none;
+  }
 }
 
 .msg.user {
@@ -2149,6 +2166,17 @@ input:focus-visible {
 
 .tool-chevron.open {
   transform: rotate(90deg);
+}
+
+.collapse {
+  overflow: hidden;
+  transition: height 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapse {
+    transition: none;
+  }
 }
 
 .tool-body {

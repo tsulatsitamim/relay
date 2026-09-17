@@ -644,11 +644,14 @@ export function Transcript({
         })}
         {footer}
       </div>
-      {mode === "free" && events.length > 0 ? (
+      {events.length > 0 ? (
         <button
           type="button"
           className="jump-latest"
+          data-visible={mode === "free" ? "true" : "false"}
           aria-label="Jump to latest"
+          aria-hidden={mode === "free" ? undefined : true}
+          tabIndex={mode === "free" ? 0 : -1}
           onClick={jumpToLatest}
         >
           <IconArrowDown />

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { PlanEntry } from "../shared/types.ts";
+import { AnimatedHeight } from "./AnimatedHeight";
 import { IconCheck, IconPlan, IconSpinner } from "./icons";
 
 const COLLAPSE_MAX_ENTRIES = 8;
@@ -47,25 +48,27 @@ export function PlanBlock({ entries }: { entries: PlanEntry[] }) {
           </span>
         </span>
       </div>
-      <ol className={`plan-list${collapsed ? " collapsed" : ""}`}>
-        {entries.map((entry, index) => {
-          const label = statusLabel(entry.status);
-          return (
-            <li className={`plan-item ${label.replace(" ", "-")}`} key={`${entry.content}-${index}`}>
-              <span className="plan-status" role="img" aria-label={label}>
-                {label === "completed" ? (
-                  <IconCheck />
-                ) : label === "in progress" ? (
-                  <IconSpinner />
-                ) : (
-                  <span className="plan-dot" />
-                )}
-              </span>
-              <span className="plan-text">{entry.content}</span>
-            </li>
-          );
-        })}
-      </ol>
+      <AnimatedHeight open={!collapsed}>
+        <ol className={`plan-list${collapsed ? " collapsed" : ""}`}>
+          {entries.map((entry, index) => {
+            const label = statusLabel(entry.status);
+            return (
+              <li className={`plan-item ${label.replace(" ", "-")}`} key={`${entry.content}-${index}`}>
+                <span className="plan-status" role="img" aria-label={label}>
+                  {label === "completed" ? (
+                    <IconCheck />
+                  ) : label === "in progress" ? (
+                    <IconSpinner />
+                  ) : (
+                    <span className="plan-dot" />
+                  )}
+                </span>
+                <span className="plan-text">{entry.content}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </AnimatedHeight>
       {collapsible ? (
         <button
           type="button"
