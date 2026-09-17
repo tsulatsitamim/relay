@@ -267,6 +267,7 @@ export function App() {
   const [injectSessionId, setInjectSessionId] = useState<string | null>(null);
   const [reviewedDiffs, setReviewedDiffs] = useState<Set<string>>(() => new Set());
   const [diffComments, setDiffComments] = useState<Record<string, DiffComment[]>>({});
+  const [diffView, setDiffView] = useState<"unified" | "split">("unified");
   const pendingReview = useRef<string[] | null>(null);
   const [permissionIndex, setPermissionIndex] = useState(0);
   const [view, setView] = useState<"chat" | "settings">("chat");
@@ -1447,6 +1448,8 @@ export function App() {
               }}
               reviewedDiffIds={reviewedDiffs}
               diffComments={diffComments[selected.id] ?? []}
+              diffView={diffView}
+              onSetDiffView={setDiffView}
               onToggleReviewed={toggleDiffReviewed}
               onOpenDiff={openDiff}
               onAddDiffComment={(eventId, input) =>

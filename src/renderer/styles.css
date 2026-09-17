@@ -1329,6 +1329,25 @@ input:focus-visible {
   background: color-mix(in srgb, var(--working) 14%, var(--card));
 }
 
+.permission-btn.warn {
+  border-color: color-mix(in srgb, var(--working) 45%, var(--line));
+}
+
+.permission-btn.allow.warn {
+  border-color: color-mix(in srgb, var(--working) 70%, var(--text));
+}
+
+.permission-warn {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  color: var(--working);
+}
+
+.permission-btn.allow .permission-warn {
+  color: inherit;
+}
+
 .permission-active {
   border-color: color-mix(in srgb, var(--working) 70%, var(--line));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--working) 28%, transparent);
@@ -2339,6 +2358,56 @@ input:focus-visible {
   margin-top: 6px;
 }
 
+.plan-progress {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  flex-shrink: 0;
+}
+
+.plan-progress-text {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.plan-progress-bar {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.plan-list.collapsed {
+  position: relative;
+  max-height: 180px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 44px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 44px),
+    transparent 100%
+  );
+}
+
+.plan-expand {
+  display: block;
+  margin-top: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.plan-expand:hover {
+  color: var(--text);
+}
+
 .plan-badge {
   position: relative;
   flex-shrink: 0;
@@ -2612,6 +2681,65 @@ input:focus-visible {
 
 .diff-hunk {
   color: var(--tertiary);
+}
+
+.diff-view {
+  flex-shrink: 0;
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: clip;
+}
+
+.diff-view-btn {
+  height: 18px;
+  padding: 0 6px;
+  font-family: var(--font);
+  font-size: var(--font-size-xs);
+  color: var(--muted);
+  background: var(--card);
+  border: 0;
+  cursor: pointer;
+}
+
+.diff-view-btn + .diff-view-btn {
+  border-left: 1px solid var(--line);
+}
+
+.diff-view-btn:hover {
+  background: var(--hover);
+}
+
+.diff-view-btn.on {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.diff-split {
+  display: flex;
+  flex-direction: column;
+}
+
+.diff-split-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.diff-cell {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.diff-cell + .diff-cell {
+  border-left: 1px solid var(--line);
+}
+
+.diff-cell-empty {
+  background: color-mix(in srgb, var(--base) 4%, transparent);
+}
+
+.diff-split .diff-comment-form {
+  margin-top: 0;
 }
 
 .diffgroup {

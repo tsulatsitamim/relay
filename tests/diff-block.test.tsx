@@ -338,3 +338,84 @@ describe("DiffBlock comments", () => {
     expect(screen.queryByRole("button", { name: "Send review" })).toBeNull();
   });
 });
+
+describe("DiffBlock view toggle", () => {
+  it("reports the active mode and requests a switch without toggling the details", () => {
+    const onView = vi.fn();
+    const { container } = render(
+      <DiffBlock
+        path="src/a.ts"
+        oldText={OLD}
+        newText={NEW}
+        view="unified"
+        onView={onView}
+      />,
+    );
+    expect(screen.getByRole("group", { name: "Diff view" })).toBeTruthy();
+    const unified = screen.getByRole("button", { name: "Unified" });
+    const split = screen.getByRole("button", { name: "Split" });
+    expect(unified.getAttribute("aria-pressed")).toBe("true");
+    expect(split.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(split);
+    expect(onView).toHaveBeenCalledWith("split");
+    const details = container.querySelector(".diff") as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+  });
+
+  it("omits the toggle when no view handler is provided", () => {
+    render(<DiffBlock path="src/a.ts" oldText={OLD} newText={NEW} />);
+    expect(screen.queryByRole("group", { name: "Diff view" })).toBeNull();
+  });
+});
+
+describe("DiffBlock split view", () => {
+  it("renders both columns with add, delete and blank cells", () => {
+    const { container } = render(
+      <DiffBlock
+        path="src/a.ts"
+        oldText={"a\nb\nc\n"}
+        newText={"a\nB\nc\nd\n"}
+        view="split"
+        onView={() => {}}
+      />,
+    );
+    expect(container.querySelector(".diff-split")).toBeTruthy();
+    expect(container.querySelectorAll(".diff-split-row")).toHaveLength(4);
+    expect(container.querySelectorAll(".diff-split-row .diff-cell")).toHaveLength(8);
+    expect(container.querySelectorAll(".diff-cell.diff-add-line")).toHaveLength(2);
+    expect(container.querySelectorAll(".diff-cell.diff-del-line")).toHaveLength(1);
+    expect(container.querySelectorAll(".diff-cell.diff-cell-empty")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Split" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+  });
+
+  it("comments on a deletion against the nearest new-file line", () => {
+    const onAddComment = vi.fn();
+    const { container } = render(
+      <DiffBlock
+        path="src/a.ts"
+        oldText={"a\nb\nc\n"}
+        newText={"a\nb\n"}
+        view="split"
+        onView={() => {}}
+        onAddComment={onAddComment}
+      />,
+    );
+    const buttons = screen.getAllByRole("button", { name: "Comment on line 2" });
+    fireEvent.click(buttons[1]!);
+    const details = container.querySelector(".diff") as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    fireEvent.change(screen.getByRole("textbox", { name: "Comment body" }), {
+      target: { value: "drop this" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add comment" }));
+    expect(onAddComment).toHaveBeenCalledWith({
+      path: "src/a.ts",
+      startLine: 2,
+      endLine: 2,
+      body: "drop this",
+    });
+  });
+});

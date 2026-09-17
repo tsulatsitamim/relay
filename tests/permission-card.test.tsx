@@ -132,3 +132,47 @@ describe("PermissionCard", () => {
     expect(screen.getByText("2 of 3")).toBeTruthy();
   });
 });
+
+const NOTE = "Grants access for the rest of this session without asking again.";
+
+const persistent: PermissionRequest = {
+  id: "p2",
+  sessionId: "s1",
+  title: "Run command",
+  kind: "execute",
+  options: [
+    { optionId: "always", name: "Allow always", kind: "allow_always" },
+    { optionId: "once", name: "Allow once", kind: "allow_once" },
+    { optionId: "reject", name: "Reject", kind: "reject_once" },
+  ],
+};
+
+describe("PermissionCard permanent grants", () => {
+  it("warns on a persistent allow option", () => {
+    const { container } = render(
+      <PermissionCard request={persistent} onAnswer={vi.fn()} />,
+    );
+    const warned = container.querySelectorAll(".permission-btn.warn");
+    expect(warned).toHaveLength(1);
+    expect(warned[0]!.querySelector(".permission-warn")).toBeTruthy();
+    expect(warned[0]!.getAttribute("title")).toBe(NOTE);
+    expect(screen.getByRole("button", { name: "Allow always" })).toBe(warned[0]);
+  });
+
+  it("does not warn on a one-time allow", () => {
+    render(<PermissionCard request={persistent} onAnswer={vi.fn()} />);
+    const once = screen.getByRole("button", { name: "Allow once" });
+    expect(once.classList.contains("warn")).toBe(false);
+    expect(once.querySelector(".permission-warn")).toBeNull();
+  });
+
+  it("carries the same note on the session auto-approve button", () => {
+    render(
+      <PermissionCard request={persistent} onAnswer={vi.fn()} onAllowAll={vi.fn()} />,
+    );
+    const all = screen.getByRole("button", { name: "Allow all for this session" });
+    expect(all.classList.contains("warn")).toBe(true);
+    expect(all.querySelector(".permission-warn")).toBeTruthy();
+    expect(all.getAttribute("title")).toBe(NOTE);
+  });
+});

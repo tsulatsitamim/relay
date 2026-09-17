@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { diffStat } from "../shared/diff.ts";
 import type { DiffComment, TranscriptEvent } from "../shared/types.ts";
-import { DiffBlock, type DiffCommentDraft } from "./DiffBlock";
+import { DiffBlock, type DiffCommentDraft, type DiffView } from "./DiffBlock";
 import { IconChevronRight } from "./icons";
 
 type Props = {
   events: TranscriptEvent[];
   reviewedDiffIds?: Set<string>;
   comments?: DiffComment[];
+  view?: DiffView;
+  onView?: (view: DiffView) => void;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
   onAddComment?: (eventId: string, input: DiffCommentDraft) => void;
@@ -19,6 +21,8 @@ export function DiffGroup({
   events,
   reviewedDiffIds,
   comments,
+  view,
+  onView,
   onToggleReviewed,
   onOpenDiff,
   onAddComment,
@@ -81,6 +85,8 @@ export function DiffGroup({
               oldText={oldText}
               newText={newText}
               reviewed={reviewedDiffIds?.has(event.id)}
+              view={view}
+              onView={onView}
               comments={fileComments.filter((comment) => comment.eventId === event.id)}
               onToggleReviewed={
                 onToggleReviewed ? () => onToggleReviewed(event.id) : undefined

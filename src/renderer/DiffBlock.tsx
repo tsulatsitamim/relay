@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { diffStat, unifiedDiff } from "../shared/diff.ts";
 import type { DiffComment } from "../shared/types.ts";
+import { splitCommentLines, splitDiff, type SplitCell } from "./diff-split";
 import { IconTrash } from "./icons";
 import { unsentComments } from "./review.ts";
+
+export type DiffView = "unified" | "split";
 
 const OPEN_ERROR_MS = 2000;
 
@@ -18,6 +21,8 @@ type Props = {
   oldText: string | null;
   newText: string;
   reviewed?: boolean;
+  view?: DiffView;
+  onView?: (view: DiffView) => void;
   comments?: DiffComment[];
   onToggleReviewed?: () => void;
   onOpen?: () => void | Promise<unknown>;
@@ -64,11 +69,20 @@ function commentRef(comment: DiffComment): string {
   return `${comment.path}:${comment.startLine}-${comment.endLine}`;
 }
 
+function cellClass(cell: SplitCell | null): string {
+  if (!cell) return "diff-cell diff-line diff-cell-empty";
+  const type =
+    cell.type === "add" ? "diff-add-line" : cell.type === "del" ? "diff-del-line" : "";
+  return `diff-cell diff-line${type ? ` ${type}` : ""}`;
+}
+
 export function DiffBlock({
   path,
   oldText,
   newText,
   reviewed,
+  view,
+  onView,
   comments,
   onToggleReviewed,
   onOpen,
@@ -76,11 +90,14 @@ export function DiffBlock({
   onDeleteComment,
   onSendReview,
 }: Props) {
+  const mode: DiffView = view ?? "unified";
   const diff = unifiedDiff(oldText, newText, path);
   const lines = parseDiffLines(diff);
+  const rows = mode === "split" ? splitDiff(oldText, newText) : [];
+  const refs = mode === "split" ? splitCommentLines(rows) : [];
   const { adds, dels } = diffStat(oldText, newText);
   const [openError, setOpenError] = useState(false);
-  const [form, setForm] = useState<{ anchor: number; head: number } | null>(null);
+  const [form, setForm] = useState<{ anchor: number; head: number; at: number } | null>(null);
   const [draft, setDraft] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -123,14 +140,14 @@ export function DiffBlock({
     );
   }
 
-  function startComment(line: number, e: MouseEvent) {
+  function startComment(line: number, at: number, e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (form && e.shiftKey) {
-      setForm({ anchor: form.anchor, head: line });
+      setForm({ anchor: form.anchor, head: line, at: form.at });
       return;
     }
-    setForm({ anchor: line, head: line });
+    setForm({ anchor: line, head: line, at });
     setDraft("");
   }
 
@@ -162,6 +179,45 @@ export function DiffBlock({
     }
   }
 
+  function commentForm() {
+    return (
+      <div className="diff-comment-form">
+        <textarea
+          ref={bodyRef}
+          className="diff-comment-input"
+          aria-label="Comment body"
+          value={draft}
+          rows={2}
+          placeholder="Review comment"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onCommentBodyKeyDown}
+        />
+        <div className="diff-comment-form-actions">
+          <button
+            type="button"
+            className="diff-comment-add"
+            aria-label="Add comment"
+            onClick={submitComment}
+          >
+            Add comment
+          </button>
+          <button
+            type="button"
+            className="diff-comment-cancel"
+            aria-label="Cancel"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              closeCommentForm();
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <details className="diff">
       <summary className="diff-head">
@@ -173,6 +229,34 @@ export function DiffBlock({
           <span className="diff-add">+{adds}</span>
           <span className="diff-del">-{dels}</span>
         </span>
+        {onView ? (
+          <span className="diff-view" role="group" aria-label="Diff view">
+            <button
+              type="button"
+              className={`diff-view-btn${mode === "unified" ? " on" : ""}`}
+              aria-pressed={mode === "unified"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onView("unified");
+              }}
+            >
+              Unified
+            </button>
+            <button
+              type="button"
+              className={`diff-view-btn${mode === "split" ? " on" : ""}`}
+              aria-pressed={mode === "split"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onView("split");
+              }}
+            >
+              Split
+            </button>
+          </span>
+        ) : null}
         {onToggleReviewed ? (
           <button
             type="button"
@@ -230,57 +314,48 @@ export function DiffBlock({
         </button>
       </summary>
       <pre className="diff-body">
-        {lines.map(({ text, className, line }, i) => (
-          <div key={i} className={className}>
-            {text}
-            {line != null && onAddComment ? (
-              <button
-                type="button"
-                className="diff-line-comment"
-                aria-label={`Comment on line ${line}`}
-                onClick={(e) => startComment(line, e)}
-              >
-                Comment
-              </button>
-            ) : null}
-            {form && line === formRow ? (
-              <div className="diff-comment-form">
-                <textarea
-                  ref={bodyRef}
-                  className="diff-comment-input"
-                  aria-label="Comment body"
-                  value={draft}
-                  rows={2}
-                  placeholder="Review comment"
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={onCommentBodyKeyDown}
-                />
-                <div className="diff-comment-form-actions">
-                  <button
-                    type="button"
-                    className="diff-comment-add"
-                    aria-label="Add comment"
-                    onClick={submitComment}
-                  >
-                    Add comment
-                  </button>
-                  <button
-                    type="button"
-                    className="diff-comment-cancel"
-                    aria-label="Cancel"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      closeCommentForm();
-                    }}
-                  >
-                    Cancel
-                  </button>
+        {mode === "split" ? (
+          <div className="diff-split">
+            {rows.map((row, i) => (
+              <Fragment key={i}>
+                <div className="diff-split-row">
+                  <div className={cellClass(row.left)}>{row.left?.text ?? ""}</div>
+                  <div className={cellClass(row.right)}>
+                    {row.right?.text ?? ""}
+                    {refs[i] != null && onAddComment ? (
+                      <button
+                        type="button"
+                        className="diff-line-comment"
+                        aria-label={`Comment on line ${refs[i]}`}
+                        onClick={(e) => startComment(refs[i]!, i, e)}
+                      >
+                        Comment
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ) : null}
+                {form && form.at === i ? commentForm() : null}
+              </Fragment>
+            ))}
           </div>
-        ))}
+        ) : (
+          lines.map(({ text, className, line }, i) => (
+            <div key={i} className={className}>
+              {text}
+              {line != null && onAddComment ? (
+                <button
+                  type="button"
+                  className="diff-line-comment"
+                  aria-label={`Comment on line ${line}`}
+                  onClick={(e) => startComment(line, i, e)}
+                >
+                  Comment
+                </button>
+              ) : null}
+              {form && line === formRow ? commentForm() : null}
+            </div>
+          ))
+        )}
         {fileComments.length > 0 ? (
           <div className="diff-comments">
             {fileComments.map((comment) => (

@@ -188,4 +188,17 @@ describe("diff group comments", () => {
     fireEvent.click(send[1]!);
     expect(onSendDiffReview).toHaveBeenCalledWith(["c2"]);
   });
+
+  it("threads the split view into every expanded file", () => {
+    const onView = vi.fn();
+    const { container } = render(
+      <Transcript events={commentEvents} diffView="split" onSetDiffView={onView} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /changed files/i }));
+    expect(container.querySelectorAll(".diffgroup-body .diff-split")).toHaveLength(2);
+    const splitButtons = screen.getAllByRole("button", { name: "Split" });
+    expect(splitButtons).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Unified" })[0]!);
+    expect(onView).toHaveBeenCalledWith("unified");
+  });
 });

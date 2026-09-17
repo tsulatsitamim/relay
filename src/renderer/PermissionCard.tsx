@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import type { PermissionRequest } from "../shared/types.ts";
-import { pickAutoAllowOption } from "../shared/permission.ts";
+import {
+  PERSISTENT_GRANT_NOTE,
+  permissionGrantNote,
+  pickAutoAllowOption,
+} from "../shared/permission.ts";
+import { IconWarning } from "./icons";
 
 type Props = {
   request: PermissionRequest;
@@ -71,21 +76,30 @@ export function PermissionCard({
         ) : null}
       </div>
       <div className="permission-actions">
-        {request.options.map((option, index) => (
-          <button
-            key={option.optionId}
-            type="button"
-            className={`permission-btn ${isReject(option.kind) ? "reject" : "allow"}`}
-            onClick={() => onAnswer(request.id, option.optionId)}
-          >
-            {index < 9 ? (
-              <span className="permission-key" aria-hidden>
-                {index + 1}
-              </span>
-            ) : null}
-            {option.name}
-          </button>
-        ))}
+        {request.options.map((option, index) => {
+          const note = permissionGrantNote(option);
+          return (
+            <button
+              key={option.optionId}
+              type="button"
+              className={`permission-btn ${isReject(option.kind) ? "reject" : "allow"}${note ? " warn" : ""}`}
+              title={note ?? undefined}
+              onClick={() => onAnswer(request.id, option.optionId)}
+            >
+              {index < 9 ? (
+                <span className="permission-key" aria-hidden>
+                  {index + 1}
+                </span>
+              ) : null}
+              {note ? (
+                <span className="permission-warn">
+                  <IconWarning />
+                </span>
+              ) : null}
+              {option.name}
+            </button>
+          );
+        })}
         {hasReject ? null : (
           <button
             type="button"
@@ -98,11 +112,15 @@ export function PermissionCard({
         {onAllowAll ? (
           <button
             type="button"
-            className="permission-btn allow-all"
+            className="permission-btn allow-all warn"
+            title={PERSISTENT_GRANT_NOTE}
             onClick={() =>
               onAllowAll(request.id, pickAutoAllowOption(request.options))
             }
           >
+            <span className="permission-warn">
+              <IconWarning />
+            </span>
             Allow all for this session
           </button>
         ) : null}

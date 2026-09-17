@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { DiffComment, PlanEntry, TranscriptEvent } from "../shared/types.ts";
-import { DiffBlock, type DiffCommentDraft } from "./DiffBlock";
+import { DiffBlock, type DiffCommentDraft, type DiffView } from "./DiffBlock";
 import { DiffGroup } from "./DiffGroup";
 import { formatUsage } from "./format";
 import { Markdown } from "./Markdown";
@@ -26,6 +26,8 @@ type Props = {
   onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
   diffComments?: DiffComment[];
+  diffView?: DiffView;
+  onSetDiffView?: (view: DiffView) => void;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
   onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
@@ -57,6 +59,8 @@ function EventRow({
   onFork,
   reviewedDiffIds,
   diffComments,
+  diffView,
+  onSetDiffView,
   onToggleReviewed,
   onOpenDiff,
   onAddDiffComment,
@@ -70,6 +74,8 @@ function EventRow({
   onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
   diffComments?: DiffComment[];
+  diffView?: DiffView;
+  onSetDiffView?: (view: DiffView) => void;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
   onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
@@ -289,6 +295,8 @@ function EventRow({
         oldText={(event.payload.oldText as string | null) ?? null}
         newText={String(event.payload.newText ?? "")}
         reviewed={reviewedDiffIds?.has(event.id)}
+        view={diffView}
+        onView={onSetDiffView}
         comments={(diffComments ?? []).filter((comment) => comment.eventId === event.id)}
         onToggleReviewed={
           onToggleReviewed ? () => onToggleReviewed(event.id) : undefined
@@ -323,6 +331,8 @@ function MessageRow({
   onFork,
   reviewedDiffIds,
   diffComments,
+  diffView,
+  onSetDiffView,
   onToggleReviewed,
   onOpenDiff,
   onAddDiffComment,
@@ -341,6 +351,8 @@ function MessageRow({
   onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
   diffComments?: DiffComment[];
+  diffView?: DiffView;
+  onSetDiffView?: (view: DiffView) => void;
   onToggleReviewed?: (eventId: string) => void;
   onOpenDiff?: (path: string) => void | Promise<unknown>;
   onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
@@ -363,6 +375,8 @@ function MessageRow({
             events={group}
             reviewedDiffIds={reviewedDiffIds}
             comments={diffComments}
+            view={diffView}
+            onView={onSetDiffView}
             onToggleReviewed={onToggleReviewed}
             onOpenDiff={onOpenDiff}
             onAddComment={onAddDiffComment}
@@ -381,6 +395,8 @@ function MessageRow({
           onFork={onFork}
           reviewedDiffIds={reviewedDiffIds}
           diffComments={diffComments}
+          diffView={diffView}
+          onSetDiffView={onSetDiffView}
           onToggleReviewed={onToggleReviewed}
           onOpenDiff={onOpenDiff}
           onAddDiffComment={onAddDiffComment}
@@ -399,6 +415,8 @@ export function Transcript({
   onFork,
   reviewedDiffIds,
   diffComments,
+  diffView,
+  onSetDiffView,
   onToggleReviewed,
   onOpenDiff,
   onAddDiffComment,
@@ -605,6 +623,8 @@ export function Transcript({
                           onFork={onFork}
                           reviewedDiffIds={reviewedDiffIds}
                           diffComments={diffComments}
+                          diffView={diffView}
+                          onSetDiffView={onSetDiffView}
                           onToggleReviewed={onToggleReviewed}
                           onOpenDiff={onOpenDiff}
                           onAddDiffComment={onAddDiffComment}
