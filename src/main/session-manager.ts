@@ -25,6 +25,11 @@ import { pickAutoAllowOption } from "./permission.ts";
 import { reduceSessionUpdate } from "./transcript.ts";
 import { titleFromPrompt } from "./title.ts";
 import { repoFor } from "../shared/repo.ts";
+import {
+  mcpServersFrom,
+  mcpServersToAcp,
+  type McpServerConfig,
+} from "../shared/mcp.ts";
 
 const PERMISSION_TIMEOUT_MS = 120_000;
 
@@ -159,6 +164,22 @@ export class SessionManager {
 
   setSetting(key: string, value: string): void {
     this.store.setSetting(key, value);
+  }
+
+  mcpServers(): McpServerConfig[] {
+    const raw = this.store.getSetting("mcpServers");
+    if (!raw) return [];
+    try {
+      return mcpServersFrom(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+  }
+
+  setMcpServers(servers: unknown): McpServerConfig[] {
+    const sanitized = mcpServersFrom(servers);
+    this.store.setSetting("mcpServers", JSON.stringify(sanitized));
+    return sanitized;
   }
 
   transcript(sessionId: string): TranscriptEvent[] {
@@ -482,6 +503,7 @@ export class SessionManager {
       env: agent.env,
       resumeSessionId: resume ? session.acpSessionId : undefined,
       authMethodId,
+      mcpServers: mcpServersToAcp(this.mcpServers()),
       onUpdate: (update) => this.handleUpdate(session.id, update),
       requestPermission: (prompt) => this.askPermission(session.id, prompt),
       onExit: (info) => this.handleExit(session.id, info),

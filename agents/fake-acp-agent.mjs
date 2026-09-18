@@ -12,7 +12,18 @@ import {
 
 const storePath = process.env.FAKE_ACP_STORE;
 const REQUIRE_AUTH = process.env.FAKE_ACP_REQUIRE_AUTH === "1";
+const MCP_DUMP = process.env.FAKE_ACP_MCP_DUMP === "1";
+const MCP_DUMP_DIR = storePath ? dirname(storePath) : null;
 let authed = false;
+
+function dumpMcpServers(mcpServers) {
+  if (!MCP_DUMP || !MCP_DUMP_DIR) return;
+  mkdirSync(MCP_DUMP_DIR, { recursive: true });
+  writeFileSync(
+    `${MCP_DUMP_DIR}/mcp.json`,
+    JSON.stringify(mcpServers ?? [], null, 2),
+  );
+}
 
 function loadStore() {
   if (!storePath || !existsSync(storePath)) return {};
@@ -150,10 +161,11 @@ new AgentSideConnection((conn) => {
       return {};
     },
 
-    async newSession() {
+    async newSession(params = {}) {
       if (REQUIRE_AUTH && !authed) {
         throw RequestError.authRequired();
       }
+      dumpMcpServers(params.mcpServers);
       const sessionId = randomUUID();
       sessions.set(sessionId, {
         messages: [],
@@ -175,10 +187,11 @@ new AgentSideConnection((conn) => {
       };
     },
 
-    async loadSession({ sessionId }) {
+    async loadSession({ sessionId, mcpServers }) {
       if (REQUIRE_AUTH && !authed) {
         throw RequestError.authRequired();
       }
+      dumpMcpServers(mcpServers);
       const existing = sessions.get(sessionId) ?? store[sessionId];
       if (!existing) {
         throw new Error(`unknown session ${sessionId}`);

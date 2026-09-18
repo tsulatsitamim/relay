@@ -62,6 +62,7 @@ function stateWith(
     autoApprove,
     agentDefaults,
     settings: {},
+    mcpServers: [],
     about: { version: "0.0.0", dataPath: "/tmp/relay.db" },
   };
 }

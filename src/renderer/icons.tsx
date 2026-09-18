@@ -36,6 +36,7 @@ import {
   Redo2,
   RotateCcw,
   Search,
+  Server,
   Settings,
   SlidersHorizontal,
   Square,
@@ -103,6 +104,7 @@ export const IconComment = icon(MessageSquarePlus, { size: 13, strokeWidth: 1.75
 export const IconSettings = icon(Settings);
 export const IconInfo = icon(Info);
 export const IconPlug = icon(Plug);
+export const IconServer = icon(Server, { size: 14 });
 export const IconSliders = icon(SlidersHorizontal);
 export const IconToolRead = icon(FileText, { size: 14, strokeWidth: 1.75 });
 export const IconToolEdit = icon(SquarePen, { size: 14, strokeWidth: 1.75 });

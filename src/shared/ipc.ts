@@ -8,6 +8,7 @@ import type {
   Session,
   TranscriptEvent,
 } from "./types.ts";
+import type { McpServerConfig } from "./mcp.ts";
 
 export type RelayState = {
   sessions: Session[];
@@ -21,6 +22,7 @@ export type RelayState = {
   autoApprove: string[];
   agentDefaults: Record<string, string>;
   settings: Record<string, string>;
+  mcpServers: McpServerConfig[];
   about: { version: string; dataPath: string };
   claudeAdapter?: ClaudeAdapterInfo;
 };

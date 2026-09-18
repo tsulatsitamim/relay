@@ -795,3 +795,46 @@ describe("SessionManager authentication", () => {
     );
   });
 });
+
+describe("SessionManager MCP servers", () => {
+  it("defaults to an empty list and persists sanitized servers", async () => {
+    const sm = await manager();
+    expect(sm.mcpServers()).toEqual([]);
+
+    const saved = sm.setMcpServers([
+      {
+        kind: "stdio",
+        name: " fs ",
+        command: " npx ",
+        args: [" -y ", 3, ""],
+        env: [
+          { name: " R ", value: " 1 " },
+          { name: "", value: "drop" },
+        ],
+      },
+      { kind: "http", name: "h", url: "https://h", headers: [] },
+      { kind: "nope", name: "bad", command: "x" },
+    ]);
+
+    expect(saved).toEqual([
+      {
+        kind: "stdio",
+        name: "fs",
+        command: "npx",
+        args: ["-y"],
+        env: [{ name: "R", value: "1" }],
+      },
+      { kind: "http", name: "h", url: "https://h", headers: [] },
+    ]);
+    expect(sm.mcpServers()).toEqual(saved);
+  });
+
+  it("tolerates corrupt stored JSON", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "relay-db-"));
+    const store = await openStore(join(dir, "relay.db"));
+    store.setSetting("mcpServers", "{ not json");
+    const sm = new SessionManager(store);
+    managers.push(sm);
+    expect(sm.mcpServers()).toEqual([]);
+  });
+});

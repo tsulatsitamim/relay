@@ -209,6 +209,29 @@ describe("main relay:getState", () => {
     expect(state.settings.defaultAgentId).toBe("a1");
   });
 
+  it("registers the set-mcp-servers handler and reports them in state", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+
+    const getState = await waitFor(() => h.handlers.get("relay:getState"));
+    const setMcpServers = h.handlers.get("relay:setMcpServers");
+    expect(setMcpServers).toBeTruthy();
+
+    let state = getState() as RelayState;
+    expect(state.mcpServers).toEqual([]);
+
+    const saved = setMcpServers!({}, [
+      { kind: "stdio", name: " fs ", command: " npx ", args: ["-y"], env: [] },
+      { kind: "bogus", name: "x", command: "y" },
+    ]);
+    expect(saved).toEqual([
+      { kind: "stdio", name: "fs", command: "npx", args: ["-y"], env: [] },
+    ]);
+
+    state = getState() as RelayState;
+    expect(state.mcpServers).toEqual(saved);
+  });
+
   it("reports diff comments in state and registers their handlers", async () => {
     h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
     await import("../src/main/index.ts");

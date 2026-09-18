@@ -270,6 +270,7 @@ async function main(): Promise<void> {
       autoApprove: manager.autoApproveSessions(),
       agentDefaults: manager.agentDefaults(),
       settings: manager.settings(),
+      mcpServers: manager.mcpServers(),
       about: { version: app.getVersion(), dataPath: dbPath },
       claudeAdapter: (() => {
         const path = findClaudeAdapter(toolsDir);
@@ -457,6 +458,10 @@ async function main(): Promise<void> {
     manager.saveAgents(result.agents);
     return { ok: true as const, binaryPath: result.binaryPath };
   });
+
+  ipcMain.handle("relay:setMcpServers", (_e, servers: unknown) =>
+    manager.setMcpServers(servers),
+  );
 
   ipcMain.handle("relay:setSetting", (_e, key: string, value: string) => {
     manager.setSetting(key, value);

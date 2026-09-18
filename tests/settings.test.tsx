@@ -62,6 +62,7 @@ function makeState(overrides: Partial<RelayState> = {}): RelayState {
     autoApprove: [],
     agentDefaults: {},
     settings: {},
+    mcpServers: [],
     about: { version: "1.2.3", dataPath: "/tmp/relay.db" },
     ...overrides,
   };
@@ -127,6 +128,7 @@ function mount(initial: RelayState) {
     saveAgent,
     deleteAgent,
     setSetting,
+    setMcpServers: vi.fn().mockResolvedValue([]),
     installClaudeAdapter,
     setPinned: vi.fn().mockResolvedValue(undefined),
     setArchived: vi.fn().mockResolvedValue(undefined),
@@ -213,6 +215,29 @@ describe("App settings entry", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "About" }));
     expect(await screen.findByText("1.2.3")).toBeTruthy();
+  });
+
+  it("lists MCP servers in the navigation order and opens the section", async () => {
+    mount(makeState());
+    await openSettings();
+
+    const nav = document.querySelector(".settings-nav");
+    const labels = Array.from(nav?.querySelectorAll("button") ?? []).map(
+      (button) => button.textContent,
+    );
+    expect(labels.slice(1)).toEqual([
+      "General",
+      "Appearance",
+      "Providers",
+      "MCP servers",
+      "About",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "MCP servers" }));
+    expect(
+      await screen.findByRole("button", { name: "Add server" }),
+    ).toBeTruthy();
+    expect(screen.getByText("No MCP servers configured.")).toBeTruthy();
   });
 });
 

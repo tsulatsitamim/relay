@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -195,6 +195,38 @@ describe("AcpSession", () => {
           u.content.text.includes("echo: remember me"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("AcpSession MCP servers", () => {
+  it("forwards configured MCP servers to the agent on newSession", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "relay-acp-mcp-"));
+    const storePath = join(dir, "store.json");
+    const servers = [
+      {
+        name: "fs",
+        command: "npx",
+        args: ["-y", "server-fs"],
+        env: [{ name: "ROOT", value: "/tmp" }],
+      },
+      {
+        name: "remote",
+        url: "https://example.com/mcp",
+        headers: [{ name: "Authorization", value: "Bearer x" }],
+        type: "http" as const,
+      },
+    ];
+    const { session } = createSession({
+      env: { FAKE_ACP_STORE: storePath, FAKE_ACP_MCP_DUMP: "1" },
+      mcpServers: servers,
+    });
+    await session.start();
+
+    const dumpPath = join(dir, "mcp.json");
+    const dumped = existsSync(dumpPath)
+      ? (JSON.parse(readFileSync(dumpPath, "utf8")) as unknown)
+      : null;
+    expect(dumped).toEqual(servers);
   });
 });
 

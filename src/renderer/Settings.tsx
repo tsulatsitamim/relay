@@ -5,6 +5,8 @@ import type {
   ClaudeInstallResult,
 } from "../shared/types.ts";
 import { CHAT_FONT_SIZES, clampChatFontSize, normalizeThemePreference } from "./theme";
+import type { McpServerConfig } from "../shared/mcp.ts";
+import { McpServers } from "./McpServers";
 import {
   IconArrowDown,
   IconArrowLeft,
@@ -13,18 +15,25 @@ import {
   IconMonitor,
   IconPlug,
   IconPlus,
+  IconServer,
   IconSliders,
   IconSpinner,
   IconTrash,
   IconX,
 } from "./icons";
 
-export type SettingsSection = "general" | "appearance" | "providers" | "about";
+export type SettingsSection =
+  | "general"
+  | "appearance"
+  | "providers"
+  | "mcp"
+  | "about";
 
 const SECTIONS: { id: SettingsSection; label: string; icon: ReactNode }[] = [
   { id: "general", label: "General", icon: <IconSliders /> },
   { id: "appearance", label: "Appearance", icon: <IconMonitor /> },
   { id: "providers", label: "Providers", icon: <IconPlug /> },
+  { id: "mcp", label: "MCP servers", icon: <IconServer /> },
   { id: "about", label: "About", icon: <IconInfo /> },
 ];
 
@@ -602,10 +611,12 @@ export function SettingsPage({
   settings,
   about,
   sessionCount,
+  mcpServers,
   claudeAdapter,
   onSaveAgent,
   onDeleteAgent,
   onSetSetting,
+  onSaveMcpServers,
   onInstallClaudeAdapter,
 }: {
   section: SettingsSection;
@@ -613,10 +624,14 @@ export function SettingsPage({
   settings: Record<string, string>;
   about: { version: string; dataPath: string };
   sessionCount: number;
+  mcpServers: McpServerConfig[];
   claudeAdapter?: ClaudeAdapterInfo;
   onSaveAgent: (agent: AgentConfig) => Promise<AgentConfig>;
   onDeleteAgent: (id: string) => Promise<void>;
   onSetSetting: (key: string, value: string) => void;
+  onSaveMcpServers: (
+    servers: McpServerConfig[],
+  ) => Promise<McpServerConfig[]>;
   onInstallClaudeAdapter: (
     onOutput?: (line: string) => void,
   ) => Promise<ClaudeInstallResult>;
@@ -640,6 +655,12 @@ export function SettingsPage({
             onSaveAgent={onSaveAgent}
             onDeleteAgent={onDeleteAgent}
             onInstallClaudeAdapter={onInstallClaudeAdapter}
+          />
+        ) : section === "mcp" ? (
+          <McpServers
+            servers={mcpServers}
+            confirmDelete={settings.confirmDeleteProvider !== "false"}
+            onSave={onSaveMcpServers}
           />
         ) : (
           <AboutSection

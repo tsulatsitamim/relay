@@ -12,6 +12,7 @@ import type {
   TranscriptEvent,
 } from "../shared/types.ts";
 import { repoFor } from "../shared/repo.ts";
+import type { McpServerConfig } from "../shared/mcp.ts";
 import {
   applyAppearance,
   applyHighlightTheme,
@@ -102,6 +103,7 @@ const emptyState: RelayState = {
   autoApprove: [],
   agentDefaults: {},
   settings: {},
+  mcpServers: [],
   about: { version: "", dataPath: "" },
 };
 
@@ -1040,6 +1042,14 @@ export function App() {
     void window.relay.setSetting(key, value);
   }
 
+  async function saveMcpServers(
+    servers: McpServerConfig[],
+  ): Promise<McpServerConfig[]> {
+    const saved = await window.relay.setMcpServers(servers);
+    setState((prev) => ({ ...prev, mcpServers: saved }));
+    return saved;
+  }
+
   function toggleSettings() {
     setView((current) => (current === "settings" ? "chat" : "settings"));
   }
@@ -1583,10 +1593,12 @@ export function App() {
             settings={state.settings}
             about={state.about}
             sessionCount={state.sessions.length}
+            mcpServers={state.mcpServers}
             claudeAdapter={state.claudeAdapter}
             onSaveAgent={saveAgent}
             onDeleteAgent={deleteAgent}
             onSetSetting={setSetting}
+            onSaveMcpServers={saveMcpServers}
             onInstallClaudeAdapter={installClaudeAdapter}
           />
         ) : selected ? (

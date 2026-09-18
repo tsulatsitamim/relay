@@ -15,6 +15,7 @@ import type {
   SessionConfigOption,
   TranscriptEvent,
 } from "../shared/types.ts";
+import type { McpServerConfig } from "../shared/mcp.ts";
 
 export type RelayBridge = {
   getState: () => Promise<RelayState>;
@@ -52,6 +53,7 @@ export type RelayBridge = {
     onOutput?: (line: string) => void,
   ) => Promise<ClaudeInstallResult>;
   setSetting: (key: string, value: string) => Promise<void>;
+  setMcpServers: (servers: McpServerConfig[]) => Promise<McpServerConfig[]>;
   setPinned: (id: string, pinned: boolean) => Promise<void>;
   setArchived: (id: string, archived: boolean) => Promise<void>;
   rename: (id: string, title: string) => Promise<void>;

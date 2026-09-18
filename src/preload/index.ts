@@ -16,6 +16,7 @@ import type {
   SessionConfigOption,
   TranscriptEvent,
 } from "../shared/types.ts";
+import type { McpServerConfig } from "../shared/mcp.ts";
 
 contextBridge.exposeInMainWorld("relay", {
   getState: (): Promise<RelayState> => ipcRenderer.invoke("relay:getState"),
@@ -83,6 +84,8 @@ contextBridge.exposeInMainWorld("relay", {
   },
   setSetting: (key: string, value: string): Promise<void> =>
     ipcRenderer.invoke("relay:setSetting", key, value),
+  setMcpServers: (servers: McpServerConfig[]): Promise<McpServerConfig[]> =>
+    ipcRenderer.invoke("relay:setMcpServers", servers),
   setPinned: (id: string, pinned: boolean): Promise<void> =>
     ipcRenderer.invoke("relay:setPinned", id, pinned),
   setArchived: (id: string, archived: boolean): Promise<void> =>

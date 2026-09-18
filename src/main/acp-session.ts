@@ -19,6 +19,7 @@ import type {
   SessionConfigValue,
   SessionModeLike,
 } from "../shared/types.ts";
+import type { AcpMcpServer } from "../shared/mcp.ts";
 
 export type PromptUsage = {
   inputTokens?: number;
@@ -50,6 +51,7 @@ export type AcpSessionOptions = {
   env?: Record<string, string>;
   resumeSessionId?: string;
   authMethodId?: string;
+  mcpServers?: AcpMcpServer[];
   onUpdate: (update: SessionUpdate) => void;
   requestPermission?: (prompt: PermissionPrompt) => Promise<PermissionAnswer>;
   onExit?: (info: AcpExitInfo) => void;
@@ -308,7 +310,7 @@ export class AcpSession {
             const loaded = await connection.loadSession({
               sessionId: this.opts.resumeSessionId,
               cwd: this.opts.cwd,
-              mcpServers: [],
+              mcpServers: this.opts.mcpServers ?? [],
             });
             this.sessionId = this.opts.resumeSessionId;
             this.didResume = true;
@@ -324,7 +326,7 @@ export class AcpSession {
 
         const created = await connection.newSession({
           cwd: this.opts.cwd,
-          mcpServers: [],
+          mcpServers: this.opts.mcpServers ?? [],
         });
         this.sessionId = created.sessionId;
         this.didResume = false;
