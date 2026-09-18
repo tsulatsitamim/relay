@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { TranscriptEvent } from "../shared/types.ts";
 import { AnimatedHeight } from "./AnimatedHeight";
 import { IconCheck, IconChevronRight, IconSpinner, IconWarning } from "./icons";
 import { ToolCallCard, ToolKindIcon, type ToolCallData } from "./ToolCallCard";
 import { toolGroupMeta, toolGroupSummary } from "./tool-group";
 
-export function ToolGroup({ events }: { events: TranscriptEvent[] }) {
+export const ToolGroup = memo(function ToolGroup({
+  events,
+}: {
+  events: TranscriptEvent[];
+}) {
   const meta = toolGroupMeta(
     events.map((event) => (event.payload as ToolCallData).status),
   );
@@ -70,4 +74,4 @@ export function ToolGroup({ events }: { events: TranscriptEvent[] }) {
       </AnimatedHeight>
     </section>
   );
-}
+});

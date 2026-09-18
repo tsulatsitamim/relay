@@ -1,4 +1,4 @@
-import { createContext, isValidElement, useContext } from "react";
+import { createContext, isValidElement, memo, useContext } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "./CodeBlock";
@@ -49,7 +49,7 @@ const components: Components = {
   },
 };
 
-export function Markdown({ text }: Props) {
+export const Markdown = memo(function Markdown({ text }: Props) {
   return (
     <div className="markdown">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
@@ -57,4 +57,4 @@ export function Markdown({ text }: Props) {
       </ReactMarkdown>
     </div>
   );
-}
+});

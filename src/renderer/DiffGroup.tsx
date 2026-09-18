@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { diffStat } from "../shared/diff.ts";
 import type { DiffComment, TranscriptEvent } from "../shared/types.ts";
 import { DiffBlock, type DiffCommentDraft, type DiffView } from "./DiffBlock";
@@ -17,7 +17,7 @@ type Props = {
   onSendReview?: (ids: string[]) => void;
 };
 
-export function DiffGroup({
+export const DiffGroup = memo(function DiffGroup({
   events,
   reviewedDiffIds,
   comments,
@@ -103,4 +103,4 @@ export function DiffGroup({
       ) : null}
     </section>
   );
-}
+});

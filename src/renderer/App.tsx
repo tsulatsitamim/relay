@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { RelayState } from "../shared/ipc.ts";
 import type {
@@ -103,6 +103,8 @@ const emptyState: RelayState = {
   settings: {},
   about: { version: "", dataPath: "" },
 };
+
+const EMPTY_DIFF_COMMENTS: DiffComment[] = [];
 
 type MenuState =
   | { kind: "filter"; x: number; y: number }
@@ -483,7 +485,10 @@ export function App() {
       return next.size === prev.size ? prev : next;
     });
   }, [state.sessions]);
-  const markSending = (id: string) => setSending((prev) => new Set(prev).add(id));
+  const markSending = useCallback(
+    (id: string) => setSending((prev) => new Set(prev).add(id)),
+    [],
+  );
   const working = Boolean(
     selected && (composerLocked || sending.has(selected.id)),
   );
@@ -539,37 +544,41 @@ export function App() {
     void window.relay.setAutoApprove(sessionId, false);
   };
 
-  const toggleDiffReviewed = (eventId: string) => {
+  const toggleDiffReviewed = useCallback((eventId: string) => {
     setReviewedDiffs((prev) => {
       const next = new Set(prev);
       if (next.has(eventId)) next.delete(eventId);
       else next.add(eventId);
       return next;
     });
-  };
+  }, []);
 
-  const openDiff = (path: string) => {
-    if (!selected) return Promise.resolve(false);
-    return window.relay.openPath(selected.workingDirectory, path);
-  };
+  const openDiff = useCallback(
+    (path: string) => {
+      if (!selected) return Promise.resolve(false);
+      return window.relay.openPath(selected.workingDirectory, path);
+    },
+    [selected],
+  );
 
-  const addDiffComment = (
-    sessionId: string,
-    eventId: string,
-    input: DiffCommentDraft,
-  ) => {
-    void window.relay
-      .addDiffComment(sessionId, { eventId, ...input })
-      .then((comment) => {
-        setDiffComments((prev) => ({
-          ...prev,
-          [sessionId]: [...(prev[sessionId] ?? []), comment],
-        }));
-      })
-      .catch((err) => console.error(err));
-  };
+  const handleAddDiffComment = useCallback(
+    (eventId: string, input: DiffCommentDraft) => {
+      const sessionId = selected?.id;
+      if (!sessionId) return;
+      void window.relay
+        .addDiffComment(sessionId, { eventId, ...input })
+        .then((comment) => {
+          setDiffComments((prev) => ({
+            ...prev,
+            [sessionId]: [...(prev[sessionId] ?? []), comment],
+          }));
+        })
+        .catch((err) => console.error(err));
+    },
+    [selected?.id],
+  );
 
-  const deleteDiffComment = (id: string) => {
+  const deleteDiffComment = useCallback((id: string) => {
     void window.relay
       .deleteDiffComment(id)
       .then(() => {
@@ -582,9 +591,9 @@ export function App() {
         });
       })
       .catch((err) => console.error(err));
-  };
+  }, []);
 
-  const markPendingReviewSent = (sessionId: string) => {
+  const markPendingReviewSent = useCallback((sessionId: string) => {
     const ids = pendingReview.current;
     if (!ids || ids.length === 0) return;
     void window.relay
@@ -600,38 +609,46 @@ export function App() {
         }));
       })
       .catch((err) => console.error(err));
-  };
+  }, []);
 
-  const sendDiffReview = (sessionId: string, ids: string[]) => {
-    const picked = unsentComments(
-      (diffComments[sessionId] ?? []).filter((comment) => ids.includes(comment.id)),
-    );
-    if (picked.length === 0) return;
-    pendingReview.current = picked.map((comment) => comment.id);
-    setInject({ text: composeReview(picked), nonce: Date.now() });
-  };
+  const handleSendDiffReview = useCallback(
+    (ids: string[]) => {
+      const sessionId = selected?.id;
+      if (!sessionId) return;
+      const picked = unsentComments(
+        (diffComments[sessionId] ?? []).filter((comment) => ids.includes(comment.id)),
+      );
+      if (picked.length === 0) return;
+      pendingReview.current = picked.map((comment) => comment.id);
+      setInject({ text: composeReview(picked), nonce: Date.now() });
+    },
+    [selected?.id, diffComments],
+  );
 
-  const rewind = async (sessionId: string, eventId: string, text: string) => {
-    const session = state.sessions.find((s) => s.id === sessionId);
-    if (
-      !session ||
-      ["starting", "working", "cancelling"].includes(session.status)
-    ) {
-      return;
-    }
-    pendingTruncate.current = null;
-    try {
-      await window.relay.truncate(sessionId, eventId);
-    } catch (err) {
-      setChatError({
-        sessionId,
-        message: err instanceof Error ? err.message : String(err),
-        prompt: text,
-      });
-      return;
-    }
-    setInject({ text, nonce: Date.now() });
-  };
+  const rewind = useCallback(
+    async (sessionId: string, eventId: string, text: string) => {
+      const session = state.sessions.find((s) => s.id === sessionId);
+      if (
+        !session ||
+        ["starting", "working", "cancelling"].includes(session.status)
+      ) {
+        return;
+      }
+      pendingTruncate.current = null;
+      try {
+        await window.relay.truncate(sessionId, eventId);
+      } catch (err) {
+        setChatError({
+          sessionId,
+          message: err instanceof Error ? err.message : String(err),
+          prompt: text,
+        });
+        return;
+      }
+      setInject({ text, nonce: Date.now() });
+    },
+    [state.sessions],
+  );
 
   const sendToSession = async (
     sessionId: string,
@@ -682,6 +699,69 @@ export function App() {
     }
     if (sent) markPendingReviewSent(sessionId);
   };
+
+  const sendRef = useRef(sendToSession);
+  useEffect(() => {
+    sendRef.current = sendToSession;
+  });
+  const sendLatest = useCallback(
+    (sessionId: string, text: string, attachments?: PromptAttachment[]) =>
+      sendRef.current(sessionId, text, attachments),
+    [],
+  );
+
+  const handleEditUser = useCallback(
+    (text: string, eventId: string) => {
+      if (!selected) return;
+      if (working) {
+        pendingTruncate.current = eventId;
+        setInject({ text, nonce: Date.now(), fromEventId: eventId });
+        return;
+      }
+      pendingTruncate.current = eventId;
+      setInject(undefined);
+      void sendLatest(selected.id, text);
+    },
+    [selected, working, sendLatest],
+  );
+
+  const handleRewind = useCallback(
+    (eventId: string, text: string) => {
+      if (!selected) return;
+      void rewind(selected.id, eventId, text);
+    },
+    [selected, rewind],
+  );
+
+  const handleFork = useCallback(
+    (text: string) => {
+      if (!selected) return;
+      setSelectedId(null);
+      setRepoPath(selected.workingDirectory);
+      setAgentId(selected.agentConfigId);
+      setHomeInject({ text, nonce: Date.now() });
+    },
+    [selected],
+  );
+
+  const handleImplementPlan = useCallback(() => {
+    if (!selected) return;
+    void sendLatest(selected.id, "Implement the plan above.");
+  }, [selected, sendLatest]);
+
+  const handleForkPlan = useCallback(() => {
+    if (!selected) return;
+    setSelectedId(null);
+    setRepoPath(selected.workingDirectory);
+    setAgentId(selected.agentConfigId);
+    setHomeInject({ text: "Implement the plan above.", nonce: Date.now() });
+  }, [selected]);
+
+  const selectedDiffComments = useMemo(
+    () =>
+      selected ? diffComments[selected.id] ?? EMPTY_DIFF_COMMENTS : EMPTY_DIFF_COMMENTS,
+    [diffComments, selected?.id],
+  );
 
   const enqueue = (sessionId: string, text: string) => {
     pendingTruncate.current = null;
@@ -1528,52 +1608,20 @@ export function App() {
               sessionId={selected.id}
               streaming={working}
               onFollowChange={setTranscriptFollowing}
-              onEditUser={(text, eventId) => {
-                if (working) {
-                  pendingTruncate.current = eventId;
-                  setInject({ text, nonce: Date.now(), fromEventId: eventId });
-                  return;
-                }
-                pendingTruncate.current = eventId;
-                setInject(undefined);
-                void sendToSession(selected.id, text);
-              }}
-              onRewind={(eventId, text) => void rewind(selected.id, eventId, text)}
-              onFork={(text) => {
-                setSelectedId(null);
-                setRepoPath(selected.workingDirectory);
-                setAgentId(selected.agentConfigId);
-                setHomeInject({ text, nonce: Date.now() });
-              }}
+              onEditUser={handleEditUser}
+              onRewind={handleRewind}
+              onFork={handleFork}
               reviewedDiffIds={reviewedDiffs}
-              diffComments={diffComments[selected.id] ?? []}
+              diffComments={selectedDiffComments}
               diffView={diffView}
               onSetDiffView={setDiffView}
               onToggleReviewed={toggleDiffReviewed}
               onOpenDiff={openDiff}
-              onAddDiffComment={(eventId, input) =>
-                addDiffComment(selected.id, eventId, input)
-              }
+              onAddDiffComment={handleAddDiffComment}
               onDeleteDiffComment={deleteDiffComment}
-              onSendDiffReview={(ids) => sendDiffReview(selected.id, ids)}
-              onImplementPlan={
-                working
-                  ? undefined
-                  : () => void sendToSession(selected.id, "Implement the plan above.")
-              }
-              onForkPlan={
-                working
-                  ? undefined
-                  : () => {
-                      setSelectedId(null);
-                      setRepoPath(selected.workingDirectory);
-                      setAgentId(selected.agentConfigId);
-                      setHomeInject({
-                        text: "Implement the plan above.",
-                        nonce: Date.now(),
-                      });
-                    }
-              }
+              onSendDiffReview={handleSendDiffReview}
+              onImplementPlan={working ? undefined : handleImplementPlan}
+              onForkPlan={working ? undefined : handleForkPlan}
               footer={
                 <TurnFooter
                   events={events}

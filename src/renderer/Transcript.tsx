@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { DiffComment, PlanEntry, TranscriptEvent } from "../shared/types.ts";
 import { DiffBlock, type DiffCommentDraft, type DiffView } from "./DiffBlock";
@@ -15,9 +15,10 @@ import { htmlFromNode } from "./rich-clipboard";
 import { IconArrowDown, IconCheck, IconChevron, IconFork, IconRewind, IconX } from "./icons";
 import { MinimapRail } from "./MinimapRail";
 import { OverlayScrollbar } from "./OverlayScrollbar";
-import { buildTurns as buildRailTurns, jumpTop } from "./minimap";
+import { buildTurns as buildRailTurns, jumpTop, type MinimapTurn } from "./minimap";
+import { memoByEvents, type MemoCache } from "./memo-cache";
 import { isNearBottom, nextFollowMode, type FollowMode } from "./scroll";
-import { buildRows } from "./transcript-rows";
+import { buildRows, type TranscriptRow } from "./transcript-rows";
 import { buildTurns, isTurnOpen, turnSummary } from "./turns";
 import { useVisibleAnimation } from "./visible-animation";
 
@@ -44,6 +45,20 @@ type Props = {
   onFollowChange?: (following: boolean) => void;
 };
 
+type Handlers = {
+  onEditUser?: (text: string, eventId: string) => void;
+  onRewind?: (eventId: string, text: string) => void;
+  onFork?: (text: string) => void;
+  onSetDiffView?: (view: DiffView) => void;
+  onToggleReviewed?: (eventId: string) => void;
+  onOpenDiff?: (path: string) => void | Promise<unknown>;
+  onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
+  onDeleteDiffComment?: (id: string) => void;
+  onSendDiffReview?: (ids: string[]) => void;
+  onImplementPlan?: () => void;
+  onForkPlan?: () => void;
+};
+
 const COLLAPSE_MAX_CHARS = 600;
 const COLLAPSE_MAX_LINES = 8;
 const DEFAULT_OPEN_TURNS = 5;
@@ -56,41 +71,25 @@ function foldPrompt(text: string): string {
     : flat;
 }
 
-function EventRow({
-  event,
-  time,
-  onEditUser,
-  onRewind,
-  onFork,
-  reviewedDiffIds,
-  diffComments,
-  diffView,
-  onSetDiffView,
-  onToggleReviewed,
-  onOpenDiff,
-  onAddDiffComment,
-  onDeleteDiffComment,
-  onSendDiffReview,
-  onImplementPlan,
-  onForkPlan,
-}: {
+type EventRowProps = {
   event: TranscriptEvent;
   time: string | null;
-  onEditUser?: (text: string, eventId: string) => void;
-  onRewind?: (eventId: string, text: string) => void;
-  onFork?: (text: string) => void;
+  handlers: Handlers;
   reviewedDiffIds?: Set<string>;
   diffComments?: DiffComment[];
   diffView?: DiffView;
-  onSetDiffView?: (view: DiffView) => void;
-  onToggleReviewed?: (eventId: string) => void;
-  onOpenDiff?: (path: string) => void | Promise<unknown>;
-  onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
-  onDeleteDiffComment?: (id: string) => void;
-  onSendDiffReview?: (ids: string[]) => void;
-  onImplementPlan?: () => void;
-  onForkPlan?: () => void;
-}) {
+  isLastPlan: boolean;
+};
+
+function EventRowImpl({
+  event,
+  time,
+  handlers,
+  reviewedDiffIds,
+  diffComments,
+  diffView,
+  isLastPlan,
+}: EventRowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [expanded, setExpanded] = useState(false);
@@ -117,13 +116,13 @@ function EventRow({
       text.split("\n").length > COLLAPSE_MAX_LINES;
     const save = () => {
       setEditing(false);
-      onEditUser?.(draft, event.id);
+      handlers.onEditUser?.(draft, event.id);
     };
     return (
       <div
         className="msg user"
         onClick={() => {
-          if (editing || !onEditUser) return;
+          if (editing || !handlers.onEditUser) return;
           setDraft(text);
           setEditing(true);
         }}
@@ -215,7 +214,7 @@ function EventRow({
           <div className="msg-foot" onClick={(e) => e.stopPropagation()}>
             <div className="msg-actions">
               <CopyButton text={text} />
-              {onRewind ? (
+              {handlers.onRewind ? (
                 <button
                   type="button"
                   className="msg-action"
@@ -223,13 +222,13 @@ function EventRow({
                   title="Rewind"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRewind(event.id, text);
+                    handlers.onRewind?.(event.id, text);
                   }}
                 >
                   <IconRewind />
                 </button>
               ) : null}
-              {onFork ? (
+              {handlers.onFork ? (
                 <button
                   type="button"
                   className="msg-action"
@@ -237,7 +236,7 @@ function EventRow({
                   title="Fork"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onFork(text);
+                    handlers.onFork?.(text);
                   }}
                 >
                   <IconFork />
@@ -295,8 +294,8 @@ function EventRow({
     return (
       <PlanBlock
         entries={(event.payload.entries as PlanEntry[] | undefined) ?? []}
-        onImplement={onImplementPlan}
-        onFork={onForkPlan}
+        onImplement={isLastPlan ? handlers.onImplementPlan : undefined}
+        onFork={isLastPlan ? handlers.onForkPlan : undefined}
       />
     );
   }
@@ -307,6 +306,9 @@ function EventRow({
 
   if (event.kind === "diff") {
     const path = String(event.payload.path ?? "file");
+    const toggleReviewed = handlers.onToggleReviewed;
+    const openDiff = handlers.onOpenDiff;
+    const addComment = handlers.onAddDiffComment;
     return (
       <DiffBlock
         path={path}
@@ -314,17 +316,13 @@ function EventRow({
         newText={String(event.payload.newText ?? "")}
         reviewed={reviewedDiffIds?.has(event.id)}
         view={diffView}
-        onView={onSetDiffView}
+        onView={handlers.onSetDiffView}
         comments={(diffComments ?? []).filter((comment) => comment.eventId === event.id)}
-        onToggleReviewed={
-          onToggleReviewed ? () => onToggleReviewed(event.id) : undefined
-        }
-        onOpen={onOpenDiff ? () => onOpenDiff(path) : undefined}
-        onAddComment={
-          onAddDiffComment ? (input) => onAddDiffComment(event.id, input) : undefined
-        }
-        onDeleteComment={onDeleteDiffComment}
-        onSendReview={onSendDiffReview}
+        onToggleReviewed={toggleReviewed ? () => toggleReviewed(event.id) : undefined}
+        onOpen={openDiff ? () => openDiff(path) : undefined}
+        onAddComment={addComment ? (input) => addComment(event.id, input) : undefined}
+        onDeleteComment={handlers.onDeleteDiffComment}
+        onSendReview={handlers.onSendDiffReview}
       />
     );
   }
@@ -336,29 +334,9 @@ function EventRow({
   return <div className="msg status">{String(event.payload.text ?? "")}</div>;
 }
 
-function MessageRow({
-  event,
-  time,
-  isActive,
-  streamingRow,
-  userTurn,
-  group,
-  groupKind,
-  onEditUser,
-  onRewind,
-  onFork,
-  reviewedDiffIds,
-  diffComments,
-  diffView,
-  onSetDiffView,
-  onToggleReviewed,
-  onOpenDiff,
-  onAddDiffComment,
-  onDeleteDiffComment,
-  onSendDiffReview,
-  onImplementPlan,
-  onForkPlan,
-}: {
+const EventRow = memo(EventRowImpl);
+
+type MessageRowProps = {
   event: TranscriptEvent;
   time: string | null;
   isActive: boolean;
@@ -366,21 +344,27 @@ function MessageRow({
   userTurn?: number;
   group?: TranscriptEvent[];
   groupKind?: "tool" | "diff";
-  onEditUser?: (text: string, eventId: string) => void;
-  onRewind?: (eventId: string, text: string) => void;
-  onFork?: (text: string) => void;
   reviewedDiffIds?: Set<string>;
   diffComments?: DiffComment[];
   diffView?: DiffView;
-  onSetDiffView?: (view: DiffView) => void;
-  onToggleReviewed?: (eventId: string) => void;
-  onOpenDiff?: (path: string) => void | Promise<unknown>;
-  onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
-  onDeleteDiffComment?: (id: string) => void;
-  onSendDiffReview?: (ids: string[]) => void;
-  onImplementPlan?: () => void;
-  onForkPlan?: () => void;
-}) {
+  isLastPlan: boolean;
+  handlers: Handlers;
+};
+
+function MessageRowImpl({
+  event,
+  time,
+  isActive,
+  streamingRow,
+  userTurn,
+  group,
+  groupKind,
+  reviewedDiffIds,
+  diffComments,
+  diffView,
+  isLastPlan,
+  handlers,
+}: MessageRowProps) {
   const ref = useRef<HTMLDivElement>(null);
   useVisibleAnimation(ref);
   return (
@@ -398,12 +382,12 @@ function MessageRow({
             reviewedDiffIds={reviewedDiffIds}
             comments={diffComments}
             view={diffView}
-            onView={onSetDiffView}
-            onToggleReviewed={onToggleReviewed}
-            onOpenDiff={onOpenDiff}
-            onAddComment={onAddDiffComment}
-            onDeleteComment={onDeleteDiffComment}
-            onSendReview={onSendDiffReview}
+            onView={handlers.onSetDiffView}
+            onToggleReviewed={handlers.onToggleReviewed}
+            onOpenDiff={handlers.onOpenDiff}
+            onAddComment={handlers.onAddDiffComment}
+            onDeleteComment={handlers.onDeleteDiffComment}
+            onSendReview={handlers.onSendDiffReview}
           />
         ) : (
           <ToolGroup events={group} />
@@ -412,25 +396,18 @@ function MessageRow({
         <EventRow
           event={event}
           time={time}
-          onEditUser={onEditUser}
-          onRewind={onRewind}
-          onFork={onFork}
+          handlers={handlers}
           reviewedDiffIds={reviewedDiffIds}
           diffComments={diffComments}
           diffView={diffView}
-          onSetDiffView={onSetDiffView}
-          onToggleReviewed={onToggleReviewed}
-          onOpenDiff={onOpenDiff}
-          onAddDiffComment={onAddDiffComment}
-          onDeleteDiffComment={onDeleteDiffComment}
-          onSendDiffReview={onSendDiffReview}
-          onImplementPlan={onImplementPlan}
-          onForkPlan={onForkPlan}
+          isLastPlan={isLastPlan}
         />
       )}
     </div>
   );
 }
+
+const MessageRow = memo(MessageRowImpl);
 
 export function Transcript({
   events,
@@ -472,15 +449,57 @@ export function Transcript({
   } else {
     streamingSinceRef.current = null;
   }
-  const lastPlanEventId = useMemo(() => {
-    for (let index = events.length - 1; index >= 0; index -= 1) {
-      if (events[index]!.kind === "plan") return events[index]!.id;
-    }
-    return null;
-  }, [events]);
-  const rows = useMemo(() => buildRows(events), [events]);
+  const rowsCache = useRef<MemoCache<TranscriptRow[]>>({ current: null });
+  const railCache = useRef<MemoCache<MinimapTurn[]>>({ current: null });
+  const turnIndexCache = useRef<MemoCache<Map<string, number>>>({ current: null });
+  const lastPlanCache = useRef<MemoCache<string | null>>({ current: null });
+  const handlers = useMemo<Handlers>(
+    () => ({
+      onEditUser,
+      onRewind,
+      onFork,
+      onSetDiffView,
+      onToggleReviewed,
+      onOpenDiff,
+      onAddDiffComment,
+      onDeleteDiffComment,
+      onSendDiffReview,
+      onImplementPlan,
+      onForkPlan,
+    }),
+    [
+      onEditUser,
+      onRewind,
+      onFork,
+      onSetDiffView,
+      onToggleReviewed,
+      onOpenDiff,
+      onAddDiffComment,
+      onDeleteDiffComment,
+      onSendDiffReview,
+      onImplementPlan,
+      onForkPlan,
+    ],
+  );
+  const lastPlanEventId = useMemo(
+    () =>
+      memoByEvents(lastPlanCache.current, events, () => {
+        for (let index = events.length - 1; index >= 0; index -= 1) {
+          if (events[index]!.kind === "plan") return events[index]!.id;
+        }
+        return null;
+      }),
+    [events],
+  );
+  const rows = useMemo(
+    () => memoByEvents(rowsCache.current, events, () => buildRows(events)),
+    [events],
+  );
   const turns = useMemo(() => buildTurns(rows), [rows]);
-  const railTurns = useMemo(() => buildRailTurns(events), [events]);
+  const railTurns = useMemo(
+    () => memoByEvents(railCache.current, events, () => buildRailTurns(events)),
+    [events],
+  );
   const rowOffsets = useMemo(() => {
     const offsets: number[] = [];
     let total = 0;
@@ -490,14 +509,18 @@ export function Transcript({
     }
     return offsets;
   }, [turns]);
-  const turnIndexByEventId = useMemo(() => {
-    const map = new Map<string, number>();
-    let index = 0;
-    for (const event of events) {
-      if (event.kind === "user") map.set(event.id, index++);
-    }
-    return map;
-  }, [events]);
+  const turnIndexByEventId = useMemo(
+    () =>
+      memoByEvents(turnIndexCache.current, events, () => {
+        const map = new Map<string, number>();
+        let index = 0;
+        for (const event of events) {
+          if (event.kind === "user") map.set(event.id, index++);
+        }
+        return map;
+      }),
+    [events],
+  );
 
   function resumeScrollTracking() {
     suppressScroll.current = true;
@@ -654,24 +677,11 @@ export function Transcript({
                             streamingSinceRef.current !== null &&
                             base + rowIndex >= streamingSinceRef.current
                           }
-                          onEditUser={onEditUser}
-                          onRewind={onRewind}
-                          onFork={onFork}
                           reviewedDiffIds={reviewedDiffIds}
                           diffComments={diffComments}
                           diffView={diffView}
-                          onSetDiffView={onSetDiffView}
-                          onToggleReviewed={onToggleReviewed}
-                          onOpenDiff={onOpenDiff}
-                          onAddDiffComment={onAddDiffComment}
-                          onDeleteDiffComment={onDeleteDiffComment}
-                          onSendDiffReview={onSendDiffReview}
-                          onImplementPlan={
-                            event.id === lastPlanEventId ? onImplementPlan : undefined
-                          }
-                          onForkPlan={
-                            event.id === lastPlanEventId ? onForkPlan : undefined
-                          }
+                          isLastPlan={event.id === lastPlanEventId}
+                          handlers={handlers}
                         />
                       </Fragment>
                     ),

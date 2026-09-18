@@ -22,6 +22,7 @@ type Props = {
 
 export function MinimapRail({ turns, scrollRef, onJump }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<number | null>(null);
   const [active, setActive] = useState(0);
   const [hovered, setHovered] = useState<number | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
@@ -60,11 +61,23 @@ export function MinimapRail({ turns, scrollRef, onJump }: Props) {
     setActive(currentIndex(bands, scrollTop, height));
   }, [scrollRef]);
 
+  const scheduleSync = useCallback(() => {
+    if (typeof requestAnimationFrame !== "function") {
+      sync();
+      return;
+    }
+    if (frameRef.current !== null) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      sync();
+    });
+  }, [sync]);
+
   useEffect(() => {
     const scroller = scrollRef.current;
     if (!scroller) return;
     sync();
-    scroller.addEventListener("scroll", sync, { passive: true });
+    scroller.addEventListener("scroll", scheduleSync, { passive: true });
     const container = scroller.parentElement;
     let observer: ResizeObserver | null = null;
     if (container && typeof ResizeObserver !== "undefined") {
@@ -72,10 +85,16 @@ export function MinimapRail({ turns, scrollRef, onJump }: Props) {
       observer.observe(container);
     }
     return () => {
-      scroller.removeEventListener("scroll", sync);
+      scroller.removeEventListener("scroll", scheduleSync);
       observer?.disconnect();
+      if (frameRef.current !== null) {
+        if (typeof cancelAnimationFrame === "function") {
+          cancelAnimationFrame(frameRef.current);
+        }
+        frameRef.current = null;
+      }
     };
-  }, [scrollRef, sync, count]);
+  }, [scrollRef, scheduleSync, sync, count]);
 
   if (count < 2) return null;
 
