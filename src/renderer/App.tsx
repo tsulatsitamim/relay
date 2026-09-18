@@ -46,6 +46,13 @@ import {
   type TypingTargetLike,
 } from "./keys.ts";
 import {
+  applyOverrides,
+  bindingConflicts,
+  loadOverrides,
+  saveOverrides,
+  type KeyOverrides,
+} from "./keymap.ts";
+import {
   IconCheck,
   IconArrowLeft,
   IconArrowRight,
@@ -273,6 +280,7 @@ export function App() {
   const [view, setView] = useState<"chat" | "settings">("chat");
   const [section, setSection] = useState<SettingsSection>("general");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [keyOverrides, setKeyOverrides] = useState<KeyOverrides>(() => loadOverrides());
   const [commandOpen, setCommandOpen] = useState(false);
   const bindingsRef = useRef<KeyBinding[]>([]);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
@@ -885,6 +893,19 @@ export function App() {
     }
   }
 
+  function changeBinding(id: string, keys: string | null) {
+    const next = { ...keyOverrides };
+    if (keys === null) delete next[id];
+    else next[id] = keys;
+    saveOverrides(next);
+    setKeyOverrides(next);
+  }
+
+  function resetBindings() {
+    saveOverrides({});
+    setKeyOverrides({});
+  }
+
   const paletteCommands: PaletteCommand[] = [
     {
       id: "new-chat",
@@ -931,7 +952,7 @@ export function App() {
     );
   }
 
-  const bindings: KeyBinding[] = [
+  const baseBindings: KeyBinding[] = [
     { id: "new-chat", keys: "mod+n", label: "New chat", scope: "global", run: newChat },
     {
       id: "palette",
@@ -965,14 +986,17 @@ export function App() {
     { id: "escape", keys: "Escape", label: "Close overlay", scope: "global", run: runEscape },
   ];
 
+  const bindings = applyOverrides(baseBindings, keyOverrides);
+  const conflicts = bindingConflicts(bindings);
+
   const shortcutHints: ShortcutHint[] = [
-    { label: "New chat", keys: "mod+n" },
-    { label: "Command palette", keys: "mod+k" },
-    { label: "Find in conversation", keys: "mod+f" },
-    { label: "Toggle sidebar", keys: "mod+b" },
-    { label: "Stash / restore draft", keys: "mod+s" },
-    { label: "Keyboard shortcuts", keys: "?" },
-    { label: "Close overlay", keys: "Escape" },
+    ...bindings.map((binding) => ({
+      id: binding.id,
+      label: binding.label,
+      keys: binding.keys,
+      editable: binding.id !== "escape",
+    })),
+    { id: "stash", label: "Stash / restore draft", keys: "mod+s", editable: false },
   ];
 
   useEffect(() => {
@@ -1601,6 +1625,11 @@ export function App() {
         <HelpDialog
           shortcuts={shortcutHints}
           mod={shortcutMod}
+          overrides={keyOverrides}
+          conflicts={conflicts}
+          lockedIds={["escape"]}
+          onChange={changeBinding}
+          onReset={resetBindings}
           onClose={() => setHelpOpen(false)}
         />
       ) : null}

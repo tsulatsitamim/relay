@@ -431,6 +431,16 @@ describe("Transcript rendering", () => {
     expect(log?.getAttribute("aria-relevant")).toBe("additions");
   });
 
+  it("renders the overlay scrollbar inside the transcript wrap", () => {
+    const events: TranscriptEvent[] = [
+      { id: "1", kind: "user", payload: { text: "hello" } },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    const wrap = container.querySelector(".transcript-wrap");
+    expect(wrap?.querySelector(".overlay-scroll-track")).toBeTruthy();
+    expect(wrap?.querySelector(".transcript")?.getAttribute("role")).toBe("log");
+  });
+
   it("shows per-message times and day separators when events carry createdAt", () => {
     const day1 = new Date(2026, 0, 2, 9, 5).getTime();
     const day2 = new Date(2026, 0, 3, 9, 5).getTime();

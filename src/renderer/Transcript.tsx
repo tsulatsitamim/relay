@@ -14,6 +14,7 @@ import { CopyButton } from "./CopyButton";
 import { htmlFromNode } from "./rich-clipboard";
 import { IconArrowDown, IconCheck, IconChevron, IconFork, IconRewind, IconX } from "./icons";
 import { MinimapRail } from "./MinimapRail";
+import { OverlayScrollbar } from "./OverlayScrollbar";
 import { buildTurns as buildRailTurns, jumpTop } from "./minimap";
 import { isNearBottom, nextFollowMode, type FollowMode } from "./scroll";
 import { buildRows } from "./transcript-rows";
@@ -644,6 +645,7 @@ export function Transcript({
         })}
         {footer}
       </div>
+      <OverlayScrollbar scroller={() => scrollRef.current} />
       {events.length > 0 ? (
         <button
           type="button"

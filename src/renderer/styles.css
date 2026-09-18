@@ -1396,7 +1396,6 @@ input:focus-visible {
   width: min(var(--composer-max-width), calc(100% - (var(--composer-messages-padding-inline) * 2)));
   margin: 0 auto;
   padding: var(--space-5) 12px;
-  scrollbar-gutter: stable both-edges;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -1407,6 +1406,48 @@ input:focus-visible {
     padding-left: 20px;
     padding-right: 20px;
   }
+}
+
+.overlay-scroll-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(var(--composer-max-width), calc(100% - (var(--composer-messages-padding-inline) * 2)));
+  pointer-events: none;
+}
+
+.overlay-scroll-track[data-visible="true"]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  pointer-events: auto;
+}
+
+.overlay-thumb {
+  position: absolute;
+  right: 0;
+  z-index: 1;
+  width: 8px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--base) 18%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.overlay-thumb[data-visible="true"] {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.overlay-thumb[data-visible="true"]:hover {
+  background: color-mix(in srgb, var(--base) 30%, transparent);
 }
 
 .minimap {
@@ -1533,19 +1574,7 @@ input:focus-visible {
 }
 
 .transcript::-webkit-scrollbar {
-  width: 6px;
-}
-
-.transcript::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--base) 10%, transparent);
-  border: 1px solid transparent;
-  border-radius: 99px;
-  background-clip: padding-box;
-}
-
-.transcript:hover::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--base) 22%, transparent);
-  background-clip: padding-box;
+  width: 0;
 }
 
 .msg-row {
@@ -3291,6 +3320,27 @@ input:focus-visible {
 .help-label {
   font-size: var(--font-size);
   color: var(--muted);
+}
+
+.help-warn {
+  display: inline-flex;
+  align-items: center;
+  color: var(--working);
+}
+
+.help-reset {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-1-5);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.help-reset:hover {
+  background: var(--hover);
+  color: var(--text);
 }
 
 @media (prefers-reduced-motion: reduce) {

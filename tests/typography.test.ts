@@ -69,12 +69,13 @@ describe("conversation typography contract", () => {
     }
   });
 
-  it("gives the transcript column 12px/20px padding and a stable gutter", () => {
+  it("gives the transcript column 12px/20px padding and a zero-width native scrollbar", () => {
     const transcript = decls(".transcript");
     expect(transcript).toContain("padding: var(--space-5) 12px;");
     expect(transcript).toContain("padding-left: 20px;");
-    expect(transcript).toContain("scrollbar-gutter: stable both-edges;");
+    expect(transcript).not.toContain("scrollbar-gutter");
     expect(transcript).toContain("gap: 16px;");
+    expect(decls(".transcript::-webkit-scrollbar")).toContain("width: 0;");
   });
 
   it("draws the user bubble at 80% / 18px / 12px on a surface", () => {
