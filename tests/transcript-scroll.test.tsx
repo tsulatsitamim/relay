@@ -135,4 +135,22 @@ describe("Transcript smart scroll", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
     delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
   });
+
+  it("reports follow changes while scrolling away and back", () => {
+    const onFollowChange = vi.fn();
+    const { container } = render(
+      <Transcript events={events} onFollowChange={onFollowChange} />,
+    );
+    const scroller = container.querySelector(".transcript") as HTMLElement;
+
+    expect(onFollowChange).toHaveBeenLastCalledWith(true);
+
+    setMetrics(scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 200 });
+    fireEvent.scroll(scroller);
+    expect(onFollowChange).toHaveBeenLastCalledWith(false);
+
+    setMetrics(scroller, { scrollTop: 795, scrollHeight: 1000, clientHeight: 200 });
+    fireEvent.scroll(scroller);
+    expect(onFollowChange).toHaveBeenLastCalledWith(true);
+  });
 });

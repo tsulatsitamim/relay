@@ -39,6 +39,7 @@ type Props = {
   activeEventId?: string | null;
   sessionId?: string;
   streaming?: boolean;
+  onFollowChange?: (following: boolean) => void;
 };
 
 const COLLAPSE_MAX_CHARS = 600;
@@ -431,12 +432,16 @@ export function Transcript({
   activeEventId,
   sessionId,
   streaming = false,
+  onFollowChange,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<FollowMode>("following");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const modeRef = useRef(mode);
   modeRef.current = mode;
+  useEffect(() => {
+    onFollowChange?.(mode === "following");
+  }, [mode, onFollowChange]);
   const seenEventIds = useRef<Set<string>>(new Set(events.map((event) => event.id)));
   const suppressScroll = useRef(false);
   const streamingSinceRef = useRef<number | null>(null);

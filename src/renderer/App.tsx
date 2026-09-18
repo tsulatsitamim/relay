@@ -15,6 +15,7 @@ import { repoFor } from "../shared/repo.ts";
 import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
+import { runTransition } from "./view-transition";
 import type { DiffCommentDraft } from "./DiffBlock.tsx";
 import { composeReview, unsentComments } from "./review.ts";
 import { SettingsNav, SettingsPage, type SettingsSection } from "./Settings";
@@ -275,6 +276,7 @@ export function App() {
   const [reviewedDiffs, setReviewedDiffs] = useState<Set<string>>(() => new Set());
   const [diffComments, setDiffComments] = useState<Record<string, DiffComment[]>>({});
   const [diffView, setDiffView] = useState<"unified" | "split">("unified");
+  const [transcriptFollowing, setTranscriptFollowing] = useState(true);
   const pendingReview = useRef<string[] | null>(null);
   const [permissionIndex, setPermissionIndex] = useState(0);
   const [view, setView] = useState<"chat" | "settings">("chat");
@@ -1453,6 +1455,7 @@ export function App() {
               activeEventId={findOpen ? activeMatchId : null}
               sessionId={selected.id}
               streaming={working}
+              onFollowChange={setTranscriptFollowing}
               onEditUser={(text, eventId) => {
                 if (working) {
                   pendingTruncate.current = eventId;
@@ -1522,6 +1525,7 @@ export function App() {
               key={selected.id}
               disabled={busy}
               working={composerLocked}
+              resting={!transcriptFollowing && !working}
               onCancel={() => void window.relay.cancel(selected.id)}
               onSend={(text, attachments) => sendToSession(selected.id, text, attachments)}
               queued={queued[selected.id] ?? []}
@@ -1591,8 +1595,10 @@ export function App() {
                   }));
                 }
                 const next = await refresh();
-                setState(next);
-                setSelectedId(session.id);
+                runTransition(() => {
+                  setState(next);
+                  setSelectedId(session.id);
+                });
               } catch (err) {
                 setError(err instanceof Error ? err.message : String(err));
               } finally {

@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import type {
   AvailableCommandLike,
   PlanEntry,
@@ -33,6 +33,7 @@ type Props = {
   onRestoreStash?: () => void;
   plan?: PlanEntry[];
   usage?: UsageInfo;
+  resting?: boolean;
 };
 
 export function Composer({
@@ -56,6 +57,7 @@ export function Composer({
   onRestoreStash,
   plan,
   usage,
+  resting = false,
 }: Props) {
   const {
     field,
@@ -84,6 +86,10 @@ export function Composer({
   const canSubmit = hasContent && !disabled;
   const mirror = useRef<HTMLDivElement>(null);
   const stashing = Boolean(onStash && onRestoreStash);
+  const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const restingActive =
+    resting && !text.trim() && attachments.length === 0 && !focused && !hovered && !working;
 
   function restoreStash() {
     if (stash == null) return;
@@ -237,7 +243,18 @@ export function Composer({
       {menu ? (
         <SuggestionMenu items={menu.items} activeIndex={activeIndex} onPick={pick} />
       ) : null}
-      <div className="composer-card dock-composer" onDragOver={onDragOver} onDrop={onDrop}>
+      <div
+        className="composer-card dock-composer"
+        data-resting={restingActive ? "true" : undefined}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest("button")) return;
+          field.current?.focus();
+        }}
+      >
         <button
           type="button"
           className="plus"
@@ -263,6 +280,8 @@ export function Composer({
             disabled={disabled}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onFieldKeyDown}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onPaste={onPaste}
             onScroll={(e) => {
               const node = mirror.current;

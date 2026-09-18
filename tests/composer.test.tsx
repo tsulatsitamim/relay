@@ -612,3 +612,57 @@ describe("Composer prompt history", () => {
     expect(field.value).toBe("edited");
   });
 });
+
+describe("Composer resting", () => {
+  function card(container: HTMLElement): HTMLElement {
+    return container.querySelector(".composer-card") as HTMLElement;
+  }
+
+  it("marks the composer resting when idle, empty, unfocused, and not hovered", () => {
+    const { container } = setup({ resting: true });
+    expect(card(container).getAttribute("data-resting")).toBe("true");
+  });
+
+  it("does not rest when the resting prop is false", () => {
+    const { container } = setup({ resting: false });
+    expect(card(container).getAttribute("data-resting")).toBeNull();
+  });
+
+  it("does not rest while working", () => {
+    const { container } = setup({ resting: true, working: true });
+    expect(card(container).getAttribute("data-resting")).toBeNull();
+  });
+
+  it("does not rest when text is present", () => {
+    const { container, field } = setup({ resting: true });
+    fireEvent.change(field, { target: { value: "hi" } });
+    expect(card(container).getAttribute("data-resting")).toBeNull();
+  });
+
+  it("does not rest when an attachment is present", async () => {
+    const pickImages = vi
+      .fn()
+      .mockResolvedValue([{ name: "shot.png", mimeType: "image/png", data: "AAAA" }]);
+    // @ts-expect-error test shim
+    window.relay = { pickImages };
+    const { container } = setup({ resting: true });
+    fireEvent.click(screen.getByLabelText("Attach image"));
+    await screen.findByText("shot.png");
+    expect(card(container).getAttribute("data-resting")).toBeNull();
+  });
+
+  it("does not rest while the field is focused", () => {
+    const { container, field } = setup({ resting: true });
+    fireEvent.focus(field);
+    expect(card(container).getAttribute("data-resting")).toBeNull();
+  });
+
+  it("expands on hover and rests again when the pointer leaves", () => {
+    const { container } = setup({ resting: true });
+    expect(card(container).getAttribute("data-resting")).toBe("true");
+    fireEvent.mouseEnter(card(container));
+    expect(card(container).getAttribute("data-resting")).toBeNull();
+    fireEvent.mouseLeave(card(container));
+    expect(card(container).getAttribute("data-resting")).toBe("true");
+  });
+});

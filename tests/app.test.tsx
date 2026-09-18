@@ -16,6 +16,7 @@ import type { AgentConfig, PromptAttachment, Repo, Session } from "../src/shared
 afterEach(() => {
   cleanup();
   delete (window as any).relay;
+  delete (document as any).startViewTransition;
 });
 
 const repo = { path: "/tmp/repo", name: "repo", addedAt: 0 };
@@ -796,6 +797,72 @@ describe("App home agent default", () => {
 
     fireEvent.change(repoSelect(), { target: { value: "/tmp/blank" } });
     await waitFor(() => expect(agentSelect().value).toBe(""));
+  });
+});
+
+describe("App home to dock transition", () => {
+  it("navigates into the new session and runs the view transition", async () => {
+    const startViewTransition = vi.fn((callback: () => void) => {
+      callback();
+      return undefined;
+    });
+    Object.defineProperty(document, "startViewTransition", {
+      value: startViewTransition,
+      configurable: true,
+      writable: true,
+    });
+    const { bridge } = mount([], {}, [], [], { "/tmp/repo": "a2" });
+    bridge.getState.mockResolvedValue(stateWith([makeSession()], { s1: [] }));
+
+    const box = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    fireEvent.change(box, { target: { value: "hello" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+
+    await waitFor(() => expect(bridge.create).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(document.querySelector(".dock-composer")).toBeTruthy());
+    expect(startViewTransition).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("App resting dock composer", () => {
+  function setMetrics(
+    el: HTMLElement,
+    metrics: { scrollTop: number; scrollHeight: number; clientHeight: number },
+  ) {
+    Object.defineProperty(el, "scrollHeight", {
+      value: metrics.scrollHeight,
+      configurable: true,
+    });
+    Object.defineProperty(el, "clientHeight", {
+      value: metrics.clientHeight,
+      configurable: true,
+    });
+    Object.defineProperty(el, "scrollTop", {
+      value: metrics.scrollTop,
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  it("rests the dock composer when scrolled away and restores at the bottom", async () => {
+    mount([makeSession()], {
+      s1: [
+        { id: "e1", kind: "user", payload: { text: "hi" } },
+      ] as RelayState["transcripts"][string],
+    });
+    await openSession("Session one");
+    const scroller = document.querySelector(".transcript") as HTMLElement;
+    const card = document.querySelector(".dock-composer") as HTMLElement;
+
+    expect(card.getAttribute("data-resting")).toBeNull();
+
+    setMetrics(scroller, { scrollTop: 100, scrollHeight: 1000, clientHeight: 200 });
+    fireEvent.scroll(scroller);
+    await waitFor(() => expect(card.getAttribute("data-resting")).toBe("true"));
+
+    setMetrics(scroller, { scrollTop: 795, scrollHeight: 1000, clientHeight: 200 });
+    fireEvent.scroll(scroller);
+    await waitFor(() => expect(card.getAttribute("data-resting")).toBeNull());
   });
 });
 
