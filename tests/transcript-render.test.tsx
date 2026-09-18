@@ -130,6 +130,53 @@ describe("Transcript rendering", () => {
     expect(screen.getByText("First step")).toBeTruthy();
   });
 
+  it("renders plan actions only on the last plan row", () => {
+    const onImplementPlan = vi.fn();
+    const onForkPlan = vi.fn();
+    const events: TranscriptEvent[] = [
+      {
+        id: "p1",
+        kind: "plan",
+        payload: { entries: [{ content: "Older plan", status: "pending" }] },
+      },
+      {
+        id: "p2",
+        kind: "plan",
+        payload: { entries: [{ content: "Latest plan", status: "pending" }] },
+      },
+    ];
+    const { container } = render(
+      <Transcript
+        events={events}
+        onImplementPlan={onImplementPlan}
+        onForkPlan={onForkPlan}
+      />,
+    );
+
+    const older = container.querySelector('[data-event-id="p1"]') as HTMLElement;
+    const latest = container.querySelector('[data-event-id="p2"]') as HTMLElement;
+    expect(older.querySelector(".plan-actions")).toBeNull();
+    expect(latest.querySelector(".plan-actions")).toBeTruthy();
+    expect(container.querySelectorAll(".plan-actions")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Implement" }));
+    expect(onImplementPlan).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Implement in new chat" }));
+    expect(onForkPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits plan actions when no plan handler is provided", () => {
+    const events: TranscriptEvent[] = [
+      {
+        id: "p1",
+        kind: "plan",
+        payload: { entries: [{ content: "Only plan", status: "pending" }] },
+      },
+    ];
+    const { container } = render(<Transcript events={events} />);
+    expect(container.querySelector(".plan-actions")).toBeNull();
+  });
+
   it("copies an agent message through the clipboard action", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

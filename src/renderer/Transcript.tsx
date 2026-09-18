@@ -35,6 +35,8 @@ type Props = {
   onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
   onDeleteDiffComment?: (id: string) => void;
   onSendDiffReview?: (ids: string[]) => void;
+  onImplementPlan?: () => void;
+  onForkPlan?: () => void;
   footer?: ReactNode;
   activeEventId?: string | null;
   sessionId?: string;
@@ -69,6 +71,8 @@ function EventRow({
   onAddDiffComment,
   onDeleteDiffComment,
   onSendDiffReview,
+  onImplementPlan,
+  onForkPlan,
 }: {
   event: TranscriptEvent;
   time: string | null;
@@ -84,6 +88,8 @@ function EventRow({
   onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
   onDeleteDiffComment?: (id: string) => void;
   onSendDiffReview?: (ids: string[]) => void;
+  onImplementPlan?: () => void;
+  onForkPlan?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -286,7 +292,13 @@ function EventRow({
   }
 
   if (event.kind === "plan") {
-    return <PlanBlock entries={(event.payload.entries as PlanEntry[] | undefined) ?? []} />;
+    return (
+      <PlanBlock
+        entries={(event.payload.entries as PlanEntry[] | undefined) ?? []}
+        onImplement={onImplementPlan}
+        onFork={onForkPlan}
+      />
+    );
   }
 
   if (event.kind === "tool_call") {
@@ -344,6 +356,8 @@ function MessageRow({
   onAddDiffComment,
   onDeleteDiffComment,
   onSendDiffReview,
+  onImplementPlan,
+  onForkPlan,
 }: {
   event: TranscriptEvent;
   time: string | null;
@@ -364,6 +378,8 @@ function MessageRow({
   onAddDiffComment?: (eventId: string, input: DiffCommentDraft) => void;
   onDeleteDiffComment?: (id: string) => void;
   onSendDiffReview?: (ids: string[]) => void;
+  onImplementPlan?: () => void;
+  onForkPlan?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useVisibleAnimation(ref);
@@ -408,6 +424,8 @@ function MessageRow({
           onAddDiffComment={onAddDiffComment}
           onDeleteDiffComment={onDeleteDiffComment}
           onSendDiffReview={onSendDiffReview}
+          onImplementPlan={onImplementPlan}
+          onForkPlan={onForkPlan}
         />
       )}
     </div>
@@ -428,6 +446,8 @@ export function Transcript({
   onAddDiffComment,
   onDeleteDiffComment,
   onSendDiffReview,
+  onImplementPlan,
+  onForkPlan,
   footer,
   activeEventId,
   sessionId,
@@ -452,6 +472,12 @@ export function Transcript({
   } else {
     streamingSinceRef.current = null;
   }
+  const lastPlanEventId = useMemo(() => {
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      if (events[index]!.kind === "plan") return events[index]!.id;
+    }
+    return null;
+  }, [events]);
   const rows = useMemo(() => buildRows(events), [events]);
   const turns = useMemo(() => buildTurns(rows), [rows]);
   const railTurns = useMemo(() => buildRailTurns(events), [events]);
@@ -640,6 +666,12 @@ export function Transcript({
                           onAddDiffComment={onAddDiffComment}
                           onDeleteDiffComment={onDeleteDiffComment}
                           onSendDiffReview={onSendDiffReview}
+                          onImplementPlan={
+                            event.id === lastPlanEventId ? onImplementPlan : undefined
+                          }
+                          onForkPlan={
+                            event.id === lastPlanEventId ? onForkPlan : undefined
+                          }
                         />
                       </Fragment>
                     ),

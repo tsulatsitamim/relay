@@ -2563,6 +2563,48 @@ input:focus-visible {
   color: var(--text);
 }
 
+.plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  min-width: 0;
+}
+
+.plan-action {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: var(--height-xs);
+  padding: 0 var(--space-2);
+  font-family: var(--font);
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.plan-action:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-action {
+    transition: none;
+  }
+}
+
 .plan-badge {
   position: relative;
   flex-shrink: 0;

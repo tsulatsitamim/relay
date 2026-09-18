@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ThinkingBlock } from "../src/renderer/ThinkingBlock.tsx";
@@ -115,5 +115,39 @@ describe("PlanBlock card", () => {
       true,
     );
     expect(screen.getByRole("button", { name: "Show all" })).toBeTruthy();
+  });
+});
+
+describe("PlanBlock actions", () => {
+  const entries = [{ content: "Only step", status: "pending" as const }];
+
+  it("renders an Implement button that invokes its handler", () => {
+    const onImplement = vi.fn();
+    render(<PlanBlock entries={entries} onImplement={onImplement} />);
+
+    const button = screen.getByRole("button", { name: "Implement" });
+    expect(button.getAttribute("type")).toBe("button");
+    expect(button.classList.contains("plan-action")).toBe(true);
+    fireEvent.click(button);
+    expect(onImplement).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Implement in new chat" })).toBeNull();
+  });
+
+  it("renders an Implement in new chat button that invokes its handler", () => {
+    const onFork = vi.fn();
+    render(<PlanBlock entries={entries} onFork={onFork} />);
+
+    const button = screen.getByRole("button", { name: "Implement in new chat" });
+    expect(button.getAttribute("type")).toBe("button");
+    fireEvent.click(button);
+    expect(onFork).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Implement" })).toBeNull();
+  });
+
+  it("renders no action buttons without handlers", () => {
+    const { container } = render(<PlanBlock entries={entries} />);
+    expect(container.querySelector(".plan-actions")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Implement" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Implement in new chat" })).toBeNull();
   });
 });

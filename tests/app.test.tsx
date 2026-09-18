@@ -1241,3 +1241,47 @@ describe("App diff comments", () => {
     expect(bridge.markDiffCommentsSent).not.toHaveBeenCalled();
   });
 });
+
+describe("App plan follow-up actions", () => {
+  const planEvents = [
+    {
+      id: "p1",
+      kind: "plan",
+      payload: { entries: [{ content: "Ship it", status: "pending" }] },
+    },
+  ] as RelayState["transcripts"][string];
+
+  it("sends the implement prompt to the selected idle session", async () => {
+    const { send } = mount([makeSession()], { s1: planEvents });
+    await openSession("Session one");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Implement" }));
+
+    await waitFor(() =>
+      expect(send).toHaveBeenCalledWith("s1", "Implement the plan above.", undefined),
+    );
+  });
+
+  it("prefills a new chat without sending when implementing in a new chat", async () => {
+    const { send } = mount([makeSession()], { s1: planEvents });
+    await openSession("Session one");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Implement in new chat" }),
+    );
+
+    await waitFor(() => {
+      const box = screen.getByRole("textbox") as HTMLTextAreaElement;
+      expect(box.value).toBe("Implement the plan above.");
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("hides the plan actions while the session is working", async () => {
+    mount([makeSession({ status: "working" })], { s1: planEvents });
+    await openSession("Session one");
+
+    expect(screen.queryByRole("button", { name: "Implement" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Implement in new chat" })).toBeNull();
+  });
+});

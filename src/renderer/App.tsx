@@ -1484,6 +1484,24 @@ export function App() {
               }
               onDeleteDiffComment={deleteDiffComment}
               onSendDiffReview={(ids) => sendDiffReview(selected.id, ids)}
+              onImplementPlan={
+                working
+                  ? undefined
+                  : () => void sendToSession(selected.id, "Implement the plan above.")
+              }
+              onForkPlan={
+                working
+                  ? undefined
+                  : () => {
+                      setSelectedId(null);
+                      setRepoPath(selected.workingDirectory);
+                      setAgentId(selected.agentConfigId);
+                      setHomeInject({
+                        text: "Implement the plan above.",
+                        nonce: Date.now(),
+                      });
+                    }
+              }
               footer={
                 <TurnFooter
                   events={events}

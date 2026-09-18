@@ -18,7 +18,15 @@ function statusClass(status: string | undefined): "completed" | "in-progress" | 
   return "pending";
 }
 
-export function PlanBlock({ entries }: { entries: PlanEntry[] }) {
+export function PlanBlock({
+  entries,
+  onImplement,
+  onFork,
+}: {
+  entries: PlanEntry[];
+  onImplement?: () => void;
+  onFork?: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   if (entries.length === 0) return null;
   const completed = entries.filter((entry) => entry.status === "completed").length;
@@ -78,6 +86,20 @@ export function PlanBlock({ entries }: { entries: PlanEntry[] }) {
         >
           {expanded ? "Show less" : "Show all"}
         </button>
+      ) : null}
+      {onImplement || onFork ? (
+        <div className="plan-actions">
+          {onImplement ? (
+            <button type="button" className="plan-action" onClick={onImplement}>
+              Implement
+            </button>
+          ) : null}
+          {onFork ? (
+            <button type="button" className="plan-action" onClick={onFork}>
+              Implement in new chat
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );
