@@ -19,7 +19,7 @@ describe("ToolCallCard", () => {
   });
 
   it("keeps a finished tool collapsed until expanded", async () => {
-    render(
+    const { container } = render(
       <ToolCallCard
         toolCall={{
           title: "Edit README.md",
@@ -28,12 +28,34 @@ describe("ToolCallCard", () => {
         }}
       />,
     );
-    expect(screen.queryByText("Input")).toBeNull();
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("false");
+    expect(container.querySelector(".tool-body")?.getAttribute("aria-hidden")).toBe("true");
 
     await userEvent.click(screen.getByRole("button", { name: /Edit README.md/i }));
 
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("true");
+    expect(container.querySelector(".tool-body")?.getAttribute("aria-hidden")).toBeNull();
     expect(screen.getByText("Input")).toBeTruthy();
     expect(screen.getByText(/"path": "README\.md"/)).toBeTruthy();
+  });
+
+  it("keeps the body mounted while collapsing so the height can animate", () => {
+    const { container, rerender } = render(
+      <ToolCallCard
+        toolCall={{ title: "Reading files", status: "in_progress", rawInput: { q: 1 } }}
+      />,
+    );
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("true");
+
+    rerender(
+      <ToolCallCard
+        toolCall={{ title: "Reading files", status: "completed", rawInput: { q: 1 } }}
+      />,
+    );
+
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("false");
+    expect(container.querySelector(".tool-body")).toBeTruthy();
+    expect(container.querySelector(".tool-body")?.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("opens automatically while the tool is running", () => {
@@ -47,12 +69,13 @@ describe("ToolCallCard", () => {
   });
 
   it("collapses when a running tool completes", () => {
-    const { rerender } = render(
+    const { container, rerender } = render(
       <ToolCallCard
         toolCall={{ title: "Reading files", status: "in_progress", rawInput: { q: 1 } }}
       />,
     );
-    expect(screen.getByText("Input")).toBeTruthy();
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("true");
+    expect(container.querySelector(".tool-body")?.getAttribute("aria-hidden")).toBeNull();
 
     rerender(
       <ToolCallCard
@@ -60,18 +83,22 @@ describe("ToolCallCard", () => {
       />,
     );
 
-    expect(screen.queryByText("Input")).toBeNull();
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("false");
+    expect(container.querySelector(".tool-body")?.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("keeps a user-expanded card open after the tool completes", async () => {
-    const { rerender } = render(
+    const { container, rerender } = render(
       <ToolCallCard
         toolCall={{ title: "Reading files", status: "pending", rawInput: { q: 1 } }}
       />,
     );
-    expect(screen.queryByText("Input")).toBeNull();
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("false");
+    expect(container.querySelector(".tool-body")?.getAttribute("aria-hidden")).toBe("true");
 
     await userEvent.click(screen.getByRole("button", { name: /Reading files/i }));
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("true");
+    expect(container.querySelector(".tool-body")?.getAttribute("aria-hidden")).toBeNull();
     expect(screen.getByText("Input")).toBeTruthy();
 
     rerender(
@@ -87,6 +114,40 @@ describe("ToolCallCard", () => {
       />,
     );
     expect(screen.getByText("Input")).toBeTruthy();
+  });
+
+  it("shimmers the title while running and clears it when the tool settles", () => {
+    const { container, rerender } = render(
+      <ToolCallCard
+        toolCall={{ title: "Reading files", status: "in_progress" }}
+      />,
+    );
+    expect(
+      container.querySelector(".tool-title")?.classList.contains("shimmer"),
+    ).toBe(true);
+
+    rerender(
+      <ToolCallCard toolCall={{ title: "Reading files", status: "completed" }} />,
+    );
+    expect(
+      container.querySelector(".tool-title")?.classList.contains("shimmer"),
+    ).toBe(false);
+
+    rerender(
+      <ToolCallCard toolCall={{ title: "Reading files", status: "failed" }} />,
+    );
+    expect(
+      container.querySelector(".tool-title")?.classList.contains("shimmer"),
+    ).toBe(false);
+  });
+
+  it("does not shimmer a pending tool title", () => {
+    const { container } = render(
+      <ToolCallCard toolCall={{ title: "Waiting to run", status: "pending" }} />,
+    );
+    expect(
+      container.querySelector(".tool-title")?.classList.contains("shimmer"),
+    ).toBe(false);
   });
 
   it("shows the locations the tool touched", () => {

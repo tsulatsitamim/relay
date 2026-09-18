@@ -2193,6 +2193,40 @@ input:focus-visible {
   flex-shrink: 0;
 }
 
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--tertiary) 0%,
+    var(--text) 50%,
+    var(--tertiary) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 1.4s linear infinite;
+  animation-play-state: var(--visible-animation-state, running);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    background-image: none;
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
 .tool-kind {
   font-size: var(--font-size-xs);
   color: var(--tertiary);
@@ -2233,6 +2267,14 @@ input:focus-visible {
 .collapse {
   overflow: hidden;
   transition: height 200ms ease;
+  visibility: visible;
+}
+
+.collapse[data-open="false"] {
+  visibility: hidden;
+  transition:
+    height 200ms ease,
+    visibility 0s linear 200ms;
 }
 
 @media (prefers-reduced-motion: reduce) {

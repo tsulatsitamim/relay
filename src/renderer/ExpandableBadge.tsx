@@ -35,7 +35,9 @@ export function ExpandableBadge({
         </span>
       </button>
       <AnimatedHeight open={open}>
-        {open ? <div className="badge-body">{children}</div> : null}
+        <div className="badge-body" aria-hidden={open ? undefined : true}>
+          {children}
+        </div>
       </AnimatedHeight>
     </>
   );

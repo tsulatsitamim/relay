@@ -98,6 +98,33 @@ describe("ToolGroup", () => {
     ).toBeTruthy();
   });
 
+  it("shimmers the summary title while running and clears it once the group settles", () => {
+    const { container, rerender } = render(
+      <ToolGroup
+        events={[call("1", "edit", "in_progress"), call("2", "edit")]}
+      />,
+    );
+    expect(
+      container.querySelector(".toolgroup-title")?.classList.contains("shimmer"),
+    ).toBe(true);
+
+    rerender(
+      <ToolGroup events={[call("1", "edit", "completed"), call("2", "edit")]} />,
+    );
+    expect(
+      container.querySelector(".toolgroup-title")?.classList.contains("shimmer"),
+    ).toBe(false);
+  });
+
+  it("does not shimmer the summary title while the group is pending", () => {
+    const { container } = render(
+      <ToolGroup events={[call("1", "edit", "pending"), call("2", "edit")]} />,
+    );
+    expect(
+      container.querySelector(".toolgroup-title")?.classList.contains("shimmer"),
+    ).toBe(false);
+  });
+
   it("collapses the body when the run finishes", () => {
     const { container, rerender } = render(
       <ToolGroup

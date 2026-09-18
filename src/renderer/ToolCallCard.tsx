@@ -89,7 +89,9 @@ export function ToolCallCard({ toolCall }: { toolCall: ToolCallData }) {
           )}
         </span>
         <ToolKindIcon kind={toolCall.kind} title={toolCall.title} />
-        <span className="tool-title">{toolCall.title ?? "Tool"}</span>
+        <span className={`tool-title${tone === "running" ? " shimmer" : ""}`}>
+          {toolCall.title ?? "Tool"}
+        </span>
         {toolCall.kind ? <span className="tool-kind">{toolCall.kind}</span> : null}
         {(toolCall.locations ?? []).map((location, index) => (
           <span className="tool-loc" key={`${location.path}-${index}`}>
@@ -103,25 +105,23 @@ export function ToolCallCard({ toolCall }: { toolCall: ToolCallData }) {
         </span>
       </button>
       <AnimatedHeight open={open}>
-        {open ? (
-          <div className="tool-body">
-            {input ? (
-              <div className="tool-section">
-                <span className="tool-section-label">Input</span>
-                <pre className="tool-pre">{input}</pre>
-              </div>
-            ) : null}
-            {output ? (
-              <div className="tool-section">
-                <span className="tool-section-label">Output</span>
-                <pre className="tool-pre">{output}</pre>
-              </div>
-            ) : null}
-            {!input && !output ? (
-              <div className="tool-section tool-empty">No details</div>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="tool-body" aria-hidden={open ? undefined : true}>
+          {input ? (
+            <div className="tool-section">
+              <span className="tool-section-label">Input</span>
+              <pre className="tool-pre">{input}</pre>
+            </div>
+          ) : null}
+          {output ? (
+            <div className="tool-section">
+              <span className="tool-section-label">Output</span>
+              <pre className="tool-pre">{output}</pre>
+            </div>
+          ) : null}
+          {!input && !output ? (
+            <div className="tool-section tool-empty">No details</div>
+          ) : null}
+        </div>
       </AnimatedHeight>
     </section>
   );

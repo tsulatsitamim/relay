@@ -9,11 +9,14 @@ afterEach(cleanup);
 
 describe("ThinkingBlock", () => {
   it("hides the thought until the toggle is opened", async () => {
-    render(<ThinkingBlock text="weighing options" />);
-    expect(screen.queryByText("weighing options")).toBeNull();
+    const { container } = render(<ThinkingBlock text="weighing options" />);
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("false");
+    expect(container.querySelector(".badge-body")?.getAttribute("aria-hidden")).toBe("true");
 
     await userEvent.click(screen.getByRole("button", { name: /Thinking/i }));
 
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("true");
+    expect(container.querySelector(".badge-body")?.getAttribute("aria-hidden")).toBeNull();
     expect(screen.getByText("weighing options")).toBeTruthy();
   });
 

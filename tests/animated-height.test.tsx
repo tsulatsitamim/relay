@@ -38,6 +38,23 @@ describe("AnimatedHeight", () => {
     expect(box.style.height).toBe("0px");
   });
 
+  it("marks the collapse box open and closed for synchronous observability", () => {
+    const { container, rerender } = render(
+      <AnimatedHeight open={false}>
+        <div>body</div>
+      </AnimatedHeight>,
+    );
+    const box = container.querySelector(".collapse") as HTMLElement;
+    expect(box.getAttribute("data-open")).toBe("false");
+
+    rerender(
+      <AnimatedHeight open>
+        <div>body</div>
+      </AnimatedHeight>,
+    );
+    expect(box.getAttribute("data-open")).toBe("true");
+  });
+
   it("measures a px height while open and observes with ResizeObserver", () => {
     vi.stubGlobal("ResizeObserver", MockResizeObserver);
     const { container, rerender } = render(

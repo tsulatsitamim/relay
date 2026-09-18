@@ -59,6 +59,7 @@ export function AnimatedHeight({
     <div
       ref={ref}
       className={`collapse${className ? ` ${className}` : ""}`}
+      data-open={open ? "true" : "false"}
       style={{ height: height === "auto" ? "auto" : `${height}px` }}
     >
       {children}

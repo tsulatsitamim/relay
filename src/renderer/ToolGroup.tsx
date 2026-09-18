@@ -51,7 +51,9 @@ export function ToolGroup({ events }: { events: TranscriptEvent[] }) {
           )}
         </span>
         <ToolKindIcon kind={first?.kind} title={first?.title} />
-        <span className="toolgroup-title">{events.length} tool calls</span>
+        <span className={`toolgroup-title${running ? " shimmer" : ""}`}>
+          {events.length} tool calls
+        </span>
         {summary ? <span className="toolgroup-hint">{summary}</span> : null}
         <span className="tool-state">{meta.label}</span>
         <span className={`tool-chevron${open ? " open" : ""}`} aria-hidden>

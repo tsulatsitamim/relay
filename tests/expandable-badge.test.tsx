@@ -22,7 +22,7 @@ describe("ExpandableBadge", () => {
     expect(container.querySelector(".badge-head")).toBeTruthy();
   });
 
-  it("reflects open in aria-expanded and the chevron, and renders children only when open", () => {
+  it("reflects open in aria-expanded and the chevron, and hides children while closed", () => {
     const { container, rerender } = render(
       <ExpandableBadge icon={null} label="Files" open={false} onToggle={() => {}}>
         <div>body</div>
@@ -30,8 +30,8 @@ describe("ExpandableBadge", () => {
     );
     const head = container.querySelector(".badge-head")!;
     expect(head.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByText("body")).toBeNull();
-    expect(container.querySelector(".badge-body")).toBeNull();
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("false");
+    expect(container.querySelector(".badge-body")?.getAttribute("aria-hidden")).toBe("true");
     expect(container.querySelector(".badge-chevron")?.classList.contains("open")).toBe(false);
 
     rerender(
@@ -40,7 +40,8 @@ describe("ExpandableBadge", () => {
       </ExpandableBadge>,
     );
     expect(head.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByText("body")).toBeTruthy();
+    expect(container.querySelector(".collapse")?.getAttribute("data-open")).toBe("true");
+    expect(container.querySelector(".badge-body")?.getAttribute("aria-hidden")).toBeNull();
     expect(container.querySelector(".badge-body")).toBeTruthy();
     expect(container.querySelector(".badge-chevron")?.classList.contains("open")).toBe(true);
   });
