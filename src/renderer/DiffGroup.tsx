@@ -103,4 +103,17 @@ export const DiffGroup = memo(function DiffGroup({
       ) : null}
     </section>
   );
-});
+},
+(prev, next) =>
+  prev.events.length === next.events.length &&
+  prev.events.every((event, index) => event === next.events[index]) &&
+  prev.reviewedDiffIds === next.reviewedDiffIds &&
+  prev.comments === next.comments &&
+  prev.view === next.view &&
+  prev.onView === next.onView &&
+  prev.onToggleReviewed === next.onToggleReviewed &&
+  prev.onOpenDiff === next.onOpenDiff &&
+  prev.onAddComment === next.onAddComment &&
+  prev.onDeleteComment === next.onDeleteComment &&
+  prev.onSendReview === next.onSendReview,
+);

@@ -74,4 +74,8 @@ export const ToolGroup = memo(function ToolGroup({
       </AnimatedHeight>
     </section>
   );
-});
+},
+(prev, next) =>
+  prev.events.length === next.events.length &&
+  prev.events.every((event, index) => event === next.events[index]),
+);
