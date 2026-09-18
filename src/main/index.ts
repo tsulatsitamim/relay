@@ -491,10 +491,31 @@ async function main(): Promise<void> {
     store.setSetting(WINDOW_STATE_KEY, serializeWindowState(state));
   });
 
+  let crashDialogShown = false;
+  const reportCrash = (message: string): void => {
+    logger.error(message);
+    if (crashDialogShown) return;
+    crashDialogShown = true;
+    dialog.showErrorBox("Relay error", message);
+  };
+  process.on("uncaughtException", (err) => {
+    reportCrash(err instanceof Error ? err.message : String(err));
+  });
+  process.on("unhandledRejection", (reason) => {
+    reportCrash(reason instanceof Error ? reason.message : String(reason));
+  });
+  app.on("render-process-gone", (_event, _webContents, details) => {
+    logger.error("render-process-gone", { ...details });
+  });
+  app.on("child-process-gone", (_event, details) => {
+    logger.error("child-process-gone", { ...details });
+  });
+
   app.on("before-quit", (e) => {
     if (shuttingDown) return;
     e.preventDefault();
     shuttingDown = true;
+    store.flushNow();
     void manager.shutdown().finally(() => app.exit(0));
   });
 

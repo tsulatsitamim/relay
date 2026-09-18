@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AcpSession, promptBlocks } from "../src/main/acp-session.ts";
 import { pickAutoAllowOption } from "../src/main/permission.ts";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
@@ -152,6 +152,17 @@ describe("AcpSession", () => {
     });
     const started = await session.start();
     expect(started.modes).toEqual([]);
+  });
+
+  it("kills and clears the child when the agent command cannot be spawned", async () => {
+    const { session } = createSession({
+      command: join(tmpdir(), "relay-missing-agent-command"),
+      args: [],
+    });
+    const killSpy = vi.spyOn(session, "kill");
+    await expect(session.start()).rejects.toThrow();
+    expect(killSpy).toHaveBeenCalledTimes(1);
+    expect(session.pid).toBeUndefined();
   });
 
   it("loads a previous ACP session after the process is killed", async () => {

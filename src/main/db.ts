@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { createRequire } from "node:module";
 import initSqlJs, { type Database } from "sql.js";
@@ -43,15 +43,50 @@ CREATE TABLE IF NOT EXISTS diff_comments (
   session_id TEXT NOT NULL,
   json TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_events_session_seq ON events(session_id, seq);
 `;
+
+export type StoreDeps = {
+  write?: (path: string, data: Buffer) => void;
+  rename?: (from: string, to: string) => void;
+  flushDelayMs?: number;
+};
 
 export class Store {
   private dirty = false;
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly write: (path: string, data: Buffer) => void;
+  private readonly rename: (from: string, to: string) => void;
+  private readonly flushDelayMs: number;
 
   constructor(
     private readonly db: Database,
     private readonly file: string,
-  ) {}
+    deps: StoreDeps = {},
+  ) {
+    this.write = deps.write ?? writeFileSync;
+    this.rename = deps.rename ?? renameSync;
+    this.flushDelayMs = deps.flushDelayMs ?? 200;
+  }
+
+  markClosed(): void {
+    const rows = this.db.exec("SELECT id, json FROM sessions");
+    if (!rows[0]) return;
+    const now = Date.now();
+    let changed = false;
+    for (const [id, json] of rows[0].values) {
+      const session = JSON.parse(String(json)) as Session;
+      if (session.status === "error") continue;
+      session.status = "exited" as SessionStatus;
+      session.updatedAt = now;
+      this.db.run("INSERT OR REPLACE INTO sessions (id, json) VALUES (?, ?)", [
+        String(id),
+        JSON.stringify(session),
+      ]);
+      changed = true;
+    }
+    if (changed) this.scheduleFlush();
+  }
 
   saveAgents(agents: AgentConfig[]): void {
     this.db.run("DELETE FROM agents");
@@ -60,7 +95,7 @@ export class Store {
       stmt.run([agent.id, JSON.stringify(agent)]);
     }
     stmt.free();
-    this.flush();
+    this.scheduleFlush();
   }
 
   listAgents(): AgentConfig[] {
@@ -74,7 +109,7 @@ export class Store {
       session.id,
       JSON.stringify(session),
     ]);
-    this.flush();
+    this.scheduleFlush();
   }
 
   listSessions(): Session[] {
@@ -101,7 +136,7 @@ export class Store {
         JSON.stringify(event),
       ],
     );
-    this.flush();
+    this.scheduleFlush();
   }
 
   listEvents(sessionId: string): TranscriptEvent[] {
@@ -123,7 +158,7 @@ export class Store {
       sessionId,
       seq,
     ]);
-    this.flush();
+    this.scheduleFlush();
   }
 
   nextSeq(sessionId: string): number {
@@ -142,7 +177,7 @@ export class Store {
       "INSERT OR REPLACE INTO diff_comments (id, session_id, json) VALUES (?, ?, ?)",
       [comment.id, comment.sessionId, JSON.stringify(comment)],
     );
-    this.flush();
+    this.scheduleFlush();
   }
 
   listDiffComments(sessionId: string): DiffComment[] {
@@ -161,12 +196,12 @@ export class Store {
 
   deleteDiffComment(id: string): void {
     this.db.run("DELETE FROM diff_comments WHERE id = ?", [id]);
-    this.flush();
+    this.scheduleFlush();
   }
 
   deleteDiffCommentsForSession(sessionId: string): void {
     this.db.run("DELETE FROM diff_comments WHERE session_id = ?", [sessionId]);
-    this.flush();
+    this.scheduleFlush();
   }
 
   markDiffCommentsSent(ids: string[], when: number): void {
@@ -185,7 +220,7 @@ export class Store {
         [comment.id, comment.sessionId, JSON.stringify(comment)],
       );
     }
-    this.flush();
+    this.scheduleFlush();
   }
 
   touchRecent(path: string): void {
@@ -193,7 +228,7 @@ export class Store {
       "INSERT OR REPLACE INTO recents (path, used_at) VALUES (?, ?)",
       [path, Date.now()],
     );
-    this.flush();
+    this.scheduleFlush();
   }
 
   listRecents(): string[] {
@@ -209,12 +244,12 @@ export class Store {
       "INSERT OR REPLACE INTO repos (path, name, added_at) VALUES (?, ?, ?)",
       [repo.path, repo.name, repo.addedAt],
     );
-    this.flush();
+    this.scheduleFlush();
   }
 
   removeRepo(path: string): void {
     this.db.run("DELETE FROM repos WHERE path = ?", [path]);
-    this.flush();
+    this.scheduleFlush();
   }
 
   listRepos(): Repo[] {
@@ -234,7 +269,7 @@ export class Store {
       "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
       [key, value],
     );
-    this.flush();
+    this.scheduleFlush();
   }
 
   getSetting(key: string): string | null {
@@ -256,11 +291,12 @@ export class Store {
     return settings;
   }
 
-  setAgentDefault(cwd: string, agentId: string): void {    this.db.run(
+  setAgentDefault(cwd: string, agentId: string): void {
+    this.db.run(
       "INSERT OR REPLACE INTO agent_defaults (cwd, agent_id) VALUES (?, ?)",
       [cwd, agentId],
     );
-    this.flush();
+    this.scheduleFlush();
   }
 
   listAgentDefaults(): Array<{ cwd: string; agentId: string }> {
@@ -272,15 +308,34 @@ export class Store {
     }));
   }
 
-  private flush(): void {
+  private scheduleFlush(): void {
     this.dirty = true;
+    if (this.flushTimer !== null) clearTimeout(this.flushTimer);
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = null;
+      this.flushNow();
+    }, this.flushDelayMs);
+    this.flushTimer.unref?.();
+  }
+
+  flushNow(): void {
+    if (this.flushTimer !== null) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    if (!this.dirty) return;
     mkdirSync(dirname(this.file), { recursive: true });
-    writeFileSync(this.file, Buffer.from(this.db.export()));
+    const tmp = `${this.file}.tmp`;
+    this.write(tmp, Buffer.from(this.db.export()));
+    this.rename(tmp, this.file);
     this.dirty = false;
   }
 }
 
-export async function openStore(file: string): Promise<Store> {
+export async function openStore(
+  file: string,
+  deps: StoreDeps = {},
+): Promise<Store> {
   const SQL = await initSqlJs({
     wasmBinary: Uint8Array.from(
       readFileSync(require.resolve("sql.js/dist/sql-wasm.wasm")),
@@ -290,23 +345,7 @@ export async function openStore(file: string): Promise<Store> {
     ? new SQL.Database(readFileSync(file))
     : new SQL.Database();
   db.run(SCHEMA);
-  markClosed(db);
-  const store = new Store(db, file);
+  const store = new Store(db, file, deps);
+  store.markClosed();
   return store;
-}
-
-function markClosed(db: Database): void {
-  const rows = db.exec("SELECT id, json FROM sessions");
-  if (!rows[0]) return;
-  const now = Date.now();
-  for (const [id, json] of rows[0].values) {
-    const session = JSON.parse(String(json)) as Session;
-    if (session.status === "error") continue;
-    session.status = "exited" as SessionStatus;
-    session.updatedAt = now;
-    db.run("INSERT OR REPLACE INTO sessions (id, json) VALUES (?, ?)", [
-      String(id),
-      JSON.stringify(session),
-    ]);
-  }
 }

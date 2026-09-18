@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,6 +20,8 @@ const h = vi.hoisted(() => ({
   backgrounds: [] as string[],
   windows: [] as unknown[],
   windowOptions: [] as Array<Record<string, unknown>>,
+  errorBoxes: [] as Array<{ title: string; content: string }>,
+  appListeners: new Map<string, Array<(...args: unknown[]) => void>>(),
   workArea: { x: 0, y: 0, width: 1920, height: 1080 },
 }));
 
@@ -100,7 +102,11 @@ vi.mock("electron", () => {
       whenReady: () => Promise.resolve(),
       getPath: () => h.userData,
       getVersion: () => h.version,
-      on: () => {},
+      on: (event: string, listener: (...args: unknown[]) => void) => {
+        const current = h.appListeners.get(event) ?? [];
+        current.push(listener);
+        h.appListeners.set(event, current);
+      },
       quit: () => {},
       exit: () => {},
     },
@@ -112,7 +118,12 @@ vi.mock("electron", () => {
       on() {}
       show() {}
     },
-    dialog: { showOpenDialog: async () => ({ canceled: true, filePaths: [] }) },
+    dialog: {
+      showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
+      showErrorBox: (title: string, content: string) => {
+        h.errorBoxes.push({ title, content });
+      },
+    },
     ipcMain: {
       handle: (channel: string, fn: (...args: unknown[]) => unknown) => {
         h.handlers.set(channel, fn);
@@ -258,6 +269,7 @@ type TestWindow = {
 async function seedWindowState(userData: string, value: string): Promise<void> {
   const store = await openStore(join(userData, "relay.db"));
   store.setSetting("windowState", value);
+  store.flushNow();
 }
 
 async function readWindowState(userData: string): Promise<string | null> {
@@ -330,7 +342,7 @@ describe("main window state persistence", () => {
     const win = await startWindow(h.userData, '{"width":900,"height":700}');
     win.bounds = { x: 30, y: 40, width: 1111, height: 777 };
     win.emit("resize");
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 800));
     expect(JSON.parse((await readWindowState(h.userData))!)).toEqual({
       x: 30,
       y: 40,
@@ -345,7 +357,7 @@ describe("main window state persistence", () => {
     const win = await startWindow(h.userData, '{"width":900,"height":700}');
     win.bounds = { x: 50, y: 60, width: 905, height: 605 };
     win.emit("move");
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 800));
     expect(JSON.parse((await readWindowState(h.userData))!)).toEqual({
       x: 50,
       y: 60,
@@ -360,7 +372,7 @@ describe("main window state persistence", () => {
     const win = await startWindow(h.userData, '{"width":900,"height":700}');
     win.normalBounds = { x: 5, y: 6, width: 901, height: 601 };
     win.maximize();
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 800));
     expect(JSON.parse((await readWindowState(h.userData))!)).toEqual({
       x: 5,
       y: 6,
@@ -376,7 +388,7 @@ describe("main window state persistence", () => {
     win.maximize();
     win.bounds = { x: 7, y: 8, width: 902, height: 602 };
     win.unmaximize();
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 800));
     expect(JSON.parse((await readWindowState(h.userData))!)).toEqual({
       x: 7,
       y: 8,
@@ -391,6 +403,7 @@ describe("main window state persistence", () => {
     const win = await startWindow(h.userData, '{"width":900,"height":700}');
     win.bounds = { x: 11, y: 12, width: 903, height: 603 };
     win.emit("close");
+    await new Promise((resolve) => setTimeout(resolve, 300));
     expect(JSON.parse((await readWindowState(h.userData))!)).toEqual({
       x: 11,
       y: 12,
@@ -398,5 +411,58 @@ describe("main window state persistence", () => {
       height: 603,
       maximized: false,
     });
+  });
+});
+
+describe("main crash handlers", () => {
+  it("logs and shows exactly one error box for repeated uncaught exceptions", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    const baseline = process.listeners("uncaughtException").length;
+    vi.resetModules();
+    await import("../src/main/index.ts");
+    const handler = await waitFor(() => {
+      const list = process.listeners("uncaughtException");
+      return list.length > baseline
+        ? (list.at(-1) as (err: unknown) => void)
+        : undefined;
+    });
+
+    const boxesBefore = h.errorBoxes.length;
+    handler(new Error("boom-one"));
+    handler(new Error("boom-two"));
+
+    const entries = readFileSync(join(h.userData, "relay.log"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(entries.filter((e) => e.level === "error").length).toBe(2);
+    expect(entries.some((e) => e.message === "boom-one")).toBe(true);
+    expect(h.errorBoxes.length - boxesBefore).toBe(1);
+    expect(h.errorBoxes.at(-1)?.title).toBe("Relay error");
+  });
+
+  it("logs render-process-gone details", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    const baseline = h.appListeners.get("render-process-gone")?.length ?? 0;
+    vi.resetModules();
+    await import("../src/main/index.ts");
+    const handler = await waitFor(() => {
+      const list = h.appListeners.get("render-process-gone");
+      return list && list.length > baseline ? list.at(-1) : undefined;
+    });
+    handler({}, {}, { reason: "crashed", exitCode: 133 });
+
+    const entries = readFileSync(join(h.userData, "relay.log"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(
+      entries.some(
+        (e) =>
+          e.level === "error" &&
+          e.message === "render-process-gone" &&
+          e.reason === "crashed",
+      ),
+    ).toBe(true);
   });
 });

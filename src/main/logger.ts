@@ -3,18 +3,29 @@ import { dirname } from "node:path";
 
 export type Logger = {
   info(message: string, extra?: Record<string, unknown>): void;
+  error(message: string, extra?: Record<string, unknown>): void;
 };
 
 export function createLogger(file: string): Logger {
   mkdirSync(dirname(file), { recursive: true });
+  const append = (entry: Record<string, unknown>): void => {
+    appendFileSync(file, `${JSON.stringify(entry)}\n`);
+  };
   return {
     info(message, extra) {
-      const line = JSON.stringify({
+      append({
         t: new Date().toISOString(),
         message,
         ...sanitize(extra),
       });
-      appendFileSync(file, `${line}\n`);
+    },
+    error(message, extra) {
+      append({
+        t: new Date().toISOString(),
+        level: "error",
+        message,
+        ...sanitize(extra),
+      });
     },
   };
 }
