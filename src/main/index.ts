@@ -9,6 +9,7 @@ import {
   ipcMain,
   clipboard,
   shell,
+  nativeTheme,
 } from "electron";
 import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
@@ -37,7 +38,22 @@ import { readAttachment } from "./attachments.ts";
 import type { CreatePayload, DiffCommentInput, RelayState } from "../shared/ipc.ts";
 import type { AgentConfig, PromptAttachment, SessionStatus } from "../shared/types.ts";
 
-function createWindow(): BrowserWindow {
+type ThemeSource = "system" | "light" | "dark";
+
+const LIGHT_BACKGROUND = "#F4F4F2";
+const DARK_BACKGROUND = "#181818";
+
+function normalizeStoredTheme(value: string | null | undefined): ThemeSource {
+  return value === "light" || value === "dark" ? value : "system";
+}
+
+function resolveBackground(source: ThemeSource): string {
+  const dark =
+    source === "dark" || (source === "system" && nativeTheme.shouldUseDarkColors);
+  return dark ? DARK_BACKGROUND : LIGHT_BACKGROUND;
+}
+
+function createWindow(backgroundColor: string): BrowserWindow {
   const dir = dirname(fileURLToPath(import.meta.url));
   const win = new BrowserWindow({
     width: 1200,
@@ -45,7 +61,7 @@ function createWindow(): BrowserWindow {
     minWidth: 800,
     minHeight: 520,
     title: "Relay",
-    backgroundColor: "#F4F4F2",
+    backgroundColor,
     titleBarStyle: "hidden",
     autoHideMenuBar: true,
     webPreferences: {
@@ -335,6 +351,14 @@ async function main(): Promise<void> {
 
   ipcMain.handle("relay:setSetting", (_e, key: string, value: string) => {
     manager.setSetting(key, value);
+    if (key === "theme") {
+      const source = normalizeStoredTheme(value);
+      nativeTheme.themeSource = source;
+      const background = resolveBackground(source);
+      for (const win of windows) {
+        if (!win.isDestroyed()) win.setBackgroundColor(background);
+      }
+    }
   });
 
   ipcMain.handle("relay:setPinned", (_e, id: string, pinned: boolean) => {
@@ -384,7 +408,10 @@ async function main(): Promise<void> {
     } else win.close();
   });
 
-  const win = createWindow();
+  const themeSource = normalizeStoredTheme(store.getSetting("theme"));
+  nativeTheme.themeSource = themeSource;
+
+  const win = createWindow(resolveBackground(themeSource));
   if (process.platform === "darwin") win.setWindowButtonVisibility(false);
   windows.add(win);
 

@@ -61,6 +61,33 @@
   --conversation-line-height: 1.625;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --base: oklch(0.96 0 0);
+  --sidebar: oklch(0.235 0 0);
+  --chrome: oklch(0.205 0 0);
+  --editor: oklch(0.26 0 0);
+}
+
+:root[data-theme="dark"] .traffic-btn {
+  border-color: rgb(255 255 255 / 18%);
+}
+
+:root[data-theme="dark"] .traffic-btn svg {
+  color: rgb(255 255 255 / 55%);
+}
+
+:root[data-theme="dark"] .send-orb:not(.stop),
+:root[data-theme="dark"] .send-orb.mic:disabled,
+:root[data-theme="dark"] .send-orb.send:disabled,
+:root[data-theme="dark"] .btn.primary {
+  color: oklch(0.205 0 0);
+}
+
+:root[data-theme="dark"] .btn.primary:hover {
+  background: color-mix(in srgb, var(--base) 88%, black);
+}
+
 * {
   box-sizing: border-box;
 }

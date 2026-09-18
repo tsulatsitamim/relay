@@ -8,11 +8,22 @@ const h = vi.hoisted(() => ({
   userData: "",
   version: "9.9.9",
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
+  nativeTheme: {
+    themeSource: "system" as "system" | "light" | "dark",
+    shouldUseDarkColors: false,
+  },
+  backgrounds: [] as string[],
 }));
 
 vi.mock("electron", () => {
   class BrowserWindow {
     webContents = { send: () => {} };
+    constructor(options?: { backgroundColor?: string }) {
+      h.backgrounds.push(options?.backgroundColor ?? "");
+    }
+    setBackgroundColor(color: string) {
+      h.backgrounds.push(color);
+    }
     isDestroyed() {
       return false;
     }
@@ -67,6 +78,7 @@ vi.mock("electron", () => {
     },
     clipboard: { writeText: () => {} },
     shell: { openPath: async () => "" },
+    nativeTheme: h.nativeTheme,
   };
 });
 
@@ -131,5 +143,21 @@ describe("main relay:getState", () => {
         body: "note",
       }),
     ).toThrow();
+  });
+});
+
+describe("main appearance wiring", () => {
+  it("drives the native theme source and window background from the stored theme", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+
+    const setSetting = await waitFor(() => h.handlers.get("relay:setSetting"));
+    setSetting({}, "theme", "dark");
+    expect(h.nativeTheme.themeSource).toBe("dark");
+    expect(h.backgrounds.at(-1)).toBe("#181818");
+
+    setSetting({}, "theme", "light");
+    expect(h.nativeTheme.themeSource).toBe("light");
+    expect(h.backgrounds.at(-1)).toBe("#F4F4F2");
   });
 });

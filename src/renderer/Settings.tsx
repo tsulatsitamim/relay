@@ -4,11 +4,13 @@ import type {
   ClaudeAdapterInfo,
   ClaudeInstallResult,
 } from "../shared/types.ts";
+import { CHAT_FONT_SIZES, clampChatFontSize, normalizeThemePreference } from "./theme";
 import {
   IconArrowDown,
   IconArrowLeft,
   IconCheck,
   IconInfo,
+  IconMonitor,
   IconPlug,
   IconPlus,
   IconSliders,
@@ -17,10 +19,11 @@ import {
   IconX,
 } from "./icons";
 
-export type SettingsSection = "general" | "providers" | "about";
+export type SettingsSection = "general" | "appearance" | "providers" | "about";
 
 const SECTIONS: { id: SettingsSection; label: string; icon: ReactNode }[] = [
   { id: "general", label: "General", icon: <IconSliders /> },
+  { id: "appearance", label: "Appearance", icon: <IconMonitor /> },
   { id: "providers", label: "Providers", icon: <IconPlug /> },
   { id: "about", label: "About", icon: <IconInfo /> },
 ];
@@ -156,6 +159,54 @@ function GeneralSection({
             onSetSetting("confirmDeleteProvider", value ? "true" : "false")
           }
         />
+      </SettingRow>
+    </section>
+  );
+}
+
+function AppearanceSection({
+  settings,
+  onSetSetting,
+}: {
+  settings: Record<string, string>;
+  onSetSetting: (key: string, value: string) => void;
+}) {
+  const theme = normalizeThemePreference(settings.theme);
+  const chatFontSize = clampChatFontSize(settings.chatFontSize);
+  return (
+    <section className="settings-section">
+      <h2 className="settings-heading">Appearance</h2>
+      <SettingRow
+        label="Theme"
+        description="Use the system appearance or pick one explicitly."
+      >
+        <select
+          className="setting-select"
+          aria-label="Theme"
+          value={theme}
+          onChange={(event) => onSetSetting("theme", event.target.value)}
+        >
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </SettingRow>
+      <SettingRow
+        label="Chat font size"
+        description="Controls the size of conversation text."
+      >
+        <select
+          className="setting-select"
+          aria-label="Chat font size"
+          value={String(chatFontSize)}
+          onChange={(event) => onSetSetting("chatFontSize", event.target.value)}
+        >
+          {CHAT_FONT_SIZES.map((size) => (
+            <option key={size} value={String(size)}>
+              {size} px
+            </option>
+          ))}
+        </select>
       </SettingRow>
     </section>
   );
@@ -579,6 +630,8 @@ export function SettingsPage({
             settings={settings}
             onSetSetting={onSetSetting}
           />
+        ) : section === "appearance" ? (
+          <AppearanceSection settings={settings} onSetSetting={onSetSetting} />
         ) : section === "providers" ? (
           <ProvidersSection
             agents={agents}

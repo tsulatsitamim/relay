@@ -12,6 +12,13 @@ import type {
   TranscriptEvent,
 } from "../shared/types.ts";
 import { repoFor } from "../shared/repo.ts";
+import {
+  applyAppearance,
+  applyHighlightTheme,
+  cacheAppearance,
+  clampChatFontSize,
+  normalizeThemePreference,
+} from "./theme";
 import { HomeComposer } from "./HomeComposer";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
@@ -342,6 +349,17 @@ export function App() {
       });
     });
   }, []);
+
+  useEffect(() => {
+    const theme = normalizeThemePreference(state.settings.theme);
+    const chatFontSize = clampChatFontSize(state.settings.chatFontSize);
+    const cleanup = applyAppearance({ theme, chatFontSize });
+    const resolved =
+      document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    applyHighlightTheme(resolved, document);
+    cacheAppearance({ theme, chatFontSize });
+    return cleanup;
+  }, [state.settings.theme, state.settings.chatFontSize]);
 
   useEffect(() => {
     const enabled = state.agents.filter((agent) => agent.enabled !== false);

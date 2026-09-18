@@ -475,3 +475,45 @@ describe("About settings", () => {
     expect(screen.getByRole("link", { name: /github\.com/ })).toBeTruthy();
   });
 });
+
+describe("Appearance settings", () => {
+  it("lists Appearance in the settings navigation", async () => {
+    mount(makeState());
+    await openSettings();
+    expect(screen.getByRole("button", { name: "Appearance" })).toBeTruthy();
+  });
+
+  it("shows the current theme and chat font size and persists changes", async () => {
+    const { setSetting } = mount(
+      makeState({ settings: { theme: "light", chatFontSize: "15" } }),
+    );
+    await openSettings();
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+
+    const theme = (await screen.findByLabelText("Theme")) as HTMLSelectElement;
+    const font = screen.getByLabelText("Chat font size") as HTMLSelectElement;
+    expect(theme.value).toBe("light");
+    expect(font.value).toBe("15");
+
+    fireEvent.change(theme, { target: { value: "dark" } });
+    await waitFor(() =>
+      expect(setSetting).toHaveBeenCalledWith("theme", "dark"),
+    );
+
+    fireEvent.change(font, { target: { value: "16" } });
+    await waitFor(() =>
+      expect(setSetting).toHaveBeenCalledWith("chatFontSize", "16"),
+    );
+  });
+
+  it("falls back to the defaults for garbage appearance settings", async () => {
+    mount(makeState({ settings: { theme: "neon", chatFontSize: "massive" } }));
+    await openSettings();
+    fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
+
+    const theme = (await screen.findByLabelText("Theme")) as HTMLSelectElement;
+    const font = screen.getByLabelText("Chat font size") as HTMLSelectElement;
+    expect(theme.value).toBe("system");
+    expect(font.value).toBe("14");
+  });
+});

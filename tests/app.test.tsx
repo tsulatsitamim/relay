@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   act,
   cleanup,
@@ -73,6 +73,7 @@ function mount(
   agentDefaults: Record<string, string> = {},
   repos: Repo[] = [repo],
   diffComments: RelayState["diffComments"] = {},
+  settings: Record<string, string> = {},
 ) {
   let listener: ((event: unknown) => void) | null = null;
   const send = vi.fn().mockResolvedValue(undefined);
@@ -80,9 +81,10 @@ function mount(
   const bridge = {
     getState: vi
       .fn()
-      .mockResolvedValue(
-        stateWith(sessions, transcripts, autoApprove, agentDefaults, repos, diffComments),
-      ),
+      .mockResolvedValue({
+        ...stateWith(sessions, transcripts, autoApprove, agentDefaults, repos, diffComments),
+        settings,
+      }),
     subscribe: vi.fn((fn: (event: unknown) => void) => {
       listener = fn;
       return () => {
@@ -104,6 +106,7 @@ function mount(
     pickImages: vi.fn().mockResolvedValue([]),
     addRepo: vi.fn().mockResolvedValue([]),
     removeRepo: vi.fn().mockResolvedValue([]),
+    setSetting: vi.fn().mockResolvedValue(undefined),
     setPinned: vi.fn().mockResolvedValue(undefined),
     setArchived: vi.fn().mockResolvedValue(undefined),
     rename: vi.fn().mockResolvedValue(undefined),
@@ -1338,5 +1341,35 @@ describe("App plan follow-up actions", () => {
 
     expect(screen.queryByRole("button", { name: "Implement" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Implement in new chat" })).toBeNull();
+  });
+});
+
+describe("App appearance", () => {
+  beforeEach(() => {
+    delete document.documentElement.dataset.theme;
+    document.documentElement.style.removeProperty("--conversation-font-size");
+    document.getElementById("hljs-theme")?.remove();
+  });
+
+  it("applies the stored dark theme to the document and highlights with the dark style", async () => {
+    mount([makeSession()], {}, [], [], {}, [repo], {}, { theme: "dark" });
+    await screen.findByText("Session one");
+
+    await waitFor(() =>
+      expect(document.documentElement.dataset.theme).toBe("dark"),
+    );
+    expect(document.querySelectorAll("#hljs-theme")).toHaveLength(1);
+    expect(document.getElementById("hljs-theme")?.textContent).toContain(".hljs");
+  });
+
+  it("drives the conversation font size from the stored setting", async () => {
+    mount([makeSession()], {}, [], [], {}, [repo], {}, { chatFontSize: "16" });
+    await screen.findByText("Session one");
+
+    await waitFor(() =>
+      expect(
+        document.documentElement.style.getPropertyValue("--conversation-font-size"),
+      ).toBe("16px"),
+    );
   });
 });
