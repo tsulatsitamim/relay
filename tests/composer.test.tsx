@@ -666,3 +666,19 @@ describe("Composer resting", () => {
     expect(card(container).getAttribute("data-resting")).toBe("true");
   });
 });
+
+describe("Composer banners", () => {
+  it("renders banners above the queued chips", () => {
+    const { container } = setup({
+      queued: ["queued one"],
+      banners: <div data-testid="banner">banner</div>,
+    });
+    const banner = screen.getByTestId("banner");
+    const chips = container.querySelector(".composer-queued");
+    expect(chips).toBeTruthy();
+    expect(
+      banner.compareDocumentPosition(chips as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});

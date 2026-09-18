@@ -3243,6 +3243,45 @@ input:focus-visible {
   width: 100%;
 }
 
+.banner-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(var(--composer-max-width), calc(100% - (var(--composer-messages-padding-inline) * 2)));
+  margin: 0 auto;
+}
+
+.banner-stack[data-peek="true"] {
+  max-height: 38vh;
+  overflow-y: auto;
+}
+
+.banner-slot {
+  display: grid;
+  grid-template-rows: 1fr;
+  min-width: 0;
+  transition: grid-template-rows 200ms ease;
+}
+
+@starting-style {
+  .banner-slot {
+    grid-template-rows: 0fr;
+  }
+}
+
+.banner-slot-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.banner-peek {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
 .transcript.empty {
   min-height: 0;
 }
@@ -3523,6 +3562,17 @@ input:focus-visible {
 
 .error-banner-retry:hover {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.banner-stack .permission-dock {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.banner-stack .error-banner {
+  width: 100%;
+  margin: 0;
 }
 
 .rename-input {

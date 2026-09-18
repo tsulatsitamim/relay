@@ -651,6 +651,61 @@ describe("App plan badge", () => {
   });
 });
 
+describe("App banner stack", () => {
+  function request(id: string) {
+    return {
+      id,
+      sessionId: "s1",
+      title: `Request ${id}`,
+      kind: "edit",
+      options: [
+        { optionId: `${id}-allow`, name: "Allow once", kind: "allow_once" },
+        { optionId: `${id}-reject`, name: "Reject", kind: "reject_once" },
+      ],
+    };
+  }
+
+  it("renders the pending permission and chat error inside one stack", async () => {
+    const { send, emit } = mount([makeSession({ id: "s1", title: "Session one" })]);
+    send.mockRejectedValueOnce(new Error("boom"));
+    const box = await openSession("Session one");
+    fireEvent.change(box, { target: { value: "hello" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await screen.findByRole("button", { name: "Retry" });
+
+    act(() => {
+      emit({ type: "permission", sessionId: "s1", request: request("p1") });
+    });
+
+    const stack = document.querySelector(".banner-stack");
+    expect(stack).toBeTruthy();
+    expect(
+      within(stack as HTMLElement).getByRole("alertdialog"),
+    ).toBeTruthy();
+    expect(within(stack as HTMLElement).getByRole("alert")).toBeTruthy();
+  });
+
+  it("renders the plan badge inside the stack, not the composer card", async () => {
+    mount([makeSession({ id: "s1", title: "Session one" })], {
+      s1: [
+        {
+          id: "p1",
+          kind: "plan",
+          payload: { entries: [{ content: "Step", status: "pending" }] },
+        },
+      ],
+    });
+    await openSession("Session one");
+    await screen.findByText("0/1 tasks");
+
+    const stack = document.querySelector(".banner-stack");
+    expect(stack?.querySelector(".plan-badge")).toBeTruthy();
+    expect(
+      document.querySelector(".composer-card")?.querySelector(".plan-badge"),
+    ).toBeNull();
+  });
+});
+
 describe("App context meter", () => {
   it("shows the ring from the latest usage event", async () => {
     mount([makeSession({ id: "s1", title: "Session one" })], {

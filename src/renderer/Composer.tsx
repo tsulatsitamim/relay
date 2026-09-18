@@ -1,12 +1,10 @@
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type {
   AvailableCommandLike,
-  PlanEntry,
   PromptAttachment,
 } from "../shared/types.ts";
 import { ComposerMirror } from "./ComposerMirror";
 import { ContextMeter, type UsageInfo } from "./ContextMeter";
-import { PlanBadge } from "./PlanBadge";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
 import { withThumbs } from "./thumbs";
@@ -31,9 +29,9 @@ type Props = {
   stash?: string | null;
   onStash?: (text: string) => void;
   onRestoreStash?: () => void;
-  plan?: PlanEntry[];
   usage?: UsageInfo;
   resting?: boolean;
+  banners?: ReactNode;
 };
 
 export function Composer({
@@ -55,9 +53,9 @@ export function Composer({
   stash,
   onStash,
   onRestoreStash,
-  plan,
   usage,
   resting = false,
+  banners,
 }: Props) {
   const {
     field,
@@ -146,6 +144,7 @@ export function Composer({
 
   return (
     <div className="dock">
+      {banners}
       {queued.length > 0 ? (
         <div className="composer-queued">
           {queued.map((item, index) => (
@@ -290,7 +289,6 @@ export function Composer({
             rows={1}
           />
         </div>
-        <PlanBadge entries={plan} />
         <ContextMeter usage={usage} />
         {working ? (
           <button className="send-orb stop" onClick={onCancel} aria-label="Stop" title="Stop">

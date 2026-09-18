@@ -25,6 +25,8 @@ import { BranchPill } from "./BranchPill";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { TurnFooter } from "./TurnFooter";
 import { ErrorBanner } from "./ErrorBanner";
+import { BannerStack, type BannerItem } from "./BannerStack";
+import { PlanBadge } from "./PlanBadge";
 import { nextQueued, promoteQueued, pruneQueued, queuedNowMode } from "./queue";
 import {
   commandsForAgent,
@@ -746,6 +748,54 @@ export function App() {
 
   const activeChatError =
     chatError && selected && chatError.sessionId === selected.id ? chatError : null;
+
+  const bannerItems: BannerItem[] = [
+    ...permissions.map((request, index) => ({
+      id: `approval-${request.id}`,
+      kind: "approval" as const,
+      node: (
+        <PermissionCard
+          request={request}
+          active={index === activePermissionIndex}
+          position={{ index, total: permissionCount }}
+          onStep={permissionCount > 1 ? stepPermission : undefined}
+          onAnswer={answerPermission}
+          onAllowAll={(requestId, optionId) =>
+            allowAllForSession(request.sessionId, requestId, optionId)
+          }
+        />
+      ),
+    })),
+    ...(activeChatError
+      ? [
+          {
+            id: `error-${activeChatError.sessionId}`,
+            kind: "error" as const,
+            node: (
+              <ErrorBanner
+                message={activeChatError.message}
+                onRetry={() =>
+                  void sendToSession(
+                    activeChatError.sessionId,
+                    activeChatError.prompt,
+                    activeChatError.attachments,
+                  )
+                }
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(planEntries.length > 0
+      ? [
+          {
+            id: "tasks",
+            kind: "tasks" as const,
+            node: <PlanBadge entries={planEntries} />,
+          },
+        ]
+      : []),
+  ];
 
   const chats = state.sessions.filter((session) => {
     if (!showArchived && session.archived) return false;
@@ -1510,35 +1560,6 @@ export function App() {
                 />
               }
             />
-            {permissions.length > 0 ? (
-              <div className="permission-dock">
-                {permissions.map((request, index) => (
-                  <PermissionCard
-                    key={request.id}
-                    request={request}
-                    active={index === activePermissionIndex}
-                    position={{ index, total: permissionCount }}
-                    onStep={permissionCount > 1 ? stepPermission : undefined}
-                    onAnswer={answerPermission}
-                    onAllowAll={(requestId, optionId) =>
-                      allowAllForSession(request.sessionId, requestId, optionId)
-                    }
-                  />
-                ))}
-              </div>
-            ) : null}
-            {activeChatError ? (
-              <ErrorBanner
-                message={activeChatError.message}
-                onRetry={() =>
-                  void sendToSession(
-                    activeChatError.sessionId,
-                    activeChatError.prompt,
-                    activeChatError.attachments,
-                  )
-                }
-              />
-            ) : null}
             <Composer
               key={selected.id}
               disabled={busy}
@@ -1556,7 +1577,7 @@ export function App() {
               commands={commandList}
               cwd={selected.workingDirectory}
               inject={inject}
-              plan={planEntries}
+              banners={<BannerStack items={bannerItems} />}
               usage={usage}
               history={composerHistory}
               stash={stashes[selected.id] ?? null}
