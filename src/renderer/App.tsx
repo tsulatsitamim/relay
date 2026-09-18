@@ -250,6 +250,7 @@ export function App() {
   const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<
     {
       sessionId: string;
@@ -411,6 +412,11 @@ export function App() {
     () => state.sessions.find((s) => s.id === selectedId) ?? null,
     [state.sessions, selectedId],
   );
+
+  useEffect(() => {
+    setAuthError(null);
+  }, [selectedId, selected?.authRequired]);
+
   const events: TranscriptEvent[] = selected
     ? (state.transcripts[selected.id] ?? [])
     : [];
@@ -862,11 +868,17 @@ export function App() {
               <AuthBanner
                 methods={selected.authMethods ?? []}
                 busy={busy}
-                onLogin={(methodId) =>
+                error={authError}
+                onLogin={(methodId) => {
+                  setAuthError(null);
                   void window.relay
                     .authenticate(selected.id, methodId)
-                    .catch(setChatError)
-                }
+                    .catch((err) => {
+                      setAuthError(
+                        err instanceof Error ? err.message : String(err),
+                      );
+                    });
+                }}
               />
             ),
           },

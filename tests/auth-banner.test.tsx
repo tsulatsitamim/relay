@@ -40,4 +40,29 @@ describe("AuthBanner", () => {
     const button = screen.getByRole("button", { name: "Log in with Alpha" });
     expect((button as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("shows the login error when set", () => {
+    render(
+      <AuthBanner
+        methods={[{ id: "a", name: "Alpha" }]}
+        busy={false}
+        error="Login failed"
+        onLogin={vi.fn()}
+      />,
+    );
+    expect(document.querySelector(".auth-error")?.textContent).toBe("Login failed");
+  });
+
+  it("renders no error line when the error is absent", () => {
+    render(
+      <AuthBanner
+        methods={[{ id: "a", name: "Alpha" }]}
+        busy={false}
+        error={null}
+        onLogin={vi.fn()}
+      />,
+    );
+    expect(document.querySelector(".auth-error")).toBeNull();
+    expect(screen.queryByText("Login failed")).toBeNull();
+  });
 });

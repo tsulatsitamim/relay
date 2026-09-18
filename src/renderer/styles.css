@@ -3642,6 +3642,11 @@ input:focus-visible {
   cursor: default;
 }
 
+.auth-error {
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+
 .banner-stack .permission-dock {
   width: 100%;
   margin: 0;

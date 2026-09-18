@@ -505,6 +505,27 @@ describe("App authentication", () => {
       expect(bridge.authenticate).toHaveBeenCalledWith("s1", "fake-login"),
     );
   });
+
+  it("shows a failed login inside the banner without the chat error banner", async () => {
+    const session = makeSession({
+      authRequired: true,
+      authMethods: [{ id: "fake-login", name: "Login with fake" }],
+    });
+    const { bridge } = mount([session]);
+    bridge.authenticate.mockRejectedValueOnce(new Error("login blew up"));
+    await openSession("Session one");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Log in with Login with fake" }),
+    );
+
+    await waitFor(() =>
+      expect(document.querySelector(".auth-error")?.textContent).toBe(
+        "login blew up",
+      ),
+    );
+    expect(document.querySelector(".error-banner")).toBeNull();
+  });
 });
 
 describe("App working indicator", () => {

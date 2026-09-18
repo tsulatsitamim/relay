@@ -3,10 +3,11 @@ import type { SessionAuthMethod } from "../shared/types.ts";
 type Props = {
   methods: SessionAuthMethod[];
   busy: boolean;
+  error?: string | null;
   onLogin: (methodId: string) => void;
 };
 
-export function AuthBanner({ methods, busy, onLogin }: Props) {
+export function AuthBanner({ methods, busy, error, onLogin }: Props) {
   return (
     <div className="auth-banner" role="alert">
       <span className="auth-banner-title">Authentication required</span>
@@ -35,6 +36,7 @@ export function AuthBanner({ methods, busy, onLogin }: Props) {
           </span>
         </>
       )}
+      {error ? <span className="auth-error">{error}</span> : null}
     </div>
   );
 }
