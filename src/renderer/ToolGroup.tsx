@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { TranscriptEvent } from "../shared/types.ts";
+import { AnimatedHeight } from "./AnimatedHeight";
 import { IconCheck, IconChevronRight, IconSpinner, IconWarning } from "./icons";
 import { ToolCallCard, ToolKindIcon, type ToolCallData } from "./ToolCallCard";
 import { toolGroupMeta, toolGroupSummary } from "./tool-group";
@@ -60,13 +61,13 @@ export function ToolGroup({ events }: { events: TranscriptEvent[] }) {
           <IconChevronRight />
         </span>
       </button>
-      {open ? (
-        <div className="toolgroup-body">
+      <AnimatedHeight open={open}>
+        <div className="toolgroup-body" aria-hidden={open ? undefined : true}>
           {events.map((event) => (
             <ToolCallCard key={event.id} toolCall={event.payload as ToolCallData} />
           ))}
         </div>
-      ) : null}
+      </AnimatedHeight>
     </section>
   );
 }

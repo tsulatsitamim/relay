@@ -64,11 +64,18 @@ describe("toolGroupMeta", () => {
 });
 
 describe("ToolGroup", () => {
-  it("shows the count and hint with the cards collapsed", () => {
-    render(<ToolGroup events={[call("1", "edit"), call("2", "edit"), call("3", "execute")]} />);
+  it("shows the count and hint with the group collapsed but the body mounted", () => {
+    const { container } = render(
+      <ToolGroup events={[call("1", "edit"), call("2", "edit"), call("3", "execute")]} />,
+    );
     expect(screen.getByText("3 tool calls")).toBeTruthy();
     expect(screen.getByText("Edited 2 files, ran 1 command")).toBeTruthy();
-    expect(screen.queryByText("Run 1")).toBeNull();
+    expect(container.querySelector(".toolgroup .collapse")?.getAttribute("data-open")).toBe(
+      "false",
+    );
+    const body = container.querySelector(".toolgroup-body");
+    expect(body).toBeTruthy();
+    expect(body?.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("expands to reveal one card per grouped event", async () => {
@@ -79,6 +86,19 @@ describe("ToolGroup", () => {
     expect(container.querySelectorAll(".toolgroup-body .tool")).toHaveLength(2);
     expect(screen.getByText("Run 1")).toBeTruthy();
     expect(screen.getByText("Run 2")).toBeTruthy();
+  });
+
+  it("expands through a collapse box that stays mounted", async () => {
+    const { container } = render(<ToolGroup events={[call("1", "edit")]} />);
+    expect(container.querySelector(".toolgroup .collapse")?.getAttribute("data-open")).toBe(
+      "false",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /1 tool calls/i }));
+    expect(container.querySelector(".toolgroup .collapse")?.getAttribute("data-open")).toBe(
+      "true",
+    );
+    expect(container.querySelector(".toolgroup-body")?.getAttribute("aria-hidden")).toBeNull();
+    expect(container.querySelector(".toolgroup-body .tool")).toBeTruthy();
   });
 
   it("auto-opens while a grouped tool is running", () => {
@@ -125,18 +145,25 @@ describe("ToolGroup", () => {
     ).toBe(false);
   });
 
-  it("collapses the body when the run finishes", () => {
+  it("collapses the body when the run finishes but keeps it mounted to animate", () => {
     const { container, rerender } = render(
       <ToolGroup
         events={[call("1", "edit", "in_progress", { rawInput: { a: 1 } }), call("2", "edit")]}
       />,
     );
-    expect(container.querySelector(".toolgroup-body")).toBeTruthy();
+    expect(container.querySelector(".toolgroup .collapse")?.getAttribute("data-open")).toBe(
+      "true",
+    );
+    expect(container.querySelector(".toolgroup-body")?.getAttribute("aria-hidden")).toBeNull();
     rerender(
       <ToolGroup
         events={[call("1", "edit", "completed", { rawInput: { a: 1 } }), call("2", "edit")]}
       />,
     );
-    expect(container.querySelector(".toolgroup-body")).toBeNull();
+    expect(container.querySelector(".toolgroup .collapse")?.getAttribute("data-open")).toBe(
+      "false",
+    );
+    expect(container.querySelector(".toolgroup-body")).toBeTruthy();
+    expect(container.querySelector(".toolgroup-body")?.getAttribute("aria-hidden")).toBe("true");
   });
 });
