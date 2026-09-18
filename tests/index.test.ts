@@ -23,6 +23,11 @@ const h = vi.hoisted(() => ({
   errorBoxes: [] as Array<{ title: string; content: string }>,
   appListeners: new Map<string, Array<(...args: unknown[]) => void>>(),
   workArea: { x: 0, y: 0, width: 1920, height: 1080 },
+  singleInstanceLock: true,
+  quitCalls: 0,
+  menuTemplates: [] as unknown[],
+  appMenu: undefined as unknown,
+  isPackaged: false,
 }));
 
 vi.mock("electron", () => {
@@ -31,6 +36,10 @@ vi.mock("electron", () => {
     webContents = { send: () => {} };
     bounds = { x: 0, y: 0, width: 0, height: 0 };
     normalBounds = { x: 0, y: 0, width: 0, height: 0 };
+    minimized = false;
+    restoreCalls = 0;
+    showCalls = 0;
+    focusCalls = 0;
     private maximized = false;
     private listeners = new Map<string, Array<(...args: unknown[]) => void>>();
     constructor(options?: Record<string, unknown>) {
@@ -67,14 +76,21 @@ vi.mock("electron", () => {
       return false;
     }
     isMinimized() {
-      return false;
+      return this.minimized;
     }
     loadURL() {}
     loadFile() {}
     setWindowButtonVisibility() {}
-    show() {}
-    focus() {}
-    restore() {}
+    show() {
+      this.showCalls += 1;
+    }
+    focus() {
+      this.focusCalls += 1;
+    }
+    restore() {
+      this.restoreCalls += 1;
+      this.minimized = false;
+    }
     minimize() {}
     maximize() {
       this.maximized = true;
@@ -102,13 +118,28 @@ vi.mock("electron", () => {
       whenReady: () => Promise.resolve(),
       getPath: () => h.userData,
       getVersion: () => h.version,
+      get isPackaged() {
+        return h.isPackaged;
+      },
+      requestSingleInstanceLock: () => h.singleInstanceLock,
       on: (event: string, listener: (...args: unknown[]) => void) => {
         const current = h.appListeners.get(event) ?? [];
         current.push(listener);
         h.appListeners.set(event, current);
       },
-      quit: () => {},
+      quit: () => {
+        h.quitCalls += 1;
+      },
       exit: () => {},
+    },
+    Menu: {
+      buildFromTemplate: (template: unknown) => {
+        h.menuTemplates.push(template);
+        return template;
+      },
+      setApplicationMenu: (menu: unknown) => {
+        h.appMenu = menu;
+      },
     },
     BrowserWindow,
     Notification: class {
@@ -476,5 +507,129 @@ describe("main crash handlers", () => {
           e.reason === "crashed",
       ),
     ).toBe(true);
+  });
+});
+
+type IntegrationWindow = TestWindow & {
+  minimized: boolean;
+  restoreCalls: number;
+  showCalls: number;
+  focusCalls: number;
+};
+
+type MenuItemLike = { role?: string; submenu?: MenuItemLike[] };
+
+function collectRoles(items: MenuItemLike[]): string[] {
+  const roles: string[] = [];
+  for (const item of items) {
+    if (typeof item.role === "string") roles.push(item.role);
+    if (Array.isArray(item.submenu)) roles.push(...collectRoles(item.submenu));
+  }
+  return roles;
+}
+
+function setPlatform(value: NodeJS.Platform): void {
+  Object.defineProperty(process, "platform", { value, configurable: true });
+}
+
+async function bootMain(userData: string): Promise<void> {
+  vi.resetModules();
+  h.singleInstanceLock = true;
+  h.userData = userData;
+  h.windows.length = 0;
+  const index = h.windowOptions.length;
+  await import("../src/main/index.ts");
+  await waitFor(() => h.windowOptions[index]);
+}
+
+describe("main single instance lock", () => {
+  it("quits without creating a window when the lock is not acquired", async () => {
+    const userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    vi.resetModules();
+    h.singleInstanceLock = false;
+    h.quitCalls = 0;
+    const windowsBefore = h.windows.length;
+    await import("../src/main/index.ts");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(h.quitCalls).toBe(1);
+    expect(h.windows.length).toBe(windowsBefore);
+    h.singleInstanceLock = true;
+  });
+
+  it("restores, shows and focuses the existing window on second-instance", async () => {
+    const userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await bootMain(userData);
+    const win = h.windows.at(-1) as IntegrationWindow;
+    const handler = await waitFor(() =>
+      (h.appListeners.get("second-instance") ?? []).at(-1),
+    );
+    win.minimized = true;
+    win.restoreCalls = 0;
+    win.showCalls = 0;
+    win.focusCalls = 0;
+    handler({}, ["relay"], userData);
+    expect(win.restoreCalls).toBe(1);
+    expect(win.minimized).toBe(false);
+    expect(win.showCalls).toBe(1);
+    expect(win.focusCalls).toBe(1);
+  });
+});
+
+describe("main macOS lifecycle", () => {
+  it("creates a window on activate only when none are open", async () => {
+    const userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await bootMain(userData);
+    const activate = await waitFor(() =>
+      (h.appListeners.get("activate") ?? []).at(-1),
+    );
+    const before = h.windows.length;
+    activate();
+    expect(h.windows.length).toBe(before);
+
+    h.windows.length = 0;
+    activate();
+    expect(h.windows.length).toBe(1);
+  });
+
+  it("quits on window-all-closed off darwin but not on darwin", async () => {
+    const userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await bootMain(userData);
+    const handler = await waitFor(() =>
+      (h.appListeners.get("window-all-closed") ?? []).at(-1),
+    );
+    const original = process.platform;
+    try {
+      setPlatform("darwin");
+      h.quitCalls = 0;
+      handler();
+      expect(h.quitCalls).toBe(0);
+
+      setPlatform("linux");
+      handler();
+      expect(h.quitCalls).toBe(1);
+    } finally {
+      setPlatform(original);
+    }
+  });
+});
+
+describe("main native menu", () => {
+  it("installs a menu containing edit, view and window roles", async () => {
+    const userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await bootMain(userData);
+    const template = await waitFor(() =>
+      h.menuTemplates.at(-1) as MenuItemLike[] | undefined,
+    );
+    expect(h.appMenu).toBe(template);
+    const roles = collectRoles(template);
+    expect(roles).toContain("appMenu");
+    expect(roles).toContain("editMenu");
+    expect(roles).toContain("windowMenu");
+    expect(roles).toContain("reload");
+    expect(roles).toContain("resetZoom");
+    expect(roles).toContain("zoomIn");
+    expect(roles).toContain("zoomOut");
+    expect(roles).toContain("togglefullscreen");
+    expect(roles).toContain("toggleDevTools");
   });
 });

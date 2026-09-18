@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   app,
   BrowserWindow,
+  Menu,
   Notification,
   dialog,
   ipcMain,
@@ -12,6 +13,7 @@ import {
   nativeTheme,
   screen,
 } from "electron";
+import type { MenuItemConstructorOptions } from "electron";
 import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import {
@@ -106,6 +108,38 @@ function createWindow(
   return win;
 }
 
+function focusFirstWindow(): void {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+
+function installApplicationMenu(): void {
+  const template: MenuItemConstructorOptions[] = [];
+  if (process.platform === "darwin") template.push({ role: "appMenu" });
+  template.push({ role: "editMenu" });
+
+  const viewMenu: MenuItemConstructorOptions[] = [
+    { role: "reload" },
+    { role: "forceReload" },
+  ];
+  if (!app.isPackaged) viewMenu.push({ role: "toggleDevTools" });
+  viewMenu.push(
+    { type: "separator" },
+    { role: "resetZoom" },
+    { role: "zoomIn" },
+    { role: "zoomOut" },
+    { type: "separator" },
+    { role: "togglefullscreen" },
+  );
+  template.push({ label: "View", submenu: viewMenu });
+  template.push({ role: "windowMenu" });
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function trackWindowState(
   win: BrowserWindow,
   save: (state: WindowState) => void,
@@ -141,8 +175,18 @@ function trackWindowState(
 }
 
 async function main(): Promise<void> {
+  const gotLock = app.requestSingleInstanceLock();
+  if (!gotLock) {
+    app.quit();
+    return;
+  }
+  app.on("second-instance", () => {
+    focusFirstWindow();
+  });
+
   await app.whenReady();
   await applyLoginPath();
+  installApplicationMenu();
 
   const userData = app.getPath("userData");
   const toolsDir = join(userData, "tools");
@@ -185,11 +229,7 @@ async function main(): Promise<void> {
       notification.show();
     },
     focusWindow: () => {
-      const win = BrowserWindow.getAllWindows()[0];
-      if (!win) return;
-      if (win.isMinimized()) win.restore();
-      win.show();
-      win.focus();
+      focusFirstWindow();
     },
   };
   const lastStatus = new Map<string, SessionStatus>();
@@ -489,13 +529,18 @@ async function main(): Promise<void> {
     ? clampToWorkArea(storedWindowState, screen.getPrimaryDisplay().workArea)
     : null;
 
-  const win = createWindow(resolveBackground(themeSource), windowState);
-  if (process.platform === "darwin") win.setWindowButtonVisibility(false);
-  windows.add(win);
+  const createMainWindow = (): BrowserWindow => {
+    const created = createWindow(resolveBackground(themeSource), windowState);
+    if (process.platform === "darwin") created.setWindowButtonVisibility(false);
+    windows.add(created);
 
-  trackWindowState(win, (state) => {
-    store.setSetting(WINDOW_STATE_KEY, serializeWindowState(state));
-  });
+    trackWindowState(created, (state) => {
+      store.setSetting(WINDOW_STATE_KEY, serializeWindowState(state));
+    });
+    return created;
+  };
+
+  createMainWindow();
 
   let crashDialogShown = false;
   const reportCrash = (message: string): void => {
@@ -525,8 +570,12 @@ async function main(): Promise<void> {
     void manager.shutdown().finally(() => app.exit(0));
   });
 
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+  });
+
   app.on("window-all-closed", () => {
-    app.quit();
+    if (process.platform !== "darwin") app.quit();
   });
 }
 
