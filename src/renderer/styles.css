@@ -67,6 +67,8 @@
   --sidebar: oklch(0.235 0 0);
   --chrome: oklch(0.205 0 0);
   --editor: oklch(0.26 0 0);
+  --danger: oklch(0.72 0.196 14.313);
+  --ok: oklch(0.72 0.116 156.327);
 }
 
 :root[data-theme="dark"] .traffic-btn {

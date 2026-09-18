@@ -53,6 +53,10 @@ function resolveBackground(source: ThemeSource): string {
   return dark ? DARK_BACKGROUND : LIGHT_BACKGROUND;
 }
 
+function systemThemeBackground(source: ThemeSource): string | null {
+  return source === "system" ? resolveBackground(source) : null;
+}
+
 function createWindow(backgroundColor: string): BrowserWindow {
   const dir = dirname(fileURLToPath(import.meta.url));
   const win = new BrowserWindow({
@@ -410,6 +414,15 @@ async function main(): Promise<void> {
 
   const themeSource = normalizeStoredTheme(store.getSetting("theme"));
   nativeTheme.themeSource = themeSource;
+
+  nativeTheme.on("updated", () => {
+    const source = normalizeStoredTheme(store.getSetting("theme"));
+    const background = systemThemeBackground(source);
+    if (background === null) return;
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.setBackgroundColor(background);
+    }
+  });
 
   const win = createWindow(resolveBackground(themeSource));
   if (process.platform === "darwin") win.setWindowButtonVisibility(false);

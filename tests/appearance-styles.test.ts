@@ -56,4 +56,11 @@ describe("appearance stylesheet contract", () => {
       "color: oklch(0.205 0 0);",
     );
   });
+
+  it("lightens the dark-mode accents that fall below the contrast floor", () => {
+    const dark = decls(':root[data-theme="dark"]');
+    expect(dark).toContain("--danger: oklch(0.72 0.196 14.313);");
+    expect(dark).toContain("--ok: oklch(0.72 0.116 156.327);");
+    expect(dark).not.toContain("--working:");
+  });
 });

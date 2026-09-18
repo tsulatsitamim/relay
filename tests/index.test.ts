@@ -11,8 +11,13 @@ const h = vi.hoisted(() => ({
   nativeTheme: {
     themeSource: "system" as "system" | "light" | "dark",
     shouldUseDarkColors: false,
+    onUpdated: undefined as (() => void) | undefined,
+    on: (event: string, listener: () => void) => {
+      if (event === "updated") h.nativeTheme.onUpdated = listener;
+    },
   },
   backgrounds: [] as string[],
+  windows: [] as unknown[],
 }));
 
 vi.mock("electron", () => {
@@ -20,6 +25,7 @@ vi.mock("electron", () => {
     webContents = { send: () => {} };
     constructor(options?: { backgroundColor?: string }) {
       h.backgrounds.push(options?.backgroundColor ?? "");
+      h.windows.push(this);
     }
     setBackgroundColor(color: string) {
       h.backgrounds.push(color);
@@ -44,7 +50,7 @@ vi.mock("electron", () => {
     unmaximize() {}
     close() {}
     static getAllWindows() {
-      return [];
+      return h.windows;
     }
     static fromWebContents() {
       return null;
@@ -158,6 +164,44 @@ describe("main appearance wiring", () => {
 
     setSetting({}, "theme", "light");
     expect(h.nativeTheme.themeSource).toBe("light");
+    expect(h.backgrounds.at(-1)).toBe("#F4F4F2");
+  });
+
+  it("re-applies the system background when the OS theme changes", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+
+    const setSetting = await waitFor(() => h.handlers.get("relay:setSetting"));
+    const onUpdated = await waitFor(() => h.nativeTheme.onUpdated);
+
+    h.nativeTheme.shouldUseDarkColors = false;
+    setSetting({}, "theme", "system");
+    expect(h.backgrounds.at(-1)).toBe("#F4F4F2");
+
+    h.nativeTheme.shouldUseDarkColors = true;
+    onUpdated();
+    expect(h.backgrounds.at(-1)).toBe("#181818");
+  });
+
+  it("does not switch an explicit background when the OS theme changes", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+
+    const setSetting = await waitFor(() => h.handlers.get("relay:setSetting"));
+    const onUpdated = await waitFor(() => h.nativeTheme.onUpdated);
+
+    setSetting({}, "theme", "dark");
+    const afterDark = h.backgrounds.length;
+    h.nativeTheme.shouldUseDarkColors = false;
+    onUpdated();
+    expect(h.backgrounds.length).toBe(afterDark);
+    expect(h.backgrounds.at(-1)).toBe("#181818");
+
+    setSetting({}, "theme", "light");
+    const afterLight = h.backgrounds.length;
+    h.nativeTheme.shouldUseDarkColors = true;
+    onUpdated();
+    expect(h.backgrounds.length).toBe(afterLight);
     expect(h.backgrounds.at(-1)).toBe("#F4F4F2");
   });
 });
