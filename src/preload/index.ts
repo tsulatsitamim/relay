@@ -13,7 +13,6 @@ import type {
   PromptAttachment,
   Repo,
   Session,
-  SessionConfigOption,
   TranscriptEvent,
 } from "../shared/types.ts";
 import type { McpServerConfig } from "../shared/mcp.ts";
@@ -33,7 +32,7 @@ contextBridge.exposeInMainWorld("relay", {
     id: string,
     configId: string,
     value: string,
-  ): Promise<SessionConfigOption[]> =>
+  ): Promise<void> =>
     ipcRenderer.invoke("relay:setConfigOption", id, configId, value),
   forkSession: (id: string): Promise<Session | null> =>
     ipcRenderer.invoke("relay:forkSession", id),

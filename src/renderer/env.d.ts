@@ -12,7 +12,6 @@ import type {
   PromptAttachment,
   Repo,
   Session,
-  SessionConfigOption,
   TranscriptEvent,
 } from "../shared/types.ts";
 import type { McpServerConfig } from "../shared/mcp.ts";
@@ -28,7 +27,7 @@ export type RelayBridge = {
     id: string,
     configId: string,
     value: string,
-  ) => Promise<SessionConfigOption[]>;
+  ) => Promise<void>;
   forkSession: (id: string) => Promise<Session | null>;
   addDiffComment: (
     sessionId: string,
