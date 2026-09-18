@@ -12,6 +12,7 @@ import {
 
 const storePath = process.env.FAKE_ACP_STORE;
 const REQUIRE_AUTH = process.env.FAKE_ACP_REQUIRE_AUTH === "1";
+const NO_FORK = process.env.FAKE_ACP_NO_FORK === "1";
 const MCP_DUMP = process.env.FAKE_ACP_MCP_DUMP === "1";
 const MCP_DUMP_DIR = storePath ? dirname(storePath) : null;
 let authed = false;
@@ -145,7 +146,10 @@ new AgentSideConnection((conn) => {
     async initialize() {
       return {
         protocolVersion: PROTOCOL_VERSION,
-        agentCapabilities: { loadSession: true },
+        agentCapabilities: {
+          loadSession: true,
+          ...(NO_FORK ? {} : { sessionCapabilities: { fork: {} } }),
+        },
         agentInfo: { name: "fake-acp", version: "0.1.0" },
         ...(REQUIRE_AUTH
           ? { authMethods: [{ id: "fake-login", name: "Login with fake" }] }
@@ -209,6 +213,29 @@ new AgentSideConnection((conn) => {
       return {
         modes: modeState(existing.modeId ?? "build"),
         configOptions: configOptionsFor(existing.configValues),
+      };
+    },
+
+    async unstable_forkSession({ sessionId, mcpServers }) {
+      if (REQUIRE_AUTH && !authed) {
+        throw RequestError.authRequired();
+      }
+      dumpMcpServers(mcpServers);
+      const source = sessions.get(sessionId) ?? store[sessionId];
+      if (!source) {
+        throw new Error(`unknown session ${sessionId}`);
+      }
+      const forkId = randomUUID();
+      sessions.set(forkId, {
+        messages: [...(source.messages ?? [])],
+        abort: null,
+        modeId: source.modeId ?? "build",
+        configValues: { ...(source.configValues ?? {}) },
+      });
+      persist();
+      return {
+        sessionId: forkId,
+        configOptions: configOptionsFor(source.configValues),
       };
     },
 

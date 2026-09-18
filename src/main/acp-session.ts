@@ -175,6 +175,7 @@ export class AcpSession {
   private connection: ClientSideConnection | null = null;
   private sessionId: string | null = null;
   private loadSession = false;
+  private forkCapable = false;
   private didResume = false;
   private promptInFlight: Promise<{ stopReason: string }> | null = null;
   private stopping = false;
@@ -196,6 +197,10 @@ export class AcpSession {
 
   get supportsLoad(): boolean {
     return this.loadSession;
+  }
+
+  get supportsFork(): boolean {
+    return this.forkCapable && Boolean(this.connection && this.sessionId);
   }
 
   get resumed(): boolean {
@@ -299,6 +304,9 @@ export class AcpSession {
           clientInfo: { name: "relay", version: "0.1.0" },
         });
         this.loadSession = Boolean(init.agentCapabilities?.loadSession);
+        this.forkCapable = Boolean(
+          init.agentCapabilities?.sessionCapabilities?.fork,
+        );
         this.authState = authMethodsFrom(init.authMethods);
 
         if (this.opts.authMethodId) {
@@ -378,6 +386,29 @@ export class AcpSession {
     });
     this.configState = configOptionsFrom(result.configOptions);
     return this.configState;
+  }
+
+  async forkSession(cwd?: string): Promise<{
+    sessionId: string;
+    configOptions?: SessionConfigOption[];
+    modes?: SessionModeLike[];
+    currentModeId?: string;
+  }> {
+    if (!this.connection || !this.sessionId) {
+      throw new Error("session is not started");
+    }
+    const result = await this.connection.unstable_forkSession({
+      sessionId: this.sessionId,
+      cwd: cwd ?? this.opts.cwd,
+      mcpServers: this.opts.mcpServers ?? [],
+    });
+    const configOptions = configOptionsFrom(result.configOptions);
+    const modes = result.modes ? sessionModes(result.modes) : undefined;
+    return {
+      sessionId: result.sessionId,
+      ...(configOptions.length > 0 ? { configOptions } : {}),
+      ...(modes ? { modes, currentModeId: result.modes?.currentModeId } : {}),
+    };
   }
 
   async prompt(

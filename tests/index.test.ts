@@ -1,9 +1,15 @@
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RelayState } from "../src/shared/ipc.ts";
+import type { AgentConfig, Session } from "../src/shared/types.ts";
 import { openStore } from "../src/main/db.ts";
+
+const agentPath = fileURLToPath(
+  new URL("../agents/fake-acp-agent.mjs", import.meta.url),
+);
 
 const h = vi.hoisted(() => ({
   userData: "",
@@ -277,6 +283,50 @@ describe("main relay:getState", () => {
     await expect(
       authenticate!({}, "missing", "fake-login"),
     ).rejects.toThrow(/unknown session/);
+  });
+
+  it("registers the fork-session handler and returns the forked session", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+
+    const getState = await waitFor(() => h.handlers.get("relay:getState"));
+    const saveAgent = h.handlers.get("relay:saveAgent")!;
+    const create = h.handlers.get("relay:create")!;
+    const fork = h.handlers.get("relay:forkSession")!;
+    expect(fork).toBeTruthy();
+
+    const saved = saveAgent({}, {
+      id: "fake",
+      name: "Fake ACP",
+      command: process.execPath,
+      args: [agentPath],
+      env: {
+        FAKE_ACP_STORE: join(
+          mkdtempSync(join(tmpdir(), "relay-index-acp-")),
+          "store.json",
+        ),
+      },
+    }) as AgentConfig;
+
+    const source = (await create({}, {
+      agentId: saved.id,
+      cwd: process.cwd(),
+      prompt: "fork me",
+    })) as Session;
+
+    await waitFor(() => {
+      const state = getState() as RelayState;
+      return state.sessions.find((s) => s.id === source.id)?.status === "idle"
+        ? state
+        : undefined;
+    });
+
+    const forked = (await fork({}, source.id)) as Session | null;
+    expect(forked).not.toBeNull();
+    expect(forked!.id).not.toBe(source.id);
+    expect(forked!.acpSessionId).toBeTruthy();
+    expect(forked!.acpSessionId).not.toBe(source.acpSessionId);
+    expect(forked!.title).toBe(`${source.title} (fork)`);
   });
 });
 

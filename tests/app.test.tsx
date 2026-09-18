@@ -126,6 +126,7 @@ function mount(
     deleteDiffComment: vi.fn().mockResolvedValue(undefined),
     markDiffCommentsSent: vi.fn().mockResolvedValue(undefined),
     setConfigOption: vi.fn().mockResolvedValue([]),
+    forkSession: vi.fn().mockResolvedValue(null),
     authenticate: vi.fn().mockResolvedValue(undefined),
   };
   (window as any).relay = bridge;
@@ -1209,7 +1210,34 @@ describe("App rewind and fork", () => {
     await waitFor(() => expect(homeBox().value).toBe("do the thing"));
     expect(homeRepo().value).toBe("/tmp/repo");
     expect(homeAgent().value).toBe("a1");
+    expect(bridge.forkSession).toHaveBeenCalledWith("s1");
     expect(bridge.create).not.toHaveBeenCalled();
+  });
+
+  it("selects the forked session in place when the agent forks", async () => {
+    const source = makeSession();
+    const forked = makeSession({
+      id: "s2",
+      title: "Session one (fork)",
+      acpSessionId: "acp-forked",
+    });
+    const events = {
+      s1: [{ id: "u1", kind: "user", payload: { text: "do the thing" } }],
+      s2: [],
+    } as RelayState["transcripts"];
+    const { bridge } = mount([source], events);
+    bridge.forkSession = vi.fn().mockResolvedValue(forked);
+    bridge.getState.mockResolvedValue(stateWith([source, forked], events));
+
+    await openSession("Session one");
+    fireEvent.click(screen.getByRole("button", { name: "Fork as new chat" }));
+
+    await waitFor(() =>
+      expect(document.querySelector(".thread-name")?.textContent).toBe(
+        "Session one (fork)",
+      ),
+    );
+    expect(document.querySelector(".home")).toBeNull();
   });
 });
 
@@ -1366,7 +1394,7 @@ describe("App plan follow-up actions", () => {
   });
 
   it("prefills a new chat without sending when implementing in a new chat", async () => {
-    const { send } = mount([makeSession()], { s1: planEvents });
+    const { send, bridge } = mount([makeSession()], { s1: planEvents });
     await openSession("Session one");
 
     fireEvent.click(
@@ -1377,6 +1405,7 @@ describe("App plan follow-up actions", () => {
       const box = screen.getByRole("textbox") as HTMLTextAreaElement;
       expect(box.value).toBe("Implement the plan above.");
     });
+    expect(bridge.forkSession).toHaveBeenCalledWith("s1");
     expect(send).not.toHaveBeenCalled();
   });
 

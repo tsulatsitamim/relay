@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld("relay", {
     value: string,
   ): Promise<SessionConfigOption[]> =>
     ipcRenderer.invoke("relay:setConfigOption", id, configId, value),
+  forkSession: (id: string): Promise<Session | null> =>
+    ipcRenderer.invoke("relay:forkSession", id),
   addDiffComment: (
     sessionId: string,
     input: DiffCommentInput,

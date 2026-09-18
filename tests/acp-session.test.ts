@@ -393,6 +393,64 @@ describe("AcpSession config options", () => {
   });
 });
 
+describe("AcpSession fork", () => {
+  it("reports supportsFork only when the agent advertises the capability", async () => {
+    const enabled = createSession();
+    await enabled.session.start();
+    expect(enabled.session.supportsFork).toBe(true);
+
+    const disabled = createSession({
+      env: { ...fakeEnv(), FAKE_ACP_NO_FORK: "1" },
+    });
+    await disabled.session.start();
+    expect(disabled.session.supportsFork).toBe(false);
+  });
+
+  it("does not report support before the session starts", () => {
+    const { session } = createSession();
+    expect(session.supportsFork).toBe(false);
+  });
+
+  it("forks to a new session id and returns the forked config options", async () => {
+    const env = fakeEnv();
+    const { session } = createSession({ env });
+    const started = await session.start();
+    await session.prompt("seed history");
+    await session.setConfigOption("effort", "high");
+
+    const forked = await session.forkSession();
+
+    expect(forked.sessionId).toBeTruthy();
+    expect(forked.sessionId).not.toBe(started.acpSessionId);
+    expect(
+      forked.configOptions?.find((option) => option.id === "effort")?.currentValue,
+    ).toBe("high");
+
+    const store = JSON.parse(readFileSync(env.FAKE_ACP_STORE, "utf8"));
+    expect(store[forked.sessionId]).toBeTruthy();
+    expect(store[forked.sessionId].messages).toContain("echo: seed history");
+    expect(session.acpSessionId).toBe(started.acpSessionId);
+  });
+
+  it("keeps routing prompts to the source session after forking", async () => {
+    const env = fakeEnv();
+    const { session } = createSession({ env });
+    const started = await session.start();
+
+    const forked = await session.forkSession();
+    await session.prompt("after fork");
+
+    const store = JSON.parse(readFileSync(env.FAKE_ACP_STORE, "utf8"));
+    expect(store[started.acpSessionId].messages).toContain("echo: after fork");
+    expect(store[forked.sessionId].messages ?? []).not.toContain("echo: after fork");
+  });
+
+  it("rejects forking before the session starts", async () => {
+    const { session } = createSession();
+    await expect(session.forkSession()).rejects.toThrow("session is not started");
+  });
+});
+
 describe("promptBlocks", () => {
   it("builds image content blocks for attachments", () => {
     const blocks = promptBlocks("look", [

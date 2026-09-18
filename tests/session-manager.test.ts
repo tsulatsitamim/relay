@@ -838,3 +838,84 @@ describe("SessionManager MCP servers", () => {
     expect(sm.mcpServers()).toEqual([]);
   });
 });
+
+describe("SessionManager fork", () => {
+  it("forks a live session into a new session without touching the source", async () => {
+    const sm = await manager();
+    const source = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "seed the fork",
+    });
+    await waitFor(() => sm.get(source.id)?.status === "idle" ? true : null);
+    const before = { ...sm.get(source.id)! };
+
+    const forked = await sm.fork(source.id);
+
+    expect(forked).not.toBeNull();
+    expect(forked!.id).not.toBe(source.id);
+    expect(forked!.acpSessionId).toBeTruthy();
+    expect(forked!.acpSessionId).not.toBe(before.acpSessionId);
+    expect(forked!.workingDirectory).toBe(source.workingDirectory);
+    expect(forked!.agentConfigId).toBe(source.agentConfigId);
+    expect(forked!.title).toBe(`${source.title} (fork)`);
+    expect(forked!.status).toBe("idle");
+    expect(sm.get(forked!.id)).toBeTruthy();
+    expect(sm.list().map((s) => s.id).sort()).toEqual(
+      [source.id, forked!.id].sort(),
+    );
+
+    const after = sm.get(source.id)!;
+    expect(after.acpSessionId).toBe(before.acpSessionId);
+    expect(after.title).toBe(before.title);
+    expect(after.status).toBe(before.status);
+    expect(after.workingDirectory).toBe(before.workingDirectory);
+    expect(after.agentConfigId).toBe(before.agentConfigId);
+    expect(after.updatedAt).toBe(before.updatedAt);
+
+    await sm.send(forked!.id, "follow up");
+    expect(
+      sm.transcript(forked!.id).some(
+        (e) =>
+          e.kind === "agent_message" &&
+          String(e.payload.text).includes("echo: follow up"),
+      ),
+    ).toBe(true);
+  });
+
+  it("returns null when the agent does not support forking", async () => {
+    const sm = await manager();
+    const base = fakeAgent();
+    const agent = {
+      ...base,
+      env: { ...base.env, FAKE_ACP_NO_FORK: "1" },
+    };
+    const source = await sm.create({
+      agent,
+      cwd: process.cwd(),
+      prompt: "cannot fork",
+    });
+    await waitFor(() => sm.get(source.id)?.status === "idle" ? true : null);
+
+    expect(await sm.fork(source.id)).toBeNull();
+    expect(sm.list().map((s) => s.id)).toEqual([source.id]);
+  });
+
+  it("attaches a non-live source before forking", async () => {
+    const sm = await manager();
+    const source = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "detach me",
+    });
+    await waitFor(() => sm.get(source.id)?.status === "idle" ? true : null);
+    await sm.detachAll();
+    expect(sm.get(source.id)?.status).toBe("exited");
+
+    const forked = await sm.fork(source.id);
+
+    expect(forked).not.toBeNull();
+    expect(forked!.id).not.toBe(source.id);
+    expect(sm.get(source.id)?.status).toBe("idle");
+  });
+});

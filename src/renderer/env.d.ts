@@ -29,6 +29,7 @@ export type RelayBridge = {
     configId: string,
     value: string,
   ) => Promise<SessionConfigOption[]>;
+  forkSession: (id: string) => Promise<Session | null>;
   addDiffComment: (
     sessionId: string,
     input: DiffCommentInput,

@@ -742,9 +742,15 @@ export function App() {
     [selected, rewind],
   );
 
-  const handleFork = useCallback(
-    (text: string) => {
+  const forkSession = useCallback(
+    async (text: string) => {
       if (!selected) return;
+      const forked = await window.relay.forkSession(selected.id).catch(() => null);
+      if (forked) {
+        await refresh();
+        setSelectedId(forked.id);
+        return;
+      }
       setSelectedId(null);
       setRepoPath(selected.workingDirectory);
       setAgentId(selected.agentConfigId);
@@ -753,18 +759,21 @@ export function App() {
     [selected],
   );
 
+  const handleFork = useCallback(
+    (text: string) => {
+      void forkSession(text);
+    },
+    [forkSession],
+  );
+
   const handleImplementPlan = useCallback(() => {
     if (!selected) return;
     void sendLatest(selected.id, "Implement the plan above.");
   }, [selected, sendLatest]);
 
   const handleForkPlan = useCallback(() => {
-    if (!selected) return;
-    setSelectedId(null);
-    setRepoPath(selected.workingDirectory);
-    setAgentId(selected.agentConfigId);
-    setHomeInject({ text: "Implement the plan above.", nonce: Date.now() });
-  }, [selected]);
+    void forkSession("Implement the plan above.");
+  }, [forkSession]);
 
   const selectedDiffComments = useMemo(
     () =>

@@ -337,6 +337,8 @@ async function main(): Promise<void> {
       manager.setConfigOption(id, configId, value),
   );
 
+  ipcMain.handle("relay:forkSession", (_e, id: string) => manager.fork(id));
+
   ipcMain.handle(
     "relay:addDiffComment",
     (_e, sessionId: string, input: DiffCommentInput) =>

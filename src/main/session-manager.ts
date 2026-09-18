@@ -441,6 +441,39 @@ export class SessionManager {
     if (options) this.patch(id, { configOptions: options }, false);
   }
 
+  async fork(id: string): Promise<Session | null> {
+    const source = this.require(id);
+    if (!this.live.has(id)) {
+      const agent = this.agentFor(source);
+      await this.attach(source, agent, true);
+    }
+    const acp = this.live.get(id);
+    if (!acp || !acp.supportsFork) return null;
+    const forked = await acp.forkSession();
+    const now = Date.now();
+    const next: Session = {
+      ...source,
+      id: randomUUID(),
+      title: `${source.title} (fork)`,
+      acpSessionId: forked.sessionId,
+      status: "idle",
+      createdAt: now,
+      updatedAt: now,
+      error: undefined,
+      authRequired: false,
+      ...(forked.configOptions && forked.configOptions.length > 0
+        ? { configOptions: forked.configOptions }
+        : {}),
+      ...(forked.modes && forked.modes.length > 0
+        ? { modes: forked.modes, currentModeId: forked.currentModeId }
+        : {}),
+    };
+    this.store.saveSession(next);
+    this.events.set(next.id, []);
+    this.emitSessions();
+    return next;
+  }
+
   async restart(id: string): Promise<void> {
     const session = this.require(id);
     await this.live.get(id)?.kill();
