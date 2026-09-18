@@ -6,10 +6,13 @@ import { Readable, Writable } from "node:stream";
 import {
   AgentSideConnection,
   PROTOCOL_VERSION,
+  RequestError,
   ndJsonStream,
 } from "@agentclientprotocol/sdk";
 
 const storePath = process.env.FAKE_ACP_STORE;
+const REQUIRE_AUTH = process.env.FAKE_ACP_REQUIRE_AUTH === "1";
+let authed = false;
 
 function loadStore() {
   if (!storePath || !existsSync(storePath)) return {};
@@ -133,10 +136,24 @@ new AgentSideConnection((conn) => {
         protocolVersion: PROTOCOL_VERSION,
         agentCapabilities: { loadSession: true },
         agentInfo: { name: "fake-acp", version: "0.1.0" },
+        ...(REQUIRE_AUTH
+          ? { authMethods: [{ id: "fake-login", name: "Login with fake" }] }
+          : {}),
       };
     },
 
+    async authenticate({ methodId }) {
+      if (methodId !== "fake-login") {
+        throw new Error(`unknown auth method ${methodId}`);
+      }
+      authed = true;
+      return {};
+    },
+
     async newSession() {
+      if (REQUIRE_AUTH && !authed) {
+        throw RequestError.authRequired();
+      }
       const sessionId = randomUUID();
       sessions.set(sessionId, {
         messages: [],
@@ -159,6 +176,9 @@ new AgentSideConnection((conn) => {
     },
 
     async loadSession({ sessionId }) {
+      if (REQUIRE_AUTH && !authed) {
+        throw RequestError.authRequired();
+      }
       const existing = sessions.get(sessionId) ?? store[sessionId];
       if (!existing) {
         throw new Error(`unknown session ${sessionId}`);

@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AcpSession,
+  authMethodsFrom,
   configOptionsFrom,
+  isAuthRequired,
   promptBlocks,
 } from "../src/main/acp-session.ts";
 import { pickAutoAllowOption } from "../src/main/permission.ts";
@@ -367,6 +369,80 @@ describe("promptBlocks", () => {
     expect(blocks).toEqual([
       { type: "text", text: "look" },
       { type: "image", mimeType: "image/png", data: "AAAA", uri: null },
+    ]);
+  });
+});
+
+describe("authMethodsFrom", () => {
+  it("returns an empty list for non-arrays", () => {
+    expect(authMethodsFrom(undefined)).toEqual([]);
+    expect(authMethodsFrom(null)).toEqual([]);
+    expect(authMethodsFrom("nope")).toEqual([]);
+    expect(authMethodsFrom({})).toEqual([]);
+  });
+
+  it("skips entries without a string id and name", () => {
+    const raw = [
+      null,
+      {},
+      { id: "a" },
+      { name: "A" },
+      { id: 7, name: "A" },
+      { id: "a", name: 7 },
+      { id: "ok", name: "Ok" },
+    ];
+    expect(authMethodsFrom(raw)).toEqual([{ id: "ok", name: "Ok" }]);
+  });
+
+  it("keeps string descriptions and ignores extra keys", () => {
+    const raw = [
+      { id: "a", name: "A", description: "Use A", extra: true },
+      { id: "b", name: "B", description: 42, extra: true },
+    ];
+    expect(authMethodsFrom(raw)).toEqual([
+      { id: "a", name: "A", description: "Use A" },
+      { id: "b", name: "B" },
+    ]);
+  });
+});
+
+describe("isAuthRequired", () => {
+  it("is true for a -32000 error shape and false otherwise", () => {
+    expect(
+      isAuthRequired({ code: -32000, message: "Authentication required" }),
+    ).toBe(true);
+    expect(isAuthRequired(Object.assign(new Error("nope"), { code: -32000 }))).toBe(
+      true,
+    );
+    expect(isAuthRequired({ code: -32603 })).toBe(false);
+    expect(isAuthRequired(new Error("boom"))).toBe(false);
+    expect(isAuthRequired(null)).toBe(false);
+    expect(isAuthRequired("nope")).toBe(false);
+  });
+});
+
+describe("AcpSession authentication", () => {
+  it("captures authMethods from initialize and authenticates before newSession", async () => {
+    const { session } = createSession({
+      env: { ...fakeEnv(), FAKE_ACP_REQUIRE_AUTH: "1" },
+      authMethodId: "fake-login",
+    });
+    const started = await session.start();
+    expect(started.acpSessionId).toBeTruthy();
+    expect(session.authMethods).toEqual([
+      { id: "fake-login", name: "Login with fake" },
+    ]);
+    expect(session.authRequired).toBe(false);
+  });
+
+  it("reports auth-required when newSession rejects with -32000", async () => {
+    const { session } = createSession({
+      env: { ...fakeEnv(), FAKE_ACP_REQUIRE_AUTH: "1" },
+    });
+    await expect(session.start()).rejects.toMatchObject({ code: -32000 });
+    expect(session.authRequired).toBe(true);
+    expect(session.authMethods).toEqual([
+      { id: "fake-login", name: "Login with fake" },
     ]);
   });
 });

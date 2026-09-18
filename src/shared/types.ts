@@ -52,6 +52,12 @@ export type SessionConfigOption = {
   values: SessionConfigValue[];
 };
 
+export type SessionAuthMethod = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
 export type Session = {
   id: string;
   title: string;
@@ -69,6 +75,8 @@ export type Session = {
   modes?: SessionModeLike[];
   currentModeId?: string;
   configOptions?: SessionConfigOption[];
+  authMethods?: SessionAuthMethod[];
+  authRequired?: boolean;
 };
 
 export type PlanEntry = {

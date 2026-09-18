@@ -3593,6 +3593,55 @@ input:focus-visible {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
+.auth-banner {
+  width: min(var(--composer-max-width), calc(100% - (var(--composer-messages-padding-inline) * 2)));
+  margin: 0 auto var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-2-5) var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--working) 30%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--working) 8%, transparent);
+  font-size: var(--font-size-sm);
+}
+
+.auth-banner-title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.auth-banner-text,
+.auth-banner-hint {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.auth-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.auth-banner-btn {
+  border: 1px solid color-mix(in srgb, var(--working) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  padding: 2px var(--space-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.auth-banner-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--working) 12%, transparent);
+}
+
+.auth-banner-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .banner-stack .permission-dock {
   width: 100%;
   margin: 0;
@@ -3600,6 +3649,11 @@ input:focus-visible {
 }
 
 .banner-stack .error-banner {
+  width: 100%;
+  margin: 0;
+}
+
+.banner-stack .auth-banner {
   width: 100%;
   margin: 0;
 }

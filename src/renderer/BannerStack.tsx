@@ -2,14 +2,15 @@ import type { ReactNode } from "react";
 
 export type BannerItem = {
   id: string;
-  kind: "approval" | "error" | "tasks";
+  kind: "auth" | "approval" | "error" | "tasks";
   node: ReactNode;
 };
 
 const KIND_ORDER: Record<BannerItem["kind"], number> = {
-  approval: 0,
-  error: 1,
-  tasks: 2,
+  auth: 0,
+  approval: 1,
+  error: 2,
+  tasks: 3,
 };
 
 export function BannerStack({ items }: { items: BannerItem[] }) {

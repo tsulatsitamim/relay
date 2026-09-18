@@ -37,6 +37,7 @@ export type RelayBridge = {
   permission: (requestId: string, optionId: string | null) => Promise<void>;
   setAutoApprove: (id: string, enabled: boolean) => Promise<void>;
   restart: (id: string) => Promise<void>;
+  authenticate: (id: string, methodId: string) => Promise<void>;
   delete: (id: string) => Promise<void>;
   pickDirectory: () => Promise<string | null>;
   listFiles: (cwd: string, query?: string) => Promise<string[]>;

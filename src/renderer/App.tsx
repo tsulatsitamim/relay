@@ -32,6 +32,7 @@ import { BranchPill } from "./BranchPill";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { TurnFooter } from "./TurnFooter";
 import { ErrorBanner } from "./ErrorBanner";
+import { AuthBanner } from "./AuthBanner";
 import { BannerStack, type BannerItem } from "./BannerStack";
 import { PlanBadge } from "./PlanBadge";
 import { nextQueued, promoteQueued, pruneQueued, queuedNowMode } from "./queue";
@@ -852,6 +853,25 @@ export function App() {
     chatError && selected && chatError.sessionId === selected.id ? chatError : null;
 
   const bannerItems: BannerItem[] = [
+    ...(selected?.authRequired
+      ? [
+          {
+            id: "auth",
+            kind: "auth" as const,
+            node: (
+              <AuthBanner
+                methods={selected.authMethods ?? []}
+                busy={busy}
+                onLogin={(methodId) =>
+                  void window.relay
+                    .authenticate(selected.id, methodId)
+                    .catch(setChatError)
+                }
+              />
+            ),
+          },
+        ]
+      : []),
     ...permissions.map((request, index) => ({
       id: `approval-${request.id}`,
       kind: "approval" as const,

@@ -755,3 +755,43 @@ describe("SessionManager agent management", () => {
     expect(sm.diffCommentsBySession()[session.id]).toBeUndefined();
   });
 });
+
+describe("SessionManager authentication", () => {
+  it("authenticates an auth-gated agent and makes the session usable", async () => {
+    const sm = await manager();
+    const agent = fakeAgent();
+    agent.env = { ...agent.env, FAKE_ACP_REQUIRE_AUTH: "1" };
+    const session = await sm.create({
+      agent,
+      cwd: process.cwd(),
+      prompt: "hello",
+    });
+
+    await waitFor(() => (sm.get(session.id)?.authRequired ? true : null));
+    expect(
+      sm.get(session.id)?.authMethods?.map((method) => method.id),
+    ).toContain("fake-login");
+
+    await sm.authenticate(session.id, "fake-login");
+
+    await waitFor(() =>
+      sm.get(session.id)?.status === "idle" &&
+      sm.get(session.id)?.authRequired === false
+        ? true
+        : null,
+    );
+
+    await sm.send(session.id, "hello");
+    await waitFor(() =>
+      sm
+        .transcript(session.id)
+        .some(
+          (event) =>
+            event.kind === "agent_message" &&
+            String(event.payload.text).includes("echo: hello"),
+        )
+        ? true
+        : null,
+    );
+  });
+});

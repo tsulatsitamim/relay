@@ -35,6 +35,23 @@ describe("BannerStack", () => {
     expect(kinds).toEqual(["approval", "error", "tasks"]);
   });
 
+  it("orders auth before approval, error, and tasks", () => {
+    const { container } = render(
+      <BannerStack
+        items={[
+          item("t1", "tasks", "task"),
+          item("e1", "error", "error"),
+          item("a1", "approval", "approval"),
+          item("au1", "auth", "auth"),
+        ]}
+      />,
+    );
+    const kinds = Array.from(container.querySelectorAll(".banner-slot")).map(
+      (slot) => slot.getAttribute("data-kind"),
+    );
+    expect(kinds).toEqual(["auth", "approval", "error", "tasks"]);
+  });
+
   it("preserves input order within a kind", () => {
     const { container } = render(
       <BannerStack

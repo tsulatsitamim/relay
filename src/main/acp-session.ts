@@ -14,6 +14,7 @@ import {
 import type {
   PermissionOptionLike,
   PromptAttachment,
+  SessionAuthMethod,
   SessionConfigOption,
   SessionConfigValue,
   SessionModeLike,
@@ -48,11 +49,36 @@ export type AcpSessionOptions = {
   cwd: string;
   env?: Record<string, string>;
   resumeSessionId?: string;
+  authMethodId?: string;
   onUpdate: (update: SessionUpdate) => void;
   requestPermission?: (prompt: PermissionPrompt) => Promise<PermissionAnswer>;
   onExit?: (info: AcpExitInfo) => void;
   onLog?: (line: string) => void;
 };
+
+export function authMethodsFrom(raw: unknown): SessionAuthMethod[] {
+  if (!Array.isArray(raw)) return [];
+  const methods: SessionAuthMethod[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    if (typeof record.id !== "string" || typeof record.name !== "string") continue;
+    const method: SessionAuthMethod = { id: record.id, name: record.name };
+    if (typeof record.description === "string") {
+      method.description = record.description;
+    }
+    methods.push(method);
+  }
+  return methods;
+}
+
+export function isAuthRequired(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: unknown }).code === -32000
+  );
+}
 
 export function promptBlocks(
   text: string,
@@ -153,6 +179,8 @@ export class AcpSession {
   private exited = false;
   private modeState: SessionModeState | null = null;
   private configState: SessionConfigOption[] | null = null;
+  private authState: SessionAuthMethod[] = [];
+  private authRequiredFlag = false;
 
   constructor(private readonly opts: AcpSessionOptions) {}
 
@@ -182,6 +210,14 @@ export class AcpSession {
 
   get configOptions(): SessionConfigOption[] | undefined {
     return this.configState ?? undefined;
+  }
+
+  get authMethods(): SessionAuthMethod[] {
+    return this.authState;
+  }
+
+  get authRequired(): boolean {
+    return this.authRequiredFlag;
   }
 
   async start(): Promise<{
@@ -261,6 +297,11 @@ export class AcpSession {
           clientInfo: { name: "relay", version: "0.1.0" },
         });
         this.loadSession = Boolean(init.agentCapabilities?.loadSession);
+        this.authState = authMethodsFrom(init.authMethods);
+
+        if (this.opts.authMethodId) {
+          await connection.authenticate({ methodId: this.opts.authMethodId });
+        }
 
         if (this.opts.resumeSessionId && this.loadSession) {
           try {
@@ -307,6 +348,7 @@ export class AcpSession {
         configOptions: this.configOptions,
       };
     } catch (err) {
+      if (isAuthRequired(err)) this.authRequiredFlag = true;
       await this.kill();
       throw err;
     }
@@ -351,6 +393,9 @@ export class AcpSession {
     try {
       const result = await run;
       return { stopReason: result.stopReason, usage: promptUsage(result.usage) };
+    } catch (err) {
+      if (isAuthRequired(err)) this.authRequiredFlag = true;
+      throw err;
     } finally {
       this.promptInFlight = null;
     }

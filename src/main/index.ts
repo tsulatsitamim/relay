@@ -358,6 +358,11 @@ async function main(): Promise<void> {
     await manager.restart(id);
   });
 
+  ipcMain.handle(
+    "relay:authenticate",
+    (_e, id: string, methodId: string) => manager.authenticate(id, methodId),
+  );
+
   ipcMain.handle("relay:delete", async (_e, id: string) => {
     logger.info("delete", { sessionId: id });
     await manager.delete(id);

@@ -125,6 +125,7 @@ function mount(
     deleteDiffComment: vi.fn().mockResolvedValue(undefined),
     markDiffCommentsSent: vi.fn().mockResolvedValue(undefined),
     setConfigOption: vi.fn().mockResolvedValue([]),
+    authenticate: vi.fn().mockResolvedValue(undefined),
   };
   (window as any).relay = bridge;
   render(<App />);
@@ -483,6 +484,26 @@ describe("App retry", () => {
       expect(send.mock.calls.length).toBe(2);
     });
     expect(send.mock.calls[1]?.slice(0, 3)).toEqual(["s1", "look", [attachment]]);
+  });
+});
+
+describe("App authentication", () => {
+  it("shows the auth banner and logs in through the bridge", async () => {
+    const session = makeSession({
+      authRequired: true,
+      authMethods: [{ id: "fake-login", name: "Login with fake" }],
+    });
+    const { bridge } = mount([session]);
+    await openSession("Session one");
+
+    const button = await screen.findByRole("button", {
+      name: "Log in with Login with fake",
+    });
+    fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(bridge.authenticate).toHaveBeenCalledWith("s1", "fake-login"),
+    );
   });
 });
 

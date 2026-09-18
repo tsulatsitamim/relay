@@ -13,6 +13,7 @@ import type {
 import {
   AcpSession,
   configOptionsFrom,
+  isAuthRequired,
   type AcpExitInfo,
   type PermissionAnswer,
   type PermissionPrompt,
@@ -428,6 +429,14 @@ export class SessionManager {
     await this.attach(session, agent, Boolean(session.acpSessionId));
   }
 
+  async authenticate(id: string, methodId: string): Promise<void> {
+    const session = this.require(id);
+    const agent = this.agentFor(session);
+    await this.live.get(id)?.kill();
+    this.live.delete(id);
+    await this.attach(session, agent, Boolean(session.acpSessionId), methodId);
+  }
+
   async delete(id: string): Promise<void> {
     await this.live.get(id)?.kill();
     this.live.delete(id);
@@ -462,6 +471,7 @@ export class SessionManager {
     session: Session,
     agent: AgentConfig,
     resume: boolean,
+    authMethodId?: string,
   ): Promise<void> {
     this.patch(session.id, { status: "starting", error: undefined });
     if (resume) this.loading.add(session.id);
@@ -471,6 +481,7 @@ export class SessionManager {
       cwd: session.workingDirectory,
       env: agent.env,
       resumeSessionId: resume ? session.acpSessionId : undefined,
+      authMethodId,
       onUpdate: (update) => this.handleUpdate(session.id, update),
       requestPermission: (prompt) => this.askPermission(session.id, prompt),
       onExit: (info) => this.handleExit(session.id, info),
@@ -481,6 +492,14 @@ export class SessionManager {
     let started;
     try {
       started = await acp.start();
+    } catch (err) {
+      if (isAuthRequired(err)) {
+        this.patch(session.id, {
+          authRequired: true,
+          authMethods: acp.authMethods,
+        });
+      }
+      throw err;
     } finally {
       this.loading.delete(session.id);
     }
@@ -496,6 +515,7 @@ export class SessionManager {
     this.patch(session.id, {
       acpSessionId: started.acpSessionId,
       status: "idle",
+      authRequired: false,
       error: started.resumed || !resume ? undefined : undefined,
       ...modePatch,
       ...configPatch,
@@ -633,6 +653,7 @@ export class SessionManager {
   }
 
   private fail(id: string, err: unknown): void {
+    if (!this.get(id)) return;
     const message = err instanceof Error ? err.message : String(err);
     this.patch(id, { status: "error", error: message });
     this.append(id, { kind: "error", payload: { text: message } });

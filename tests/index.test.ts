@@ -243,6 +243,18 @@ describe("main relay:getState", () => {
       setConfigOption!({}, "missing", "effort", "high"),
     ).rejects.toThrow(/unknown session/);
   });
+
+  it("registers the authenticate handler and routes it to the manager", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+
+    await waitFor(() => h.handlers.get("relay:getState"));
+    const authenticate = h.handlers.get("relay:authenticate");
+    expect(authenticate).toBeTruthy();
+    await expect(
+      authenticate!({}, "missing", "fake-login"),
+    ).rejects.toThrow(/unknown session/);
+  });
 });
 
 describe("main appearance wiring", () => {
