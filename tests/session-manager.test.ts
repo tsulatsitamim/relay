@@ -1,10 +1,11 @@
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { fileURLToPath } from "node:url";
 import { SessionManager, type ManagerEvent } from "../src/main/session-manager.ts";
 import { openStore } from "../src/main/db.ts";
+import { mcpServersToAcp } from "../src/shared/mcp.ts";
 import type { AgentConfig, PermissionRequest } from "../src/shared/types.ts";
 
 const agentPath = fileURLToPath(
@@ -836,6 +837,54 @@ describe("SessionManager MCP servers", () => {
     const sm = new SessionManager(store);
     managers.push(sm);
     expect(sm.mcpServers()).toEqual([]);
+  });
+
+  it("sends the stored MCP servers when resuming through loadSession", async () => {
+    const sm = await manager();
+    const base = fakeAgent();
+    const storePath = base.env!.FAKE_ACP_STORE!;
+    const agent: AgentConfig = {
+      ...base,
+      env: { ...base.env, FAKE_ACP_MCP_DUMP: "1" },
+    };
+    const dumpPath = join(dirname(storePath), "mcp.json");
+
+    sm.setMcpServers([
+      {
+        kind: "stdio",
+        name: "fs",
+        command: "npx",
+        args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+        env: [{ name: "API_KEY", value: "secret" }],
+      },
+      {
+        kind: "http",
+        name: "web",
+        url: "https://example.com/mcp",
+        headers: [{ name: "Authorization", value: "Bearer token" }],
+      },
+    ]);
+
+    const session = await sm.create({
+      agent,
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    const acpId = await waitFor(() => sm.get(session.id)?.acpSessionId ?? null);
+    await waitFor(() => (sm.get(session.id)?.status === "idle" ? true : null));
+
+    rmSync(dumpPath, { force: true });
+
+    await sm.detachAll();
+    expect(sm.get(session.id)?.status).toBe("exited");
+
+    await sm.send(session.id, "follow up");
+    await waitFor(() => (existsSync(dumpPath) ? true : null));
+
+    expect(JSON.parse(readFileSync(dumpPath, "utf8"))).toEqual(
+      mcpServersToAcp(sm.mcpServers()),
+    );
+    expect(sm.get(session.id)?.acpSessionId).toBe(acpId);
   });
 });
 
