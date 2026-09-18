@@ -10,9 +10,16 @@ import {
   clipboard,
   shell,
   nativeTheme,
+  screen,
 } from "electron";
 import { applyLoginPath } from "./path-env.ts";
 import { openStore } from "./db.ts";
+import {
+  clampToWorkArea,
+  parseWindowState,
+  serializeWindowState,
+  type WindowState,
+} from "./window-state.ts";
 import { SessionManager, defaultAgents } from "./session-manager.ts";
 import {
   disableBuiltinClaudeAgent,
@@ -42,6 +49,8 @@ type ThemeSource = "system" | "light" | "dark";
 
 const LIGHT_BACKGROUND = "#F4F4F2";
 const DARK_BACKGROUND = "#181818";
+const WINDOW_STATE_KEY = "windowState";
+const WINDOW_STATE_DEBOUNCE_MS = 400;
 
 function normalizeStoredTheme(value: string | null | undefined): ThemeSource {
   return value === "light" || value === "dark" ? value : "system";
@@ -57,11 +66,20 @@ function systemThemeBackground(source: ThemeSource): string | null {
   return source === "system" ? resolveBackground(source) : null;
 }
 
-function createWindow(backgroundColor: string): BrowserWindow {
+function createWindow(
+  backgroundColor: string,
+  state: WindowState | null,
+): BrowserWindow {
   const dir = dirname(fileURLToPath(import.meta.url));
+  const bounds: { x?: number; y?: number; width: number; height: number } = state
+    ? { width: state.width, height: state.height }
+    : { width: 1200, height: 800 };
+  if (state && typeof state.x === "number" && typeof state.y === "number") {
+    bounds.x = state.x;
+    bounds.y = state.y;
+  }
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    ...bounds,
     minWidth: 800,
     minHeight: 520,
     title: "Relay",
@@ -76,6 +94,8 @@ function createWindow(backgroundColor: string): BrowserWindow {
     },
   });
 
+  if (state?.maximized) win.maximize();
+
   const rendererUrl = process.env.ELECTRON_RENDERER_URL;
   if (rendererUrl) {
     void win.loadURL(rendererUrl);
@@ -84,6 +104,40 @@ function createWindow(backgroundColor: string): BrowserWindow {
   }
 
   return win;
+}
+
+function trackWindowState(
+  win: BrowserWindow,
+  save: (state: WindowState) => void,
+): void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const write = () => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    const maximized = win.isMaximized();
+    const bounds = maximized ? win.getNormalBounds() : win.getBounds();
+    save({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      maximized,
+    });
+  };
+
+  const schedule = () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(write, WINDOW_STATE_DEBOUNCE_MS);
+  };
+
+  win.on("resize", schedule);
+  win.on("move", schedule);
+  win.on("maximize", schedule);
+  win.on("unmaximize", schedule);
+  win.on("close", write);
 }
 
 async function main(): Promise<void> {
@@ -424,9 +478,18 @@ async function main(): Promise<void> {
     }
   });
 
-  const win = createWindow(resolveBackground(themeSource));
+  const storedWindowState = parseWindowState(store.getSetting(WINDOW_STATE_KEY));
+  const windowState = storedWindowState
+    ? clampToWorkArea(storedWindowState, screen.getPrimaryDisplay().workArea)
+    : null;
+
+  const win = createWindow(resolveBackground(themeSource), windowState);
   if (process.platform === "darwin") win.setWindowButtonVisibility(false);
   windows.add(win);
+
+  trackWindowState(win, (state) => {
+    store.setSetting(WINDOW_STATE_KEY, serializeWindowState(state));
+  });
 
   app.on("before-quit", (e) => {
     if (shuttingDown) return;
