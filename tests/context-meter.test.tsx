@@ -37,4 +37,36 @@ describe("ContextMeter", () => {
     expect(screen.getByText("1.5k / 8.0k tokens · USD0.0123")).toBeTruthy();
     expect(screen.getByText("19% of context window used")).toBeTruthy();
   });
+
+  it("shows the turn tokens when the usage event carries them", async () => {
+    render(
+      <ContextMeter
+        usage={{
+          used: 1500,
+          size: 8000,
+          inputTokens: 1200,
+          outputTokens: 340,
+          cachedReadTokens: 512,
+        }}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Context 19% used/i }));
+    expect(screen.getByText("This turn: 1.2k in / 340 out · 512 cached")).toBeTruthy();
+  });
+
+  it("omits the cached suffix", async () => {
+    render(
+      <ContextMeter
+        usage={{ used: 1500, size: 8000, inputTokens: 1200, outputTokens: 340 }}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Context 19% used/i }));
+    expect(screen.getByText("This turn: 1.2k in / 340 out")).toBeTruthy();
+  });
+
+  it("hides the turn line without turn tokens", async () => {
+    render(<ContextMeter usage={{ used: 1500, size: 8000 }} />);
+    await userEvent.click(screen.getByRole("button", { name: /Context 19% used/i }));
+    expect(screen.queryByText(/This turn:/)).toBeNull();
+  });
 });

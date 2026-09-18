@@ -2,8 +2,10 @@ import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type {
   AvailableCommandLike,
   PromptAttachment,
+  SessionConfigOption,
 } from "../shared/types.ts";
 import { ComposerMirror } from "./ComposerMirror";
+import { ConfigPicker } from "./ConfigPicker";
 import { ContextMeter, type UsageInfo } from "./ContextMeter";
 import { IconCirclePlus, IconMic, IconSend, IconStop } from "./icons";
 import { SuggestionMenu } from "./SuggestionMenu";
@@ -32,6 +34,8 @@ type Props = {
   usage?: UsageInfo;
   resting?: boolean;
   banners?: ReactNode;
+  configOptions?: SessionConfigOption[];
+  onSetConfig?: (configId: string, value: string) => void;
 };
 
 export function Composer({
@@ -56,6 +60,8 @@ export function Composer({
   usage,
   resting = false,
   banners,
+  configOptions,
+  onSetConfig,
 }: Props) {
   const {
     field,
@@ -88,6 +94,9 @@ export function Composer({
   const [hovered, setHovered] = useState(false);
   const restingActive =
     resting && !text.trim() && attachments.length === 0 && !focused && !hovered && !working;
+  const configChips = (configOptions ?? []).filter(
+    (option) => option.id !== "mode",
+  );
 
   function restoreStash() {
     if (stash == null) return;
@@ -254,6 +263,18 @@ export function Composer({
           field.current?.focus();
         }}
       >
+        {onSetConfig && configChips.length > 0 ? (
+          <div className="config-row">
+            {configChips.map((option) => (
+              <ConfigPicker
+                key={option.id}
+                option={option}
+                disabled={disabled || working}
+                onSelect={(value) => onSetConfig(option.id, value)}
+              />
+            ))}
+          </div>
+        ) : null}
         <button
           type="button"
           className="plus"

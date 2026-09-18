@@ -12,9 +12,11 @@ import type {
 } from "../shared/types.ts";
 import {
   AcpSession,
+  configOptionsFrom,
   type AcpExitInfo,
   type PermissionAnswer,
   type PermissionPrompt,
+  type PromptUsage,
 } from "./acp-session.ts";
 import type { Store } from "./db.ts";
 import { hasBinaryOnPath, resolveClaudeAgent } from "./agents.ts";
@@ -403,6 +405,20 @@ export class SessionManager {
     await this.live.get(id)?.setMode(modeId);
   }
 
+  async setConfigOption(
+    id: string,
+    configId: string,
+    value: string,
+  ): Promise<void> {
+    const session = this.require(id);
+    if (!this.live.has(id)) {
+      const agent = this.agentFor(session);
+      await this.attach(session, agent, true);
+    }
+    const options = await this.live.get(id)?.setConfigOption(configId, value);
+    if (options) this.patch(id, { configOptions: options }, false);
+  }
+
   async restart(id: string): Promise<void> {
     const session = this.require(id);
     await this.live.get(id)?.kill();
@@ -473,11 +489,16 @@ export class SessionManager {
       started.modes && started.modes.length > 0
         ? { modes: started.modes, currentModeId: started.currentModeId }
         : {};
+    const configPatch: Partial<Session> =
+      started.configOptions && started.configOptions.length > 0
+        ? { configOptions: started.configOptions }
+        : {};
     this.patch(session.id, {
       acpSessionId: started.acpSessionId,
       status: "idle",
       error: started.resumed || !resume ? undefined : undefined,
       ...modePatch,
+      ...configPatch,
     });
     if (resume && !started.resumed) {
       this.append(session.id, {
@@ -500,6 +521,7 @@ export class SessionManager {
     try {
       const result = await acp.prompt(text, attachments);
       this.patch(id, { status: "idle" });
+      if (result.usage) this.recordUsage(id, result.usage);
       if (result.stopReason === "cancelled") {
         this.append(id, {
           kind: "status",
@@ -516,6 +538,15 @@ export class SessionManager {
     if (this.loading.has(sessionId)) return;
     if (update.sessionUpdate === "current_mode_update") {
       this.patch(sessionId, { currentModeId: update.currentModeId }, false);
+      return;
+    }
+    if (update.sessionUpdate === "config_option_update") {
+      const configOptions = configOptionsFrom(
+        (update as { configOptions?: unknown }).configOptions,
+      );
+      if (configOptions.length > 0) {
+        this.patch(sessionId, { configOptions }, false);
+      }
       return;
     }
     const current = this.events.get(sessionId) ?? [];
@@ -536,6 +567,31 @@ export class SessionManager {
       this.store.appendEvent(this.withMeta(sessionId, event));
     }
     this.emit({ type: "transcript", sessionId, events: reduced });
+  }
+
+  private recordUsage(id: string, usage: PromptUsage): void {
+    const payload: Record<string, unknown> = {};
+    if (Number.isFinite(usage.inputTokens)) payload.inputTokens = usage.inputTokens;
+    if (Number.isFinite(usage.outputTokens)) payload.outputTokens = usage.outputTokens;
+    if (Number.isFinite(usage.totalTokens)) payload.totalTokens = usage.totalTokens;
+    if (Number.isFinite(usage.cachedReadTokens)) {
+      payload.cachedReadTokens = usage.cachedReadTokens;
+    }
+    if (Object.keys(payload).length === 0) return;
+    const current = this.events.get(id) ?? [];
+    const last = current[current.length - 1];
+    if (last?.kind === "usage") {
+      const event: TranscriptEvent = {
+        ...last,
+        payload: { ...last.payload, ...payload },
+      };
+      const next = [...current.slice(0, -1), event];
+      this.events.set(id, next);
+      this.store.appendEvent(this.withMeta(id, event));
+      this.emit({ type: "transcript", sessionId: id, events: next });
+      return;
+    }
+    this.append(id, { kind: "usage", payload });
   }
 
   private append(

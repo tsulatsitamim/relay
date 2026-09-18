@@ -13,6 +13,7 @@ import type {
   PromptAttachment,
   Repo,
   Session,
+  SessionConfigOption,
   TranscriptEvent,
 } from "../shared/types.ts";
 
@@ -27,6 +28,12 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:truncate", id, fromEventId),
   setMode: (sessionId: string, modeId: string): Promise<void> =>
     ipcRenderer.invoke("relay:setMode", sessionId, modeId),
+  setConfigOption: (
+    id: string,
+    configId: string,
+    value: string,
+  ): Promise<SessionConfigOption[]> =>
+    ipcRenderer.invoke("relay:setConfigOption", id, configId, value),
   addDiffComment: (
     sessionId: string,
     input: DiffCommentInput,

@@ -427,6 +427,10 @@ export function App() {
     }
     return undefined;
   }, [events]);
+  const configOptions = useMemo(
+    () => (selected?.configOptions ?? []).filter((option) => option.id !== "mode"),
+    [selected],
+  );
   const composerHistory = selected
     ? promptHistory(events, sentPrompts.current[selected.id] ?? [])
     : [];
@@ -1597,6 +1601,12 @@ export function App() {
               inject={inject}
               banners={<BannerStack items={bannerItems} />}
               usage={usage}
+              configOptions={configOptions}
+              onSetConfig={(configId, value) =>
+                void window.relay
+                  .setConfigOption(selected.id, configId, value)
+                  .catch((err) => console.error(err))
+              }
               history={composerHistory}
               stash={stashes[selected.id] ?? null}
               onStash={(text) =>

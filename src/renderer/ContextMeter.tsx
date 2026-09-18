@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { formatUsage } from "./format";
+import { formatTokens, formatUsage } from "./format";
 
 export type UsageInfo = {
   used?: number;
   size?: number;
   costAmount?: number;
   costCurrency?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedReadTokens?: number;
 };
 
 const RADIUS = 9;
@@ -27,6 +30,19 @@ export function ContextMeter({ usage }: { usage?: UsageInfo }) {
   const danger = percent > 90;
   const dash = (filled / 100) * CIRCUMFERENCE;
   const open = pinned || hovered || focused;
+  const turnParts: string[] = [];
+  if (typeof usage?.inputTokens === "number") {
+    turnParts.push(`${formatTokens(usage.inputTokens)} in`);
+  }
+  if (typeof usage?.outputTokens === "number") {
+    turnParts.push(`${formatTokens(usage.outputTokens)} out`);
+  }
+  const cached =
+    typeof usage?.cachedReadTokens === "number"
+      ? ` · ${formatTokens(usage.cachedReadTokens)} cached`
+      : "";
+  const turnLine =
+    turnParts.length > 0 ? `This turn: ${turnParts.join(" / ")}${cached}` : null;
 
   return (
     <div className={`context-meter${danger ? " danger" : ""}`}>
@@ -67,6 +83,11 @@ export function ContextMeter({ usage }: { usage?: UsageInfo }) {
           <span className="context-popover-line">
             {percent}% of context window used
           </span>
+          {turnLine ? (
+            <span className="context-popover-line context-popover-turn">
+              {turnLine}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -502,6 +502,131 @@ describe("SessionManager", () => {
   });
 });
 
+describe("SessionManager config options", () => {
+  it("stores config options from attach and applies a change without bumping recency", async () => {
+    const sm = await manager();
+    const created = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    await waitFor(() => sm.get(created.id)?.configOptions);
+    expect(sm.get(created.id)?.configOptions?.map((option) => option.id)).toEqual([
+      "model",
+      "effort",
+      "mode",
+    ]);
+    await waitFor(() => (sm.get(created.id)?.status === "idle" ? true : null));
+    const before = sm.get(created.id)?.updatedAt;
+
+    await sm.setConfigOption(created.id, "effort", "high");
+    await waitFor(
+      () =>
+        sm
+          .get(created.id)
+          ?.configOptions?.find((option) => option.id === "effort")
+          ?.currentValue === "high",
+    );
+
+    expect(
+      sm.get(created.id)?.configOptions?.find((option) => option.id === "effort")
+        ?.currentValue,
+    ).toBe("high");
+    expect(sm.get(created.id)?.updatedAt).toBe(before);
+  });
+
+  it("attaches a non-live session before applying a config change", async () => {
+    const sm = await manager();
+    const created = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    await waitFor(() => (sm.get(created.id)?.status === "idle" ? true : null));
+
+    await sm.detachAll();
+    expect(sm.get(created.id)?.status).toBe("exited");
+
+    await sm.setConfigOption(created.id, "effort", "high");
+    await waitFor(
+      () =>
+        sm
+          .get(created.id)
+          ?.configOptions?.find((option) => option.id === "effort")
+          ?.currentValue === "high",
+    );
+
+    expect(sm.get(created.id)?.status).toBe("idle");
+  });
+
+  it("intercepts config_option_update without appending a transcript event", async () => {
+    const sm = await manager();
+    const created = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "warmup",
+    });
+    await waitFor(() => (sm.get(created.id)?.status === "idle" ? true : null));
+
+    await sm.send(created.id, "RECONFIG now");
+    await waitFor(
+      () =>
+        sm
+          .get(created.id)
+          ?.configOptions?.find((option) => option.id === "effort")
+          ?.currentValue === "high",
+    );
+
+    expect(
+      sm.get(created.id)?.configOptions?.find((option) => option.id === "effort")
+        ?.currentValue,
+    ).toBe("high");
+    expect(
+      sm.transcript(created.id).some((event) => "configOptions" in event.payload),
+    ).toBe(false);
+  });
+
+  it("records turn usage on the usage event and replaces the last usage event", async () => {
+    const sm = await manager();
+    const created = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "USAGE turn",
+    });
+    await waitFor(() => (sm.get(created.id)?.status === "idle" ? true : null));
+
+    const usage = sm.transcript(created.id).filter((event) => event.kind === "usage");
+    expect(usage).toHaveLength(1);
+    expect(usage[0]?.payload).toMatchObject({
+      used: 1500,
+      size: 8000,
+      inputTokens: 1200,
+      outputTokens: 340,
+      totalTokens: 1540,
+      cachedReadTokens: 512,
+    });
+  });
+
+  it("appends turn usage when no usage event is present", async () => {
+    const sm = await manager();
+    const created = await sm.create({
+      agent: fakeAgent(),
+      cwd: process.cwd(),
+      prompt: "hello relay",
+    });
+    await waitFor(() => (sm.get(created.id)?.status === "idle" ? true : null));
+
+    const usage = sm.transcript(created.id).filter((event) => event.kind === "usage");
+    expect(usage).toHaveLength(1);
+    expect(usage[0]?.payload).toMatchObject({
+      inputTokens: 1200,
+      outputTokens: 340,
+      totalTokens: 1540,
+      cachedReadTokens: 512,
+    });
+  });
+});
+
 describe("SessionManager agent management", () => {
   it("saves, updates, and deletes agents by id", async () => {
     const dir = mkdtempSync(join(tmpdir(), "relay-db-"));

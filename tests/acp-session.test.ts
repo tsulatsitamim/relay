@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AcpSession, promptBlocks } from "../src/main/acp-session.ts";
+import {
+  AcpSession,
+  configOptionsFrom,
+  promptBlocks,
+} from "../src/main/acp-session.ts";
 import { pickAutoAllowOption } from "../src/main/permission.ts";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type {
@@ -189,6 +193,169 @@ describe("AcpSession", () => {
           u.content.text.includes("echo: remember me"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("configOptionsFrom", () => {
+  it("returns an empty list for non-arrays", () => {
+    expect(configOptionsFrom(undefined)).toEqual([]);
+    expect(configOptionsFrom(null)).toEqual([]);
+    expect(configOptionsFrom("nope")).toEqual([]);
+    expect(configOptionsFrom({})).toEqual([]);
+  });
+
+  it("drops invalid entries and normalises the rest", () => {
+    const raw = [
+      null,
+      {},
+      { id: "", currentValue: "x" },
+      { id: "model", currentValue: 5 },
+      {
+        id: "effort",
+        name: "Effort",
+        currentValue: "low",
+        values: [null, { value: 123 }, { value: "low" }],
+      },
+    ];
+    expect(configOptionsFrom(raw)).toEqual([
+      {
+        id: "effort",
+        name: "Effort",
+        type: "select",
+        currentValue: "low",
+        values: [{ value: "low", name: "low" }],
+      },
+    ]);
+  });
+
+  it("falls back to the id for a missing name and keeps string descriptions", () => {
+    const raw = [
+      {
+        id: "model",
+        currentValue: "a",
+        type: "select",
+        description: 7,
+        values: [
+          { value: "a", name: "A", description: "The A model" },
+          { value: "b", name: 3, description: null },
+        ],
+      },
+    ];
+    expect(configOptionsFrom(raw)).toEqual([
+      {
+        id: "model",
+        name: "model",
+        type: "select",
+        currentValue: "a",
+        values: [
+          { value: "a", name: "A", description: "The A model" },
+          { value: "b", name: "b" },
+        ],
+      },
+    ]);
+  });
+
+  it("defaults a non-string type to select and ignores non-string descriptions", () => {
+    const raw = [
+      { id: "model", currentValue: "a", type: 42, description: "hi", values: [] },
+    ];
+    expect(configOptionsFrom(raw)).toEqual([
+      {
+        id: "model",
+        name: "model",
+        type: "select",
+        currentValue: "a",
+        description: "hi",
+        values: [],
+      },
+    ]);
+  });
+
+  it("accepts the protocol options field as a fallback", () => {
+    const raw = [
+      {
+        id: "effort",
+        name: "Effort",
+        type: "select",
+        currentValue: "low",
+        options: [
+          { value: "low", name: "Low" },
+          { value: "high", name: "High", description: "More thinking" },
+        ],
+      },
+    ];
+    expect(configOptionsFrom(raw)).toEqual([
+      {
+        id: "effort",
+        name: "Effort",
+        type: "select",
+        currentValue: "low",
+        values: [
+          { value: "low", name: "Low" },
+          { value: "high", name: "High", description: "More thinking" },
+        ],
+      },
+    ]);
+  });
+});
+
+describe("AcpSession config options", () => {
+  it("captures configOptions from newSession", async () => {
+    const { session } = createSession();
+    await session.start();
+    expect(session.configOptions?.map((option) => option.id)).toEqual([
+      "model",
+      "effort",
+      "mode",
+    ]);
+    expect(
+      session.configOptions?.find((option) => option.id === "model")?.currentValue,
+    ).toBe("deepseek/deepseek-v4-flash");
+  });
+
+  it("captures configOptions from loadSession when resuming", async () => {
+    const env = fakeEnv();
+    const first = createSession({ env });
+    const started = await first.session.start();
+    await first.session.setConfigOption("effort", "high");
+    await first.session.kill();
+
+    const second = createSession({ env, resumeSessionId: started.acpSessionId });
+    const loaded = await second.session.start();
+    expect(loaded.resumed).toBe(true);
+    expect(
+      second.session.configOptions?.find((option) => option.id === "effort")
+        ?.currentValue,
+    ).toBe("high");
+  });
+
+  it("sets a config option and returns the sanitised options", async () => {
+    const { session } = createSession();
+    await session.start();
+    const next = await session.setConfigOption("effort", "high");
+    expect(next.find((option) => option.id === "effort")?.currentValue).toBe("high");
+    expect(
+      session.configOptions?.find((option) => option.id === "effort")?.currentValue,
+    ).toBe("high");
+  });
+
+  it("rejects setting a config option before the session starts", async () => {
+    const { session } = createSession();
+    await expect(session.setConfigOption("effort", "high")).rejects.toThrow(
+      "session is not started",
+    );
+  });
+
+  it("captures prompt usage", async () => {
+    const { session } = createSession();
+    await session.start();
+    const result = await session.prompt("hello relay");
+    expect(result.usage).toEqual({
+      inputTokens: 1200,
+      outputTokens: 340,
+      totalTokens: 1540,
+      cachedReadTokens: 512,
+    });
   });
 });
 

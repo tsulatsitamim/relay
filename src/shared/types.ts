@@ -37,6 +37,21 @@ export type SessionModeLike = {
   description?: string;
 };
 
+export type SessionConfigValue = {
+  value: string;
+  name: string;
+  description?: string;
+};
+
+export type SessionConfigOption = {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  currentValue: string;
+  values: SessionConfigValue[];
+};
+
 export type Session = {
   id: string;
   title: string;
@@ -53,6 +68,7 @@ export type Session = {
   archived?: boolean;
   modes?: SessionModeLike[];
   currentModeId?: string;
+  configOptions?: SessionConfigOption[];
 };
 
 export type PlanEntry = {

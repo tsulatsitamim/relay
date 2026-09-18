@@ -57,6 +57,64 @@ function modeState(currentModeId) {
   return { availableModes: MODES, currentModeId };
 }
 
+const CONFIG_OPTIONS = [
+  {
+    id: "model",
+    name: "Model",
+    type: "select",
+    currentValue: "deepseek/deepseek-v4-flash",
+    values: [
+      { value: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+      { value: "deepseek/deepseek-v4", name: "DeepSeek V4" },
+      { value: "anthropic/claude", name: "Claude" },
+    ],
+  },
+  {
+    id: "effort",
+    name: "Effort",
+    type: "select",
+    currentValue: "low",
+    values: [
+      { value: "low", name: "Low" },
+      { value: "high", name: "High" },
+    ],
+  },
+  {
+    id: "mode",
+    name: "Mode",
+    type: "select",
+    currentValue: "build",
+    values: [
+      { value: "build", name: "Build" },
+      { value: "plan", name: "Plan" },
+    ],
+  },
+];
+
+const TURN_USAGE = {
+  inputTokens: 1200,
+  outputTokens: 340,
+  totalTokens: 1540,
+  cachedReadTokens: 512,
+};
+
+function configOptionsFor(configValues = {}) {
+  return CONFIG_OPTIONS.map((option) => ({
+    ...option,
+    currentValue: configValues[option.id] ?? option.currentValue,
+  }));
+}
+
+function wireConfigOptionsFor(configValues = {}) {
+  return CONFIG_OPTIONS.map((option) => ({
+    id: option.id,
+    name: option.name,
+    type: option.type,
+    currentValue: configValues[option.id] ?? option.currentValue,
+    options: option.values,
+  }));
+}
+
 const sessions = new Map();
 const store = loadStore();
 for (const [id, record] of Object.entries(store)) {
@@ -80,7 +138,12 @@ new AgentSideConnection((conn) => {
 
     async newSession() {
       const sessionId = randomUUID();
-      sessions.set(sessionId, { messages: [], abort: null, modeId: "build" });
+      sessions.set(sessionId, {
+        messages: [],
+        abort: null,
+        modeId: "build",
+        configValues: {},
+      });
       persist();
       if (process.env.FAKE_ACP_MALFORMED_MODES) {
         return {
@@ -88,7 +151,11 @@ new AgentSideConnection((conn) => {
           modes: { availableModes: "nope", currentModeId: "build" },
         };
       }
-      return { sessionId, modes: modeState("build") };
+      return {
+        sessionId,
+        modes: modeState("build"),
+        configOptions: configOptionsFor(),
+      };
     },
 
     async loadSession({ sessionId }) {
@@ -106,7 +173,32 @@ new AgentSideConnection((conn) => {
           },
         });
       }
-      return { modes: modeState(existing.modeId ?? "build") };
+      return {
+        modes: modeState(existing.modeId ?? "build"),
+        configOptions: configOptionsFor(existing.configValues),
+      };
+    },
+
+    async setSessionConfigOption({ sessionId, configId, value }) {
+      const session = sessions.get(sessionId) ?? store[sessionId];
+      if (!session) throw new Error(`missing session ${sessionId}`);
+      const option = CONFIG_OPTIONS.find((item) => item.id === configId);
+      if (!option) throw new Error(`unknown config option ${configId}`);
+      if (!option.values.some((item) => item.value === value)) {
+        throw new Error(`unknown config value ${value}`);
+      }
+      session.configValues = { ...(session.configValues ?? {}), [configId]: value };
+      sessions.set(sessionId, session);
+      persist();
+      const configOptions = configOptionsFor(session.configValues);
+      await conn.sessionUpdate({
+        sessionId,
+        update: {
+          sessionUpdate: "config_option_update",
+          configOptions: wireConfigOptionsFor(session.configValues),
+        },
+      });
+      return { configOptions };
     },
 
     async setSessionMode({ sessionId, modeId }) {
@@ -270,7 +362,27 @@ new AgentSideConnection((conn) => {
           });
         }
 
-        return { stopReason: "end_turn" };
+        if (text.toUpperCase().includes("RECONFIG")) {
+          session.configValues = { ...(session.configValues ?? {}), effort: "high" };
+          sessions.set(params.sessionId, session);
+          persist();
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: {
+              sessionUpdate: "config_option_update",
+              configOptions: wireConfigOptionsFor(session.configValues),
+            },
+          });
+        }
+
+        if (text.toUpperCase().includes("USAGE")) {
+          await conn.sessionUpdate({
+            sessionId: params.sessionId,
+            update: { sessionUpdate: "usage_update", used: 1500, size: 8000 },
+          });
+        }
+
+        return { stopReason: "end_turn", usage: TURN_USAGE };
       } catch (err) {
         if (err?.cancelled || signal.aborted) {
           return { stopReason: "cancelled" };
@@ -290,7 +402,11 @@ new AgentSideConnection((conn) => {
 function persist() {
   const data = {};
   for (const [id, session] of sessions) {
-    data[id] = { messages: session.messages, modeId: session.modeId ?? "build" };
+    data[id] = {
+      messages: session.messages,
+      modeId: session.modeId ?? "build",
+      configValues: session.configValues ?? {},
+    };
   }
   saveStore(data);
 }

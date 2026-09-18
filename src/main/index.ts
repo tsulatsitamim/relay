@@ -291,6 +291,12 @@ async function main(): Promise<void> {
   });
 
   ipcMain.handle(
+    "relay:setConfigOption",
+    (_e, id: string, configId: string, value: string) =>
+      manager.setConfigOption(id, configId, value),
+  );
+
+  ipcMain.handle(
     "relay:addDiffComment",
     (_e, sessionId: string, input: DiffCommentInput) =>
       manager.addDiffComment(sessionId, input),

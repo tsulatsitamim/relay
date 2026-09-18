@@ -14,8 +14,17 @@ import {
 import type {
   PermissionOptionLike,
   PromptAttachment,
+  SessionConfigOption,
+  SessionConfigValue,
   SessionModeLike,
 } from "../shared/types.ts";
+
+export type PromptUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cachedReadTokens?: number;
+};
 
 export type PermissionPrompt = {
   toolCallId?: string;
@@ -70,6 +79,69 @@ function sessionModes(state: SessionModeState): SessionModeLike[] {
   }));
 }
 
+function configValuesFrom(raw: unknown): SessionConfigValue[] {
+  if (!Array.isArray(raw)) return [];
+  const values: SessionConfigValue[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    if (typeof record.value !== "string") continue;
+    const value: SessionConfigValue = {
+      value: record.value,
+      name: typeof record.name === "string" ? record.name : record.value,
+    };
+    if (typeof record.description === "string") {
+      value.description = record.description;
+    }
+    values.push(value);
+  }
+  return values;
+}
+
+export function configOptionsFrom(raw: unknown): SessionConfigOption[] {
+  if (!Array.isArray(raw)) return [];
+  const options: SessionConfigOption[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const id = typeof record.id === "string" ? record.id : "";
+    if (!id) continue;
+    if (typeof record.currentValue !== "string") continue;
+    const option: SessionConfigOption = {
+      id,
+      name:
+        typeof record.name === "string" && record.name ? record.name : id,
+      type: typeof record.type === "string" ? record.type : "select",
+      currentValue: record.currentValue,
+      values: configValuesFrom(record.values ?? record.options),
+    };
+    if (typeof record.description === "string") {
+      option.description = record.description;
+    }
+    options.push(option);
+  }
+  return options;
+}
+
+function promptUsage(raw: unknown): PromptUsage | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const record = raw as Record<string, unknown>;
+  const usage: PromptUsage = {};
+  if (Number.isFinite(record.inputTokens)) {
+    usage.inputTokens = record.inputTokens as number;
+  }
+  if (Number.isFinite(record.outputTokens)) {
+    usage.outputTokens = record.outputTokens as number;
+  }
+  if (Number.isFinite(record.totalTokens)) {
+    usage.totalTokens = record.totalTokens as number;
+  }
+  if (Number.isFinite(record.cachedReadTokens)) {
+    usage.cachedReadTokens = record.cachedReadTokens as number;
+  }
+  return Object.keys(usage).length > 0 ? usage : undefined;
+}
+
 export class AcpSession {
   private child: ChildProcessWithoutNullStreams | null = null;
   private connection: ClientSideConnection | null = null;
@@ -80,6 +152,7 @@ export class AcpSession {
   private stopping = false;
   private exited = false;
   private modeState: SessionModeState | null = null;
+  private configState: SessionConfigOption[] | null = null;
 
   constructor(private readonly opts: AcpSessionOptions) {}
 
@@ -107,12 +180,17 @@ export class AcpSession {
     return this.modeState?.currentModeId ?? undefined;
   }
 
+  get configOptions(): SessionConfigOption[] | undefined {
+    return this.configState ?? undefined;
+  }
+
   async start(): Promise<{
     acpSessionId: string;
     loadSession: boolean;
     resumed: boolean;
     modes?: SessionModeLike[];
     currentModeId?: string;
+    configOptions?: SessionConfigOption[];
   }> {
     try {
       const child = spawn(this.opts.command, this.opts.args, {
@@ -194,6 +272,7 @@ export class AcpSession {
             this.sessionId = this.opts.resumeSessionId;
             this.didResume = true;
             this.modeState = loaded.modes ?? null;
+            this.configState = configOptionsFrom(loaded.configOptions);
             return;
           } catch (err) {
             this.opts.onLog?.(
@@ -209,6 +288,7 @@ export class AcpSession {
         this.sessionId = created.sessionId;
         this.didResume = false;
         this.modeState = created.modes ?? null;
+        this.configState = configOptionsFrom(created.configOptions);
       })();
 
       await Promise.race([handshake, exitError]);
@@ -224,6 +304,7 @@ export class AcpSession {
         resumed: this.didResume,
         modes: this.modes,
         currentModeId: this.currentModeId,
+        configOptions: this.configOptions,
       };
     } catch (err) {
       await this.kill();
@@ -239,10 +320,26 @@ export class AcpSession {
     });
   }
 
+  async setConfigOption(
+    configId: string,
+    value: string,
+  ): Promise<SessionConfigOption[]> {
+    if (!this.connection || !this.sessionId) {
+      throw new Error("session is not started");
+    }
+    const result = await this.connection.setSessionConfigOption({
+      sessionId: this.sessionId,
+      configId,
+      value,
+    });
+    this.configState = configOptionsFrom(result.configOptions);
+    return this.configState;
+  }
+
   async prompt(
     text: string,
     attachments: PromptAttachment[] = [],
-  ): Promise<{ stopReason: string }> {
+  ): Promise<{ stopReason: string; usage?: PromptUsage }> {
     if (!this.connection || !this.sessionId) {
       throw new Error("session is not started");
     }
@@ -253,7 +350,7 @@ export class AcpSession {
     this.promptInFlight = run;
     try {
       const result = await run;
-      return { stopReason: result.stopReason };
+      return { stopReason: result.stopReason, usage: promptUsage(result.usage) };
     } finally {
       this.promptInFlight = null;
     }

@@ -12,6 +12,7 @@ import type {
   PromptAttachment,
   Repo,
   Session,
+  SessionConfigOption,
   TranscriptEvent,
 } from "../shared/types.ts";
 
@@ -22,6 +23,11 @@ export type RelayBridge = {
   cancel: (id: string) => Promise<void>;
   truncate: (id: string, fromEventId: string) => Promise<TranscriptEvent[]>;
   setMode: (sessionId: string, modeId: string) => Promise<void>;
+  setConfigOption: (
+    id: string,
+    configId: string,
+    value: string,
+  ) => Promise<SessionConfigOption[]>;
   addDiffComment: (
     sessionId: string,
     input: DiffCommentInput,

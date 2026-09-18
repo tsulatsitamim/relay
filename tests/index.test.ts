@@ -200,6 +200,18 @@ describe("main relay:getState", () => {
       }),
     ).toThrow();
   });
+
+  it("registers the set-config-option handler and routes it to the manager", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+
+    await waitFor(() => h.handlers.get("relay:getState"));
+    const setConfigOption = h.handlers.get("relay:setConfigOption");
+    expect(setConfigOption).toBeTruthy();
+    await expect(
+      setConfigOption!({}, "missing", "effort", "high"),
+    ).rejects.toThrow(/unknown session/);
+  });
 });
 
 describe("main appearance wiring", () => {

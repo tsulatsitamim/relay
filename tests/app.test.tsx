@@ -9,6 +9,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { App } from "../src/renderer/App";
 import type { RelayState } from "../src/shared/ipc";
 import type { AgentConfig, PromptAttachment, Repo, Session } from "../src/shared/types";
@@ -123,6 +124,7 @@ function mount(
     ),
     deleteDiffComment: vi.fn().mockResolvedValue(undefined),
     markDiffCommentsSent: vi.fn().mockResolvedValue(undefined),
+    setConfigOption: vi.fn().mockResolvedValue([]),
   };
   (window as any).relay = bridge;
   render(<App />);
@@ -1371,5 +1373,38 @@ describe("App appearance", () => {
         document.documentElement.style.getPropertyValue("--conversation-font-size"),
       ).toBe("16px"),
     );
+  });
+});
+
+describe("App config options", () => {
+  it("passes session config options to the composer and sets them through the bridge", async () => {
+    const session = makeSession({
+      configOptions: [
+        {
+          id: "model",
+          name: "Model",
+          type: "select",
+          currentValue: "a",
+          values: [
+            { value: "a", name: "Alpha" },
+            { value: "b", name: "Beta" },
+          ],
+        },
+        {
+          id: "mode",
+          name: "Mode",
+          type: "select",
+          currentValue: "build",
+          values: [{ value: "build", name: "Build" }],
+        },
+      ],
+    });
+    const { bridge } = mount([session]);
+    await openSession("Session one");
+
+    expect(screen.queryByRole("button", { name: "Mode: Build" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Model: Alpha" }));
+    await userEvent.click(screen.getByRole("option", { name: "Beta" }));
+    expect(bridge.setConfigOption).toHaveBeenCalledWith("s1", "model", "b");
   });
 });

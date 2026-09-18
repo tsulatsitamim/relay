@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Composer } from "../src/renderer/Composer";
+import type { SessionConfigOption } from "../src/shared/types";
 
 function setup(overrides: Partial<React.ComponentProps<typeof Composer>> = {}) {
   const onSend = vi.fn().mockResolvedValue(undefined);
@@ -680,5 +682,61 @@ describe("Composer banners", () => {
       banner.compareDocumentPosition(chips as Node) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+});
+
+describe("Composer config chips", () => {
+  const option: SessionConfigOption = {
+    id: "model",
+    name: "Model",
+    type: "select",
+    currentValue: "a",
+    values: [
+      { value: "a", name: "Alpha" },
+      { value: "b", name: "Beta" },
+    ],
+  };
+
+  it("renders a chip per non-mode config option", () => {
+    const { container } = setup({
+      configOptions: [option, { ...option, id: "effort", name: "Effort" }],
+      onSetConfig: vi.fn(),
+    });
+    expect(container.querySelector(".config-row")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Model: Alpha" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Effort: Alpha" })).toBeTruthy();
+  });
+
+  it("excludes the mode option", () => {
+    const { container } = setup({
+      configOptions: [{ ...option, id: "mode", name: "Mode" }],
+      onSetConfig: vi.fn(),
+    });
+    expect(screen.queryByRole("button", { name: "Mode: Alpha" })).toBeNull();
+    expect(container.querySelector(".config-row")).toBeNull();
+  });
+
+  it("calls onSetConfig with the config id and value", async () => {
+    const onSetConfig = vi.fn();
+    setup({ configOptions: [option], onSetConfig });
+    await userEvent.click(screen.getByRole("button", { name: "Model: Alpha" }));
+    await userEvent.click(screen.getByRole("option", { name: "Beta" }));
+    expect(onSetConfig).toHaveBeenCalledWith("model", "b");
+  });
+
+  it("disables chips while working", () => {
+    setup({ working: true, configOptions: [option], onSetConfig: vi.fn() });
+    const chip = screen.getByRole("button", {
+      name: "Model: Alpha",
+    }) as HTMLButtonElement;
+    expect(chip.disabled).toBe(true);
+  });
+
+  it("renders nothing without options or a handler", () => {
+    const first = setup();
+    expect(first.container.querySelector(".config-row")).toBeNull();
+    cleanup();
+    const second = setup({ configOptions: [option] });
+    expect(second.container.querySelector(".config-row")).toBeNull();
   });
 });
