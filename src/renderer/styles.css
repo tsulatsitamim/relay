@@ -4741,3 +4741,27 @@ input:focus-visible {
   overflow: auto;
   padding: var(--space-2);
 }
+
+.panel-toggle {
+  position: relative;
+}
+
+.panel-toggle[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--active);
+}
+
+.panel-toggle-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 99px;
+  background: var(--working);
+  color: var(--chrome);
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+}

@@ -50,6 +50,10 @@ import { promptHistory } from "./history.ts";
 import { FindBar } from "./FindBar";
 import { HelpDialog, type ShortcutHint } from "./HelpDialog";
 import { CommandPalette, type PaletteCommand } from "./CommandPalette";
+import { PanelToggle } from "./right-panel/PanelToggle";
+import { RightPanel } from "./right-panel/RightPanel";
+import { useGitChanges } from "./right-panel/useGitChanges";
+import { usePanelStore } from "./right-panel/usePanelStore";
 import {
   eventKey,
   isTypingTarget,
@@ -431,6 +435,20 @@ export function App() {
     }
     return [];
   }, [events]);
+  const panel = usePanelStore(selected?.id ?? null);
+  const gitChanges = useGitChanges(selected?.workingDirectory ?? null);
+  const openInEditor = useCallback(
+    (path: string, line?: number) => {
+      if (!selected) return;
+      void window.relay
+        .openInEditor(selected.workingDirectory, "vscode", path, line)
+        .then((result) => {
+          if (!result.ok) console.error(result.message);
+        })
+        .catch((error: unknown) => console.error(error));
+    },
+    [selected],
+  );
   const usage = useMemo(() => {
     for (let index = events.length - 1; index >= 0; index -= 1) {
       const event = events[index]!;
@@ -1126,6 +1144,13 @@ export function App() {
       run: () => setView("settings"),
     },
     { id: "toggle-sidebar", label: "Toggle sidebar", shortcut: "mod+b", run: toggleSidebar },
+    {
+      id: "toggle-panel",
+      label: "Toggle right panel",
+      hint: "Changes, files, and plan",
+      shortcut: "mod+alt+b",
+      run: () => panel.dispatch({ type: "togglePanel" }),
+    },
   ];
   if (selected) {
     paletteCommands.push(
@@ -1167,6 +1192,13 @@ export function App() {
       run: () => setCommandOpen((value) => !value),
     },
     { id: "sidebar", keys: "mod+b", label: "Toggle sidebar", scope: "global", run: toggleSidebar },
+    {
+      id: "panel",
+      keys: "mod+alt+b",
+      label: "Toggle right panel",
+      scope: "global",
+      run: () => panel.dispatch({ type: "togglePanel" }),
+    },
     {
       id: "find",
       keys: "mod+f",
@@ -1586,6 +1618,12 @@ export function App() {
           )}
           <span className="canvas-tools-drag" />
           <span className="canvas-tools-right">
+            <PanelToggle
+              pressed={panel.state.isOpen}
+              count={gitChanges.changes?.files.length ?? 0}
+              disabled={!selected}
+              onToggle={() => panel.dispatch({ type: "togglePanel" })}
+            />
             <span className="ide-link" aria-disabled="true">
               IDE
               <IconOut />
@@ -1611,8 +1649,9 @@ export function App() {
             onInstallClaudeAdapter={installClaudeAdapter}
           />
         ) : selected ? (
-          <div className="thread">
-            <header className="thread-head">
+          <div className="canvas-body">
+            <div className="thread">
+              <header className="thread-head">
               <span className="thread-name">{selected.title}</span>
               <ConnectionStatus status={selected.status} />
               <BranchPill cwd={selected.workingDirectory} />
@@ -1720,6 +1759,21 @@ export function App() {
                   return next;
                 })
               }
+            />
+            </div>
+            <RightPanel
+              sessionId={selected.id}
+              cwd={selected.workingDirectory}
+              state={panel.state}
+              dispatch={panel.dispatch}
+              width={panel.width}
+              setWidth={panel.setWidth}
+              changes={gitChanges.changes}
+              changesLoading={gitChanges.loading}
+              changesError={gitChanges.error}
+              onRefreshChanges={gitChanges.refresh}
+              planEntries={planEntries}
+              onOpenInEditor={openInEditor}
             />
           </div>
         ) : (
