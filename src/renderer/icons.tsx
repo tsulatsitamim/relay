@@ -14,6 +14,7 @@ import {
   CirclePlus,
   Copy,
   Ellipsis,
+  ExternalLink,
   FileText,
   Files,
   Folder,
@@ -85,6 +86,7 @@ export const IconGitCompare = icon(GitCompare, { size: 14, strokeWidth: 1.75 });
 export const IconFiles = icon(Files, { size: 14, strokeWidth: 1.75 });
 export const IconListTodo = icon(ListTodo, { size: 14, strokeWidth: 1.75 });
 export const IconRefresh = icon(RotateCw, { size: 13, strokeWidth: 1.75 });
+export const IconExternalLink = icon(ExternalLink, { size: 13, strokeWidth: 1.75 });
 export const IconMonitor = icon(Monitor, { size: 14 });
 export const IconMic = icon(Mic, { size: 14 });
 export const IconStop = icon(Square, { size: 12, fill: "currentColor", strokeWidth: 0 });

@@ -4576,3 +4576,123 @@ input:focus-visible {
   min-height: 0;
   display: flex;
 }
+
+.panel-changes,
+.panel-files,
+.panel-file,
+.panel-plan {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-changes-head {
+  position: sticky;
+  top: 0;
+  background: var(--editor);
+  z-index: 2;
+}
+
+.panel-branch {
+  font-size: var(--font-size-sm);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-count {
+  flex: 1;
+  font-size: var(--font-size-xs);
+  color: var(--tertiary);
+}
+
+.panel-note {
+  padding: var(--space-2);
+  color: var(--tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.panel-action {
+  align-self: flex-start;
+  margin: 0 var(--space-2) var(--space-2);
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.panel-file-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.panel-file-row:hover {
+  background: var(--hover);
+}
+
+.panel-file-row.active {
+  background: var(--active);
+}
+
+.panel-file-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.panel-status {
+  font-size: var(--font-size-xs);
+  color: var(--tertiary);
+}
+
+.panel-stat {
+  font-family: var(--mono);
+  font-size: var(--font-size-xs);
+}
+
+.panel-stat.add {
+  color: var(--ok);
+}
+
+.panel-stat.del {
+  color: var(--danger);
+}
+
+.panel-file-open {
+  display: inline-flex;
+  opacity: 0;
+}
+
+.panel-file-row:hover .panel-file-open {
+  opacity: 1;
+}
+
+.panel-diff {
+  border-top: 1px solid var(--line);
+  padding: var(--space-2);
+}
