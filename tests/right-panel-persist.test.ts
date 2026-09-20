@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   clampPanelWidth,
   clearWidth,
+  MIN_CHAT_WIDTH,
+  MIN_PANEL_WIDTH,
   parsePanels,
   readPanels,
   serializePanels,
+  shouldOverlayPanel,
   writePanels,
   readWidth,
   writeWidth,
@@ -132,6 +135,25 @@ describe("clampPanelWidth", () => {
   it("never goes below the minimum", () => {
     expect(clampPanelWidth(100, 4000, 4000)).toBe(360);
     expect(clampPanelWidth(Number.NaN, 4000, 4000)).toBe(540);
+  });
+});
+
+describe("shouldOverlayPanel", () => {
+  it("stays inline while the container can hold the panel and the chat minimum", () => {
+    expect(shouldOverlayPanel(MIN_PANEL_WIDTH + MIN_CHAT_WIDTH, 1600)).toBe(false);
+    expect(shouldOverlayPanel(1200, 1600)).toBe(false);
+    expect(shouldOverlayPanel(720, 980)).toBe(false);
+  });
+
+  it("overlays once the width clamp collapses", () => {
+    expect(shouldOverlayPanel(MIN_PANEL_WIDTH + MIN_CHAT_WIDTH - 1, 1600)).toBe(true);
+    expect(shouldOverlayPanel(700, 980)).toBe(true);
+  });
+
+  it("falls back to the viewport when the container is unmeasured", () => {
+    expect(shouldOverlayPanel(null, 1600)).toBe(false);
+    expect(shouldOverlayPanel(0, 700)).toBe(true);
+    expect(shouldOverlayPanel(null, MIN_PANEL_WIDTH + MIN_CHAT_WIDTH - 1)).toBe(true);
   });
 });
 

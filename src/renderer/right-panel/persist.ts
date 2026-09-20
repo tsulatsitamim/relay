@@ -113,6 +113,18 @@ export function clampPanelWidth(
   return Math.max(MIN_PANEL_WIDTH, Math.min(wanted, Math.max(MIN_PANEL_WIDTH, capped)));
 }
 
+export function shouldOverlayPanel(
+  containerWidth: number | null,
+  viewportWidth: number,
+): boolean {
+  const measured =
+    typeof containerWidth === "number" &&
+    Number.isFinite(containerWidth) &&
+    containerWidth > 0;
+  const available = measured ? containerWidth : viewportWidth;
+  return available < MIN_PANEL_WIDTH + MIN_CHAT_WIDTH;
+}
+
 export function readWidth(storage: Storage, sessionId: string): number | null {
   const raw = storage.getItem(`${WIDTH_STORAGE_PREFIX}${sessionId}`);
   if (!raw) return null;

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { RightPanel } from "../src/renderer/right-panel/RightPanel.tsx";
 import { clampPanelWidth } from "../src/renderer/right-panel/persist.ts";
 import { EMPTY_PANEL_STATE, panelReducer } from "../src/shared/right-panel.ts";
@@ -87,5 +87,23 @@ describe("RightPanel", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Maximize panel" }));
     expect(container.querySelector(".right-panel.maximized")).toBeTruthy();
+  });
+
+  it("overlays when the container can no longer hold the panel and the chat minimum", async () => {
+    const { container } = render(
+      <div>
+        <RightPanel {...props([{ type: "open", kind: "changes" }])} />
+      </div>,
+    );
+    expect(container.querySelector(".right-panel.overlay")).toBeNull();
+    const scope = container.firstElementChild as HTMLElement;
+    Object.defineProperty(scope, "clientWidth", {
+      value: 700,
+      configurable: true,
+    });
+    fireEvent(window, new Event("resize"));
+    await waitFor(() =>
+      expect(container.querySelector(".right-panel.overlay")).toBeTruthy(),
+    );
   });
 });

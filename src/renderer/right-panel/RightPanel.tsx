@@ -2,14 +2,12 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import type { GitChangesResult } from "../../shared/git.ts";
 import type { PanelAction, SessionPanelState } from "../../shared/right-panel.ts";
 import type { PlanEntry } from "../../shared/types.ts";
-import { clampPanelWidth } from "./persist.ts";
+import { clampPanelWidth, shouldOverlayPanel } from "./persist.ts";
 import { PanelChanges } from "./PanelChanges.tsx";
 import { PanelFile } from "./PanelFile.tsx";
 import { PanelFiles } from "./PanelFiles.tsx";
 import { PanelPlan } from "./PanelPlan.tsx";
 import { RightPanelTabs } from "./RightPanelTabs.tsx";
-
-const OVERLAY_BREAKPOINT = 980;
 
 type Props = {
   sessionId: string;
@@ -42,7 +40,7 @@ export function RightPanel({
 }: Props) {
   const [maximized, setMaximized] = useState(false);
   const [overlay, setOverlay] = useState(
-    () => typeof window !== "undefined" && window.innerWidth < OVERLAY_BREAKPOINT,
+    () => typeof window !== "undefined" && shouldOverlayPanel(null, window.innerWidth),
   );
   const rootRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startWidth: number; lastWidth: number } | null>(
@@ -54,10 +52,24 @@ export function RightPanel({
   }, [sessionId]);
 
   useEffect(() => {
-    const onResize = () => setOverlay(window.innerWidth < OVERLAY_BREAKPOINT);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    const container = rootRef.current?.parentElement ?? null;
+    const update = () => {
+      setOverlay(
+        shouldOverlayPanel(container ? container.clientWidth : null, window.innerWidth),
+      );
+    };
+    update();
+    window.addEventListener("resize", update);
+    let observer: ResizeObserver | null = null;
+    if (container && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(update);
+      observer.observe(container);
+    }
+    return () => {
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
+  }, [state.isOpen]);
 
   useEffect(() => {
     if (!overlay || !state.isOpen) return;
