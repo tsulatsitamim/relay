@@ -52,6 +52,7 @@ import { FindBar } from "./FindBar";
 import { HelpDialog, type ShortcutHint } from "./HelpDialog";
 import { CommandPalette, type PaletteCommand } from "./CommandPalette";
 import { EditorButton } from "./right-panel/EditorButton";
+import type { EditorInfo } from "../shared/editors.ts";
 import { PanelToggle } from "./right-panel/PanelToggle";
 import { RightPanel } from "./right-panel/RightPanel";
 import { useGitChanges } from "./right-panel/useGitChanges";
@@ -438,6 +439,26 @@ export function App() {
     return [];
   }, [events]);
   const panel = usePanelStore(selected?.id ?? null);
+  const [editors, setEditors] = useState<EditorInfo[]>([]);
+  const [editorError, setEditorError] = useState<{
+    message: string;
+    path: string;
+    line?: number;
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void window.relay
+      .availableEditors()
+      .then((list) => {
+        if (!cancelled) setEditors(list);
+      })
+      .catch(() => {
+        if (!cancelled) setEditors([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const gitChanges = useGitChanges(selected?.workingDirectory ?? null, changesRevision);
   const statusRef = useRef(new Map<string, SessionStatus>());
   useEffect(() => {
@@ -458,19 +479,47 @@ export function App() {
   const openInEditor = useCallback(
     (path: string, line?: number) => {
       if (!selected) return;
+      const cwd = selected.workingDirectory;
+      const editor =
+        editors.find((entry) => entry.id === state.settings.preferredEditor) ??
+        editors[0] ??
+        null;
+      if (editor) {
+        void window.relay
+          .openInEditor(cwd, editor.id, path, line)
+          .then((result) => {
+            if (result.ok) setEditorError(null);
+            else setEditorError({ message: result.message, path, line });
+          })
+          .catch((cause: unknown) => {
+            setEditorError({
+              message: cause instanceof Error ? cause.message : String(cause),
+              path,
+              line,
+            });
+          });
+        return;
+      }
       void window.relay
-        .openInEditor(
-          selected.workingDirectory,
-          state.settings.preferredEditor || "vscode",
-          path,
-          line,
-        )
-        .then((result) => {
-          if (!result.ok) console.error(result.message);
+        .revealInFinder(cwd, path || ".")
+        .then((ok) => {
+          if (ok) setEditorError(null);
+          else
+            setEditorError({
+              message: "Could not reveal the file in Finder",
+              path,
+              line,
+            });
         })
-        .catch((error: unknown) => console.error(error));
+        .catch((cause: unknown) => {
+          setEditorError({
+            message: cause instanceof Error ? cause.message : String(cause),
+            path,
+            line,
+          });
+        });
     },
-    [selected, state.settings.preferredEditor],
+    [selected, editors, state.settings.preferredEditor],
   );
   const usage = useMemo(() => {
     for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -967,6 +1016,20 @@ export function App() {
                     activeChatError.attachments,
                   )
                 }
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(editorError && selected
+      ? [
+          {
+            id: "editor-error",
+            kind: "error" as const,
+            node: (
+              <ErrorBanner
+                message={editorError.message}
+                onRetry={() => openInEditor(editorError.path, editorError.line)}
               />
             ),
           },

@@ -76,6 +76,7 @@ function mount(
   repos: Repo[] = [repo],
   diffComments: RelayState["diffComments"] = {},
   settings: Record<string, string> = {},
+  bridgeOverrides: Record<string, unknown> = {},
 ) {
   let listener: ((event: unknown) => void) | null = null;
   const send = vi.fn().mockResolvedValue(undefined);
@@ -132,6 +133,7 @@ function mount(
     setConfigOption: vi.fn().mockResolvedValue([]),
     forkSession: vi.fn().mockResolvedValue(null),
     authenticate: vi.fn().mockResolvedValue(undefined),
+    ...bridgeOverrides,
   };
   (window as any).relay = bridge;
   render(<App />);
@@ -663,6 +665,97 @@ describe("App diff review", () => {
     await openSession("Session one");
     fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
     expect(bridge.openPath).toHaveBeenCalledWith("/tmp/repo", "src/a.ts");
+  });
+});
+
+describe("App editor resolution", () => {
+  const cursor = { id: "cursor", label: "Cursor", command: "cursor" };
+  const vscode = { id: "vscode", label: "VS Code", command: "code" };
+
+  async function openEditor() {
+    await openSession("Session one");
+    fireEvent.keyDown(window, { key: "o", metaKey: true });
+  }
+
+  it("prefers the configured editor when it is installed", async () => {
+    const availableEditors = vi.fn().mockResolvedValue([vscode, cursor]);
+    const { bridge } = mount(
+      [makeSession()],
+      {},
+      [],
+      [],
+      {},
+      [repo],
+      {},
+      { preferredEditor: "cursor" },
+      { availableEditors },
+    );
+    await openEditor();
+    await waitFor(() =>
+      expect(bridge.openInEditor).toHaveBeenCalledWith("/tmp/repo", "cursor", ".", undefined),
+    );
+    expect(bridge.revealInFinder).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the first detected editor when the preferred one is missing", async () => {
+    const availableEditors = vi.fn().mockResolvedValue([vscode]);
+    const { bridge } = mount(
+      [makeSession()],
+      {},
+      [],
+      [],
+      {},
+      [repo],
+      {},
+      { preferredEditor: "zed" },
+      { availableEditors },
+    );
+    await openEditor();
+    await waitFor(() =>
+      expect(bridge.openInEditor).toHaveBeenCalledWith("/tmp/repo", "vscode", ".", undefined),
+    );
+    expect(bridge.revealInFinder).not.toHaveBeenCalled();
+  });
+
+  it("falls back to Reveal in Finder when no editor is installed", async () => {
+    const availableEditors = vi.fn().mockResolvedValue([]);
+    const { bridge } = mount(
+      [makeSession()],
+      {},
+      [],
+      [],
+      {},
+      [repo],
+      {},
+      {},
+      { availableEditors },
+    );
+    await openEditor();
+    await waitFor(() =>
+      expect(bridge.revealInFinder).toHaveBeenCalledWith("/tmp/repo", "."),
+    );
+    expect(bridge.openInEditor).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an editor failure in the banner stack", async () => {
+    const availableEditors = vi.fn().mockResolvedValue([vscode]);
+    const openInEditor = vi
+      .fn()
+      .mockResolvedValue({ ok: false, message: "VS Code is not installed" });
+    const { bridge } = mount(
+      [makeSession()],
+      {},
+      [],
+      [],
+      {},
+      [repo],
+      {},
+      {},
+      { availableEditors, openInEditor },
+    );
+    await openEditor();
+    expect(await screen.findByText("VS Code is not installed")).toBeTruthy();
+    expect(bridge.openInEditor).toHaveBeenCalled();
   });
 });
 
