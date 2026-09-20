@@ -3,6 +3,7 @@ import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { RightPanel } from "../src/renderer/right-panel/RightPanel.tsx";
+import { clampPanelWidth } from "../src/renderer/right-panel/persist.ts";
 import { EMPTY_PANEL_STATE, panelReducer } from "../src/shared/right-panel.ts";
 import type { RelayBridge } from "../src/renderer/env.d.ts";
 
@@ -67,7 +68,7 @@ describe("RightPanel", () => {
     expect(screen.getByRole("tab", { name: /a.ts/ })).toBeTruthy();
   });
 
-  it("resizes with the handle and persists on release", () => {
+  it("resizes with the handle and persists the dragged width on release", () => {
     const setWidth = vi.fn();
     render(
       <RightPanel {...props([{ type: "open", kind: "changes" }], { setWidth })} />,
@@ -76,7 +77,8 @@ describe("RightPanel", () => {
     fireEvent.pointerDown(handle, { clientX: 900, pointerId: 1 });
     fireEvent.pointerMove(handle, { clientX: 800, pointerId: 1 });
     fireEvent.pointerUp(handle, { clientX: 800, pointerId: 1 });
-    expect(setWidth).toHaveBeenCalled();
+    const expected = clampPanelWidth(540 - (800 - 900), window.innerWidth, 0);
+    expect(setWidth.mock.calls).toEqual([[expected], [expected, true]]);
   });
 
   it("maximizes from the tab strip", () => {

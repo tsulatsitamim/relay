@@ -45,7 +45,9 @@ export function RightPanel({
     () => typeof window !== "undefined" && window.innerWidth < OVERLAY_BREAKPOINT,
   );
   const rootRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const dragRef = useRef<{ startX: number; startWidth: number; lastWidth: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     setMaximized(false);
@@ -73,26 +75,27 @@ export function RightPanel({
     if (typeof target.setPointerCapture === "function") {
       target.setPointerCapture(event.pointerId);
     }
-    dragRef.current = { startX: event.clientX, startWidth: width };
+    dragRef.current = { startX: event.clientX, startWidth: width, lastWidth: width };
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
     if (!drag) return;
     const container = rootRef.current?.parentElement;
-    setWidth(
-      clampPanelWidth(
-        drag.startWidth - (event.clientX - drag.startX),
-        window.innerWidth,
-        container ? container.clientWidth : window.innerWidth,
-      ),
+    const clamped = clampPanelWidth(
+      drag.startWidth - (event.clientX - drag.startX),
+      window.innerWidth,
+      container ? container.clientWidth : window.innerWidth,
     );
+    drag.lastWidth = clamped;
+    setWidth(clamped);
   }
 
   function onPointerUp() {
-    if (!dragRef.current) return;
+    const drag = dragRef.current;
+    if (!drag) return;
     dragRef.current = null;
-    setWidth(width, true);
+    setWidth(drag.lastWidth, true);
   }
 
   const active = state.surfaces.find((surface) => surface.id === state.activeSurfaceId);
