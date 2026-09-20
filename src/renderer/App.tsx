@@ -9,6 +9,7 @@ import type {
   PromptAttachment,
   Repo,
   Session,
+  SessionStatus,
   TranscriptEvent,
 } from "../shared/types.ts";
 import { repoFor } from "../shared/repo.ts";
@@ -303,6 +304,7 @@ export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [keyOverrides, setKeyOverrides] = useState<KeyOverrides>(() => loadOverrides());
   const [commandOpen, setCommandOpen] = useState(false);
+  const [changesRevision, setChangesRevision] = useState(0);
   const bindingsRef = useRef<KeyBinding[]>([]);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -436,7 +438,23 @@ export function App() {
     return [];
   }, [events]);
   const panel = usePanelStore(selected?.id ?? null);
-  const gitChanges = useGitChanges(selected?.workingDirectory ?? null);
+  const gitChanges = useGitChanges(selected?.workingDirectory ?? null, changesRevision);
+  const statusRef = useRef(new Map<string, SessionStatus>());
+  useEffect(() => {
+    const previous = statusRef.current;
+    let finished = false;
+    for (const session of state.sessions) {
+      if (previous.get(session.id) === "working" && session.status === "idle") {
+        finished = true;
+      }
+      previous.set(session.id, session.status);
+    }
+    if (finished) setChangesRevision((value) => value + 1);
+  }, [state.sessions]);
+  const panelOpen = panel.state.isOpen;
+  useEffect(() => {
+    if (panelOpen) setChangesRevision((value) => value + 1);
+  }, [panelOpen]);
   const openInEditor = useCallback(
     (path: string, line?: number) => {
       if (!selected) return;
