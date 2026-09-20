@@ -7,6 +7,7 @@ import {
   mergePath,
   mergePaths,
   parseProbedPath,
+  resolveShell,
 } from "../src/main/path-env.ts";
 
 describe("mergePaths", () => {
@@ -36,6 +37,23 @@ describe("parseProbedPath", () => {
 
   it("returns empty when the sentinels are missing", () => {
     expect(parseProbedPath("no markers here")).toBe("");
+  });
+});
+
+describe("resolveShell", () => {
+  it("prefers SHELL from the environment", () => {
+    expect(resolveShell({ SHELL: "/bin/fish" }, "/bin/bash")).toBe("/bin/fish");
+  });
+
+  it("falls back to the passwd login shell when SHELL is unset", () => {
+    expect(resolveShell({}, "/bin/bash")).toBe("/bin/bash");
+    expect(resolveShell({ SHELL: "" }, "/bin/bash")).toBe("/bin/bash");
+    expect(resolveShell({ SHELL: "  " }, "/bin/bash")).toBe("/bin/bash");
+  });
+
+  it("falls back to zsh when no shell is known", () => {
+    expect(resolveShell({})).toBe("/bin/zsh");
+    expect(resolveShell({ SHELL: " " }, "  ")).toBe("/bin/zsh");
   });
 });
 
@@ -75,5 +93,24 @@ describe.skipIf(!onMac)("applyLoginPath", () => {
     expect(parts).toContain(rcDir);
     expect(parts).toContain(profileDir);
     expect(parts).toContain(shellDir);
+  });
+
+  it("probes the passwd login shell when SHELL is not set", async () => {
+    const home = mkdtempSync(join(tmpdir(), "relay-home-"));
+    cleanup.push(home);
+    const profileDir = join(home, "bash-bin");
+    writeFileSync(join(home, ".bash_profile"), `export PATH="${profileDir}:$PATH"\n`);
+
+    const env = {
+      HOME: home,
+      USER: process.env.USER,
+      LOGNAME: process.env.LOGNAME,
+      TMPDIR: process.env.TMPDIR,
+      PATH: "/usr/bin:/bin",
+    };
+
+    await applyLoginPath(env, "darwin", "/bin/bash");
+
+    expect((env.PATH ?? "").split(":")).toContain(profileDir);
   });
 });

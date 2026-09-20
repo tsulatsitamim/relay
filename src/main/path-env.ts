@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { userInfo } from "node:os";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -25,6 +26,25 @@ export function parseProbedPath(stdout: string): string {
   return rest.slice(0, end).trim();
 }
 
+export function resolveShell(
+  env: NodeJS.ProcessEnv,
+  loginShell?: string | null,
+): string {
+  const fromEnv = env.SHELL?.trim();
+  if (fromEnv) return fromEnv;
+  const fromPasswd = loginShell?.trim();
+  if (fromPasswd) return fromPasswd;
+  return "/bin/zsh";
+}
+
+function loginShellFromPasswd(): string {
+  try {
+    return userInfo().shell || "";
+  } catch {
+    return "";
+  }
+}
+
 async function probeShell(
   shell: string,
   args: string[],
@@ -44,9 +64,10 @@ async function probeShell(
 export async function applyLoginPath(
   target: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
+  loginShell: string = loginShellFromPasswd(),
 ): Promise<void> {
   if (platform !== "darwin") return;
-  const shell = target.SHELL || "/bin/zsh";
+  const shell = resolveShell(target, loginShell);
   const env = {
     HOME: target.HOME,
     USER: target.USER,
