@@ -50,6 +50,7 @@ import { promptHistory } from "./history.ts";
 import { FindBar } from "./FindBar";
 import { HelpDialog, type ShortcutHint } from "./HelpDialog";
 import { CommandPalette, type PaletteCommand } from "./CommandPalette";
+import { EditorButton } from "./right-panel/EditorButton";
 import { PanelToggle } from "./right-panel/PanelToggle";
 import { RightPanel } from "./right-panel/RightPanel";
 import { useGitChanges } from "./right-panel/useGitChanges";
@@ -79,7 +80,6 @@ import {
   IconFolderOpen,
   IconFolderPlus,
   IconMore,
-  IconOut,
   IconPanelLeft,
   IconPen,
   IconPencil,
@@ -441,13 +441,18 @@ export function App() {
     (path: string, line?: number) => {
       if (!selected) return;
       void window.relay
-        .openInEditor(selected.workingDirectory, "vscode", path, line)
+        .openInEditor(
+          selected.workingDirectory,
+          state.settings.preferredEditor || "vscode",
+          path,
+          line,
+        )
         .then((result) => {
           if (!result.ok) console.error(result.message);
         })
         .catch((error: unknown) => console.error(error));
     },
-    [selected],
+    [selected, state.settings.preferredEditor],
   );
   const usage = useMemo(() => {
     for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -1200,6 +1205,13 @@ export function App() {
       run: () => panel.dispatch({ type: "togglePanel" }),
     },
     {
+      id: "editor",
+      keys: "mod+o",
+      label: "Open in editor",
+      scope: "global",
+      run: () => openInEditor("."),
+    },
+    {
       id: "find",
       keys: "mod+f",
       label: "Find in conversation",
@@ -1624,10 +1636,12 @@ export function App() {
               disabled={!selected}
               onToggle={() => panel.dispatch({ type: "togglePanel" })}
             />
-            <span className="ide-link" aria-disabled="true">
-              IDE
-              <IconOut />
-            </span>
+            <EditorButton
+              cwd={selected?.workingDirectory ?? ""}
+              preferred={state.settings.preferredEditor ?? null}
+              disabled={!selected}
+              onPreferred={(id) => void window.relay.setSetting("preferredEditor", id)}
+            />
             <span className="icon-btn static" aria-hidden>
               <IconMore />
             </span>

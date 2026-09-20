@@ -734,10 +734,43 @@ input:focus-visible {
   padding-left: 168px;
 }
 
-.ide-link {
+.editor-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  position: relative;
+}
+
+.editor-button-main {
+  border: 0;
+  background: transparent;
+  color: var(--tertiary);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  height: var(--height-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.editor-button-main:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.editor-button-menu {
+  width: 18px;
+  height: var(--height-sm);
+}
+
+.editor-button-error {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  white-space: nowrap;
+  color: var(--danger);
+  font-size: var(--font-size-xs);
 }
 
 .home {
