@@ -64,6 +64,40 @@ describe("RightPanelTabs", () => {
     expect(dispatch).toHaveBeenCalledWith({ type: "closeOthers", id: "plan" });
   });
 
+  it("closes a tab from the context menu without activating it", () => {
+    const dispatch = vi.fn();
+    const state = stateWith({ type: "open", kind: "changes" }, { type: "open", kind: "plan" });
+    render(
+      <RightPanelTabs
+        state={state}
+        dispatch={dispatch}
+        maximized={false}
+        onMaximize={() => {}}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Close" }));
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenLastCalledWith({ type: "close", id: "plan" });
+  });
+
+  it("closes all from the context menu without activating a tab", () => {
+    const dispatch = vi.fn();
+    const state = stateWith({ type: "open", kind: "changes" }, { type: "open", kind: "plan" });
+    render(
+      <RightPanelTabs
+        state={state}
+        dispatch={dispatch}
+        maximized={false}
+        onMaximize={() => {}}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Close all" }));
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenLastCalledWith({ type: "closeAll" });
+  });
+
   it("adds a surface from the plus menu and queries files", () => {
     const dispatch = vi.fn();
     render(

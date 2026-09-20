@@ -83,7 +83,8 @@ export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setMenuId(null);
                     dispatch({ type: "close", id: surface.id });
                   }}
@@ -93,7 +94,8 @@ export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setMenuId(null);
                     dispatch({ type: "closeOthers", id: surface.id });
                   }}
@@ -103,7 +105,8 @@ export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => {
+                  onClick={(event) => {
+                    event.stopPropagation();
                     setMenuId(null);
                     dispatch({ type: "closeAll" });
                   }}
