@@ -3,6 +3,7 @@ import type {
   BranchInfo,
   CreatePayload,
   DiffCommentInput,
+  ReadFileResult,
   RelayEvent,
   RelayState,
 } from "../shared/ipc.ts";
@@ -16,6 +17,8 @@ import type {
   TranscriptEvent,
 } from "../shared/types.ts";
 import type { McpServerConfig } from "../shared/mcp.ts";
+import type { GitChangesResult, GitFileDiff } from "../shared/git.ts";
+import type { EditorInfo, OpenInEditorResult } from "../shared/editors.ts";
 
 contextBridge.exposeInMainWorld("relay", {
   getState: (): Promise<RelayState> => ipcRenderer.invoke("relay:getState"),
@@ -97,6 +100,23 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:copyDebug", id),
   openPath: (cwd: string, path: string): Promise<boolean> =>
     ipcRenderer.invoke("relay:openPath", cwd, path),
+  readFile: (cwd: string, path: string): Promise<ReadFileResult | null> =>
+    ipcRenderer.invoke("relay:readFile", cwd, path),
+  gitChanges: (cwd: string): Promise<GitChangesResult | null> =>
+    ipcRenderer.invoke("relay:gitChanges", cwd),
+  gitFileDiff: (cwd: string, path: string): Promise<GitFileDiff | null> =>
+    ipcRenderer.invoke("relay:gitFileDiff", cwd, path),
+  availableEditors: (): Promise<EditorInfo[]> =>
+    ipcRenderer.invoke("relay:availableEditors"),
+  openInEditor: (
+    cwd: string,
+    editor: string,
+    path?: string,
+    line?: number,
+  ): Promise<OpenInEditorResult> =>
+    ipcRenderer.invoke("relay:openInEditor", cwd, editor, path, line),
+  revealInFinder: (cwd: string, path: string): Promise<boolean> =>
+    ipcRenderer.invoke("relay:revealInFinder", cwd, path),
   windowControl: (action: "min" | "max" | "close"): Promise<void> =>
     ipcRenderer.invoke("relay:windowControl", action),
   subscribe: (listener: (event: RelayEvent) => void) => {

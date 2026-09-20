@@ -43,6 +43,9 @@ import { createLogger } from "./logger.ts";
 import { branchInfo, repoNameFromPath, withGitBranch } from "./repo-name.ts";
 import { listFiles } from "./file-index.ts";
 import { listSkills } from "./skills.ts";
+import { readFilePreview } from "./read-file.ts";
+import { gitChanges, gitFileDiff } from "./git-changes.ts";
+import { availableEditors, openInEditor } from "./editors.ts";
 import { readAttachment } from "./attachments.ts";
 import type { CreatePayload, DiffCommentInput, RelayState } from "../shared/ipc.ts";
 import type { AgentConfig, PromptAttachment, SessionStatus } from "../shared/types.ts";
@@ -510,6 +513,31 @@ async function main(): Promise<void> {
     if (!resolved) return false;
     const error = await shell.openPath(resolved);
     return error === "";
+  });
+
+  ipcMain.handle("relay:readFile", (_e, cwd: string, path: string) =>
+    readFilePreview(cwd, path),
+  );
+
+  ipcMain.handle("relay:gitChanges", (_e, cwd: string) => gitChanges(cwd));
+
+  ipcMain.handle("relay:gitFileDiff", (_e, cwd: string, path: string) =>
+    gitFileDiff(cwd, path),
+  );
+
+  ipcMain.handle("relay:availableEditors", () => availableEditors());
+
+  ipcMain.handle(
+    "relay:openInEditor",
+    (_e, cwd: string, editor: string, path?: string, line?: number) =>
+      openInEditor(cwd, editor, path, line),
+  );
+
+  ipcMain.handle("relay:revealInFinder", (_e, cwd: string, path: string) => {
+    const resolved = resolveWithinReal(cwd, path);
+    if (!resolved) return false;
+    shell.showItemInFolder(resolved);
+    return true;
   });
 
   ipcMain.handle("relay:windowControl", (event, action: "min" | "max" | "close") => {

@@ -2,6 +2,7 @@ import type {
   BranchInfo,
   CreatePayload,
   DiffCommentInput,
+  ReadFileResult,
   RelayEvent,
   RelayState,
 } from "../shared/ipc.ts";
@@ -15,6 +16,8 @@ import type {
   TranscriptEvent,
 } from "../shared/types.ts";
 import type { McpServerConfig } from "../shared/mcp.ts";
+import type { GitChangesResult, GitFileDiff } from "../shared/git.ts";
+import type { EditorInfo, OpenInEditorResult } from "../shared/editors.ts";
 
 export type RelayBridge = {
   getState: () => Promise<RelayState>;
@@ -59,6 +62,17 @@ export type RelayBridge = {
   rename: (id: string, title: string) => Promise<void>;
   copyDebug: (id: string) => Promise<void>;
   openPath: (cwd: string, path: string) => Promise<boolean>;
+  readFile: (cwd: string, path: string) => Promise<ReadFileResult | null>;
+  gitChanges: (cwd: string) => Promise<GitChangesResult | null>;
+  gitFileDiff: (cwd: string, path: string) => Promise<GitFileDiff | null>;
+  availableEditors: () => Promise<EditorInfo[]>;
+  openInEditor: (
+    cwd: string,
+    editor: string,
+    path?: string,
+    line?: number,
+  ) => Promise<OpenInEditorResult>;
+  revealInFinder: (cwd: string, path: string) => Promise<boolean>;
   windowControl: (action: "min" | "max" | "close") => Promise<void>;
   subscribe: (listener: (event: RelayEvent) => void) => () => void;
 };

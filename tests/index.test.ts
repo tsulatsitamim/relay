@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -167,7 +167,10 @@ vi.mock("electron", () => {
       },
     },
     clipboard: { writeText: () => {} },
-    shell: { openPath: async () => "" },
+    shell: {
+      openPath: async () => "",
+      showItemInFolder: () => {},
+    },
     nativeTheme: h.nativeTheme,
     screen: {
       getPrimaryDisplay: () => ({ workArea: { ...h.workArea } }),
@@ -327,6 +330,36 @@ describe("main relay:getState", () => {
     expect(forked!.acpSessionId).toBeTruthy();
     expect(forked!.acpSessionId).not.toBe(source.acpSessionId);
     expect(forked!.title).toBe(`${source.title} (fork)`);
+  });
+
+  it("exposes the right panel handlers", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+    await waitFor(() => h.handlers.get("relay:getState"));
+
+    const dir = mkdtempSync(join(tmpdir(), "relay-panel-"));
+    writeFileSync(join(dir, "a.txt"), "hello");
+
+    const readFile = h.handlers.get("relay:readFile")!;
+    expect(readFile({}, dir, "a.txt")).toEqual({
+      path: "a.txt",
+      text: "hello",
+      truncated: false,
+      binary: false,
+    });
+    expect(readFile({}, dir, "../secret")).toBeNull();
+
+    const changes = h.handlers.get("relay:gitChanges")!;
+    expect(await changes({}, dir)).toBeNull();
+
+    const diff = h.handlers.get("relay:gitFileDiff")!;
+    expect(await diff({}, dir, "a.txt")).toBeNull();
+
+    const editors = h.handlers.get("relay:availableEditors")!;
+    expect(Array.isArray(editors({}))).toBe(true);
+
+    const reveal = h.handlers.get("relay:revealInFinder")!;
+    expect(reveal({}, dir, "../secret")).toBe(false);
   });
 });
 
