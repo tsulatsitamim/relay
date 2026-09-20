@@ -52,6 +52,10 @@ export function usePanelStore(sessionId: string | null) {
   const [width, setWidthState] = useState(() => readWidthSafe(sessionId));
 
   useEffect(() => {
+    writePanelsSafe(panels);
+  }, [panels]);
+
+  useEffect(() => {
     setWidthState(readWidthSafe(sessionId));
   }, [sessionId]);
 
@@ -68,7 +72,6 @@ export function usePanelStore(sessionId: string | null) {
         const bySession = { ...prev };
         if (next.surfaces.length === 0) delete bySession[sessionId];
         else bySession[sessionId] = next;
-        writePanelsSafe(bySession);
         return bySession;
       });
     },
