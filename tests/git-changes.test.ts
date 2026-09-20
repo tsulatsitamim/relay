@@ -108,6 +108,22 @@ describe("gitFileDiff", () => {
     });
   });
 
+  it("reports an oversized committed side instead of loading it", async () => {
+    const root = repo();
+    writeFileSync(join(root, "big.ts"), "y".repeat(MAX_DIFF_BYTES + 1));
+    git(root, ["add", "-A"]);
+    git(root, ["commit", "-q", "-m", "big"]);
+    writeFileSync(join(root, "big.ts"), "small\n");
+    const diff = await gitFileDiff(root, "big.ts");
+    expect(diff).toEqual({
+      path: "big.ts",
+      oldText: null,
+      newText: "",
+      truncated: true,
+      binary: false,
+    });
+  });
+
   it("rejects escaped paths and files outside a repository", async () => {
     const root = repo();
     expect(await gitFileDiff(root, "../secret")).toBeNull();

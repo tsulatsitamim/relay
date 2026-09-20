@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { promisify } from "node:util";
 import {
   branchFromPorcelain,
@@ -71,6 +71,31 @@ export async function gitFileDiff(
   const resolved = resolveWithinReal(root, path);
   if (!resolved) return null;
 
+  const oversized = (): GitFileDiff => ({
+    path,
+    oldText: null,
+    newText: "",
+    binary: false,
+    truncated: true,
+  });
+
+  let size: number;
+  try {
+    size = statSync(resolved).size;
+  } catch {
+    size = 0;
+  }
+  if (size > MAX_DIFF_BYTES) return oversized();
+
+  let oldSize: number | null = null;
+  try {
+    const reported = Number((await git(root, ["cat-file", "-s", `HEAD:${path}`])).trim());
+    oldSize = Number.isFinite(reported) ? reported : null;
+  } catch {
+    oldSize = null;
+  }
+  if (oldSize !== null && oldSize > MAX_DIFF_BYTES) return oversized();
+
   let oldText: string | null = null;
   try {
     oldText = await git(root, ["show", `HEAD:${path}`]);
@@ -86,7 +111,7 @@ export async function gitFileDiff(
   }
 
   if (buffer.length > MAX_DIFF_BYTES) {
-    return { path, oldText: null, newText: "", truncated: true, binary: false };
+    return oversized();
   }
   if (buffer.includes(0) || (oldText ?? "").includes("\0")) {
     return { path, oldText: null, newText: "", truncated: false, binary: true };
