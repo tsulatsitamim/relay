@@ -6,6 +6,7 @@ import {
   type SessionPanelState,
 } from "../../shared/right-panel.ts";
 import {
+  clearWidth,
   DEFAULT_PANEL_WIDTH,
   readPanels,
   readWidth,
@@ -42,6 +43,14 @@ function writePanelsSafe(panels: Panels): void {
 function writeWidthSafe(sessionId: string, width: number): void {
   try {
     writeWidth(window.localStorage, sessionId, width);
+  } catch {
+    return;
+  }
+}
+
+function clearWidthSafe(sessionId: string): void {
+  try {
+    clearWidth(window.localStorage, sessionId);
   } catch {
     return;
   }
@@ -86,5 +95,15 @@ export function usePanelStore(sessionId: string | null) {
     [sessionId],
   );
 
-  return { state, dispatch, width, setWidth };
+  const removeSession = useCallback((id: string) => {
+    setPanels((prev) => {
+      if (!(id in prev)) return prev;
+      const bySession = { ...prev };
+      delete bySession[id];
+      return bySession;
+    });
+    clearWidthSafe(id);
+  }, []);
+
+  return { state, dispatch, width, setWidth, removeSession };
 }

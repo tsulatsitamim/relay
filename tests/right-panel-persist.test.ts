@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clampPanelWidth,
+  clearWidth,
   parsePanels,
   readPanels,
   serializePanels,
@@ -142,5 +143,12 @@ describe("width storage", () => {
     expect(readWidth(storage, "s1")).toBe(611);
     storage.setItem("relay.rightPanelWidth:s2", "nope");
     expect(readWidth(storage, "s2")).toBeNull();
+  });
+
+  it("clears a stored width", () => {
+    const storage = memoryStorage();
+    writeWidth(storage, "s1", 611);
+    clearWidth(storage, "s1");
+    expect(readWidth(storage, "s1")).toBeNull();
   });
 });

@@ -36,7 +36,8 @@ export type PanelAction =
   | { type: "closeAll" }
   | { type: "togglePanel" }
   | { type: "hide" }
-  | { type: "show" };
+  | { type: "show" }
+  | { type: "removeSession" };
 
 export function fileSurfaceId(path: string): `file:${string}` {
   return `file:${path}`;
@@ -128,6 +129,8 @@ export function panelReducer(
       return normalize({ ...state, isOpen: false });
     case "show":
       return normalize({ ...state, isOpen: state.surfaces.length > 0 && true });
+    case "removeSession":
+      return EMPTY_PANEL_STATE;
     default:
       return state;
   }

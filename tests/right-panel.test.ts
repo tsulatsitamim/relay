@@ -110,4 +110,9 @@ describe("panelReducer", () => {
     expect(panelReducer(state, { type: "show" })).toMatchObject({ isOpen: true });
     expect(panelReducer(EMPTY_PANEL_STATE, { type: "show" })).toEqual(EMPTY_PANEL_STATE);
   });
+
+  it("resets a removed session to the empty panel state", () => {
+    const state = panelReducer(openChanges(), { type: "open", kind: "plan" });
+    expect(panelReducer(state, { type: "removeSession" })).toEqual(EMPTY_PANEL_STATE);
+  });
 });

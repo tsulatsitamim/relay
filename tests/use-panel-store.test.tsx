@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 function Probe({ sessionId }: { sessionId: string }) {
-  const { state, dispatch, width, setWidth } = usePanelStore(sessionId);
+  const { state, dispatch, width, setWidth, removeSession } = usePanelStore(sessionId);
   return (
     <div>
       <span data-testid="open">{state.isOpen ? "open" : "closed"}</span>
@@ -27,6 +27,9 @@ function Probe({ sessionId }: { sessionId: string }) {
       </button>
       <button type="button" onClick={() => setWidth(611, true)}>
         resize
+      </button>
+      <button type="button" onClick={() => removeSession(sessionId)}>
+        remove
       </button>
     </div>
   );
@@ -61,6 +64,17 @@ describe("usePanelStore", () => {
     fireEvent.click(screen.getByText("resize"));
     expect(screen.getByTestId("width").textContent).toBe("611");
     expect(window.localStorage.getItem("relay.rightPanelWidth:s1")).toBe("611");
+  });
+
+  it("prunes a deleted session's panel state and width", () => {
+    render(<Probe sessionId="s1" />);
+    fireEvent.click(screen.getByText("changes"));
+    fireEvent.click(screen.getByText("resize"));
+    expect(window.localStorage.getItem("relay.rightPanelWidth:s1")).toBe("611");
+    fireEvent.click(screen.getByText("remove"));
+    expect(screen.getByTestId("count").textContent).toBe("0");
+    expect(window.localStorage.getItem("relay.rightPanel")).not.toContain("s1");
+    expect(window.localStorage.getItem("relay.rightPanelWidth:s1")).toBeNull();
   });
 
   it("falls back to in-memory state when storage throws", () => {

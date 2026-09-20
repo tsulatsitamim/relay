@@ -123,3 +123,7 @@ export function readWidth(storage: Storage, sessionId: string): number | null {
 export function writeWidth(storage: Storage, sessionId: string, width: number): void {
   storage.setItem(`${WIDTH_STORAGE_PREFIX}${sessionId}`, String(Math.floor(width)));
 }
+
+export function clearWidth(storage: Storage, sessionId: string): void {
+  storage.removeItem(`${WIDTH_STORAGE_PREFIX}${sessionId}`);
+}

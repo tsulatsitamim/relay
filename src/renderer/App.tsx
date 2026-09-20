@@ -1672,6 +1672,7 @@ export function App() {
                 setMenu(null);
                 setRenamingId((current) => (current === id ? null : current));
                 await window.relay.delete(id);
+                panel.removeSession(id);
                 setSelectedId((current) => (current === id ? null : current));
               }}
             >
