@@ -4468,6 +4468,10 @@ input:focus-visible {
   position: relative;
 }
 
+.right-panel:not(.overlay) {
+  padding-top: var(--titlebar);
+}
+
 .right-panel-tabs {
   flex-shrink: 0;
   height: var(--titlebar);
