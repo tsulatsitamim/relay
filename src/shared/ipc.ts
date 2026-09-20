@@ -53,3 +53,10 @@ export type BranchInfo = {
   branch: string;
   worktree: boolean;
 };
+
+export type ReadFileResult = {
+  path: string;
+  text: string;
+  truncated: boolean;
+  binary: boolean;
+};
