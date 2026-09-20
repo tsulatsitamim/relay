@@ -37,4 +37,17 @@ describe("PanelFiles", () => {
     );
     expect(screen.queryByText("README.md")).toBeNull();
   });
+
+  it("surfaces a listFiles failure instead of the empty state", async () => {
+    window.relay = {
+      listFiles: async () => {
+        throw new Error("Cannot list files");
+      },
+    } as unknown as RelayBridge;
+    render(<PanelFiles cwd="/repo" onOpenFile={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByText("Cannot list files")).toBeTruthy(),
+    );
+    expect(screen.queryByText("No files")).toBeNull();
+  });
 });

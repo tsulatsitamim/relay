@@ -9,22 +9,28 @@ export function PanelFiles({ cwd, onOpenFile }: Props) {
   const [query, setQuery] = useState("");
   const [files, setFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!cwd) {
       setFiles([]);
+      setError(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
+    setError(null);
     const timer = window.setTimeout(() => {
       void window.relay
         .listFiles(cwd, query.trim())
         .then((result) => {
           if (!cancelled) setFiles(result);
         })
-        .catch(() => {
-          if (!cancelled) setFiles([]);
+        .catch((cause: unknown) => {
+          if (!cancelled) {
+            setFiles([]);
+            setError(cause instanceof Error ? cause.message : String(cause));
+          }
         })
         .finally(() => {
           if (!cancelled) setLoading(false);
@@ -47,7 +53,9 @@ export function PanelFiles({ cwd, onOpenFile }: Props) {
           onChange={(event) => setQuery(event.target.value)}
         />
       </div>
-      {files.length === 0 ? (
+      {error ? (
+        <p className="panel-note">{error}</p>
+      ) : files.length === 0 ? (
         <p className="panel-note">{loading ? "Loading…" : "No files"}</p>
       ) : (
         <div className="panel-files-list">
