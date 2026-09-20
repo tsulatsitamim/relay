@@ -4718,3 +4718,26 @@ input:focus-visible {
   border-top: 1px solid var(--line);
   padding: var(--space-2);
 }
+
+.panel-input {
+  width: 100%;
+  border: 0;
+  background: var(--hover);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  outline: none;
+}
+
+.panel-files-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-file-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-2);
+}
