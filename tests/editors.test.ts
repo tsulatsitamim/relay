@@ -83,4 +83,17 @@ describe("openInEditor", () => {
     );
     expect(unref).toHaveBeenCalled();
   });
+
+  it("consumes asynchronous spawn errors instead of crashing", () => {
+    const unref = vi.fn();
+    const on = vi.fn();
+    const spawn = vi.fn(() => ({ unref, on }));
+    const result = openInEditor(process.cwd(), "vscode", "package.json", null, {
+      onPath: () => true,
+      spawn,
+    });
+    expect(result).toEqual({ ok: true });
+    expect(on).toHaveBeenCalledWith("error", expect.any(Function));
+    expect(unref).toHaveBeenCalled();
+  });
 });

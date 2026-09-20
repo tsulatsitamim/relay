@@ -14,7 +14,10 @@ type SpawnLike = (
   command: string,
   args: string[],
   options: { detached: boolean; stdio: "ignore"; shell: boolean },
-) => { unref: () => void };
+) => {
+  unref: () => void;
+  on?: (event: "error", listener: () => void) => void;
+};
 
 type Deps = {
   onPath?: (command: string) => boolean;
@@ -65,11 +68,13 @@ export function openInEditor(
     target = resolved;
   }
   try {
-    spawn(command, editorArgs(editor, target, line ?? null), {
+    const child = spawn(command, editorArgs(editor, target, line ?? null), {
       detached: true,
       stdio: "ignore",
       shell: false,
-    }).unref();
+    });
+    if (child.on) child.on("error", () => {});
+    child.unref();
     return { ok: true };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
