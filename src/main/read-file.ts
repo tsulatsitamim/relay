@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { resolveWithinReal } from "./open-path.ts";
 import type { ReadFileResult } from "../shared/ipc.ts";
 
@@ -7,23 +7,37 @@ export const MAX_PREVIEW_BYTES = 512 * 1024;
 export function readFilePreview(cwd: string, path: string): ReadFileResult | null {
   const resolved = resolveWithinReal(cwd, path);
   if (!resolved) return null;
+  let stats;
   try {
-    if (!statSync(resolved).isFile()) return null;
+    stats = statSync(resolved);
   } catch {
     return null;
   }
+  if (!stats.isFile()) return null;
   let buffer: Buffer;
+  let truncated: boolean;
   try {
-    buffer = readFileSync(resolved);
+    if (stats.size <= MAX_PREVIEW_BYTES) {
+      buffer = readFileSync(resolved);
+      truncated = false;
+    } else {
+      const fd = openSync(resolved, "r");
+      try {
+        const chunk = Buffer.alloc(MAX_PREVIEW_BYTES + 1);
+        const bytesRead = readSync(fd, chunk, 0, chunk.length, 0);
+        truncated = bytesRead > MAX_PREVIEW_BYTES;
+        buffer = chunk.subarray(0, MAX_PREVIEW_BYTES);
+      } finally {
+        closeSync(fd);
+      }
+    }
   } catch {
     return null;
   }
-  const truncated = buffer.length > MAX_PREVIEW_BYTES;
-  const slice = truncated ? buffer.subarray(0, MAX_PREVIEW_BYTES) : buffer;
-  const binary = slice.includes(0);
+  const binary = buffer.includes(0);
   return {
     path,
-    text: binary ? "" : slice.toString("utf8"),
+    text: binary ? "" : buffer.toString("utf8"),
     truncated,
     binary,
   };

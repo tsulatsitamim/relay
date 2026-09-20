@@ -44,6 +44,11 @@ describe("readFilePreview", () => {
     expect(result?.text.length).toBe(MAX_PREVIEW_BYTES);
   });
 
+  it("returns exactly the capped prefix of an oversized file", () => {
+    const result = readFilePreview(fixture(), "big.txt");
+    expect(result?.text).toBe("x".repeat(MAX_PREVIEW_BYTES));
+  });
+
   it("rejects paths outside the working directory and missing files", () => {
     const root = fixture();
     expect(readFilePreview(root, "../secret")).toBeNull();
