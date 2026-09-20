@@ -15,26 +15,31 @@ import {
   Copy,
   Ellipsis,
   FileText,
+  Files,
   Folder,
   FolderOpen,
   FolderPlus,
+  GitCompare,
   GitFork,
   Globe,
   Info,
   ListChecks,
   ListFilter,
+  ListTodo,
   LoaderCircle,
   MessageSquarePlus,
   Mic,
   Minus,
   Monitor,
   PanelLeft,
+  PanelRight,
   Pencil,
   Pin,
   Plug,
   Plus,
   Redo2,
   RotateCcw,
+  RotateCw,
   Search,
   Server,
   Settings,
@@ -75,6 +80,11 @@ export const IconChevronRight = icon(ChevronRight, { size: 14, strokeWidth: 2 })
 export const IconArrowLeft = icon(ArrowLeft, { size: 16, strokeWidth: 1.75 });
 export const IconArrowRight = icon(ArrowRight, { size: 16, strokeWidth: 1.75 });
 export const IconPanelLeft = icon(PanelLeft);
+export const IconPanelRight = icon(PanelRight);
+export const IconGitCompare = icon(GitCompare, { size: 14, strokeWidth: 1.75 });
+export const IconFiles = icon(Files, { size: 14, strokeWidth: 1.75 });
+export const IconListTodo = icon(ListTodo, { size: 14, strokeWidth: 1.75 });
+export const IconRefresh = icon(RotateCw, { size: 13, strokeWidth: 1.75 });
 export const IconMonitor = icon(Monitor, { size: 14 });
 export const IconMic = icon(Mic, { size: 14 });
 export const IconStop = icon(Square, { size: 12, fill: "currentColor", strokeWidth: 0 });
