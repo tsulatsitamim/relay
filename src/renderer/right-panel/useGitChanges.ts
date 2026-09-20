@@ -9,6 +9,7 @@ export function useGitChanges(cwd: string | null) {
 
   const refresh = useCallback(() => {
     if (!cwd) {
+      runRef.current += 1;
       setChanges(null);
       setLoading(false);
       setError(null);

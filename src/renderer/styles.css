@@ -4655,6 +4655,20 @@ input:focus-visible {
   background: var(--active);
 }
 
+.panel-file-select {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  font-size: inherit;
+}
+
 .panel-file-path {
   flex: 1;
   min-width: 0;
@@ -4686,6 +4700,14 @@ input:focus-visible {
 .panel-file-open {
   display: inline-flex;
   opacity: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.panel-file-open:focus-visible {
+  opacity: 1;
 }
 
 .panel-file-row:hover .panel-file-open {

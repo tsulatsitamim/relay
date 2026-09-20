@@ -94,36 +94,36 @@ export function PanelChanges({
         <div className="panel-changes-list">
           {changes.files.map((file) => (
             <div key={file.path} className="panel-file-row-wrap">
-              <button
-                type="button"
+              <div
                 className={
                   selected === file.path ? "panel-file-row active" : "panel-file-row"
                 }
-                onClick={() => setSelected(file.path)}
               >
-                <span className="panel-file-path">{file.path}</span>
-                <span className={`panel-status panel-status-${file.status}`}>
-                  {changeLabel(file.status)}
-                </span>
-                {file.insertions == null ? null : (
-                  <span className="panel-stat add">+{file.insertions}</span>
-                )}
-                {file.deletions == null ? null : (
-                  <span className="panel-stat del">-{file.deletions}</span>
-                )}
-                <span
+                <button
+                  type="button"
+                  className="panel-file-select"
+                  onClick={() => setSelected(file.path)}
+                >
+                  <span className="panel-file-path">{file.path}</span>
+                  <span className={`panel-status panel-status-${file.status}`}>
+                    {changeLabel(file.status)}
+                  </span>
+                  {file.insertions == null ? null : (
+                    <span className="panel-stat add">+{file.insertions}</span>
+                  )}
+                  {file.deletions == null ? null : (
+                    <span className="panel-stat del">-{file.deletions}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
                   className="panel-file-open"
-                  role="button"
-                  tabIndex={0}
                   aria-label={`Open ${file.path} in editor`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onOpenInEditor(file.path);
-                  }}
+                  onClick={() => onOpenInEditor(file.path)}
                 >
                   <IconExternalLink />
-                </span>
-              </button>
+                </button>
+              </div>
             </div>
           ))}
         </div>
