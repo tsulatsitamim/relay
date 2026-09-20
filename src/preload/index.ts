@@ -58,8 +58,11 @@ contextBridge.exposeInMainWorld("relay", {
   delete: (id: string): Promise<void> => ipcRenderer.invoke("relay:delete", id),
   pickDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke("relay:pickDirectory"),
-  listFiles: (cwd: string, query?: string): Promise<string[]> =>
-    ipcRenderer.invoke("relay:listFiles", cwd, query),
+  listFiles: (
+    cwd: string,
+    query?: string,
+    opts?: { limit?: number; maxDepth?: number },
+  ): Promise<string[]> => ipcRenderer.invoke("relay:listFiles", cwd, query, opts),
   listSkills: (cwd?: string): Promise<string[]> =>
     ipcRenderer.invoke("relay:listSkills", cwd),
   branchInfo: (cwd: string): Promise<BranchInfo | null> =>

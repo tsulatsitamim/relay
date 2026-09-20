@@ -385,10 +385,32 @@ async function main(): Promise<void> {
     return result.canceled ? null : (result.filePaths[0] ?? null);
   });
 
-  ipcMain.handle("relay:listFiles", (_e, cwd: string, query?: string) => {
-    if (!cwd) return [];
-    return listFiles(cwd, { query: typeof query === "string" ? query : "" });
-  });
+  ipcMain.handle(
+    "relay:listFiles",
+    (
+      _e,
+      cwd: string,
+      query?: string,
+      opts?: { limit?: number; maxDepth?: number },
+    ) => {
+      if (!cwd) return [];
+      const limit =
+        typeof opts?.limit === "number" && Number.isFinite(opts.limit) && opts.limit > 0
+          ? Math.floor(opts.limit)
+          : undefined;
+      const maxDepth =
+        typeof opts?.maxDepth === "number" &&
+        Number.isFinite(opts.maxDepth) &&
+        opts.maxDepth >= 0
+          ? Math.floor(opts.maxDepth)
+          : undefined;
+      return listFiles(cwd, {
+        query: typeof query === "string" ? query : "",
+        ...(limit !== undefined ? { limit } : {}),
+        ...(maxDepth !== undefined ? { maxDepth } : {}),
+      });
+    },
+  );
 
   ipcMain.handle("relay:listSkills", (_e, cwd?: string) => {
     return listSkills({ cwd: typeof cwd === "string" && cwd ? cwd : undefined });

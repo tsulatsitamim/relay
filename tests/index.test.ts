@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -339,6 +339,19 @@ describe("main relay:getState", () => {
 
     const dir = mkdtempSync(join(tmpdir(), "relay-panel-"));
     writeFileSync(join(dir, "a.txt"), "hello");
+
+    const listFiles = h.handlers.get("relay:listFiles")!;
+    expect(listFiles({}, dir)).toEqual(["a.txt"]);
+    writeFileSync(join(dir, "b.txt"), "b");
+    writeFileSync(join(dir, "c.txt"), "c");
+    mkdirSync(join(dir, "nested"));
+    writeFileSync(join(dir, "nested", "deep.txt"), "d");
+    expect(listFiles({}, dir)).toHaveLength(4);
+    expect(listFiles({}, dir, "", { limit: 2 })).toEqual(["a.txt", "b.txt"]);
+    expect(listFiles({}, dir, "", { maxDepth: 1 })).not.toContain(
+      "nested/deep.txt",
+    );
+    expect(listFiles({}, dir, "", { limit: 0 })).toHaveLength(4);
 
     const readFile = h.handlers.get("relay:readFile")!;
     expect(readFile({}, dir, "a.txt")).toEqual({

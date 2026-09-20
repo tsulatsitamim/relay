@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 
+const BROWSE_LIMIT = 2000;
+const BROWSE_MAX_DEPTH = 12;
+
 type Props = {
   cwd: string;
   onOpenFile: (path: string) => void;
@@ -22,7 +25,10 @@ export function PanelFiles({ cwd, onOpenFile }: Props) {
     setError(null);
     const timer = window.setTimeout(() => {
       void window.relay
-        .listFiles(cwd, query.trim())
+        .listFiles(cwd, query.trim(), {
+          limit: BROWSE_LIMIT,
+          maxDepth: BROWSE_MAX_DEPTH,
+        })
         .then((result) => {
           if (!cancelled) setFiles(result);
         })

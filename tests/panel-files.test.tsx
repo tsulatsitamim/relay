@@ -29,11 +29,18 @@ describe("PanelFiles", () => {
     window.relay = { listFiles } as unknown as RelayBridge;
     render(<PanelFiles cwd="/repo" onOpenFile={() => {}} />);
     await waitFor(() => expect(screen.getByText("README.md")).toBeTruthy());
+    expect(listFiles).toHaveBeenCalledWith("/repo", "", {
+      limit: 2000,
+      maxDepth: 12,
+    });
     fireEvent.change(screen.getByRole("textbox", { name: "Filter files" }), {
       target: { value: "app" },
     });
     await waitFor(() =>
-      expect(listFiles).toHaveBeenCalledWith("/repo", "app"),
+      expect(listFiles).toHaveBeenCalledWith("/repo", "app", {
+        limit: 2000,
+        maxDepth: 12,
+      }),
     );
     expect(screen.queryByText("README.md")).toBeNull();
   });

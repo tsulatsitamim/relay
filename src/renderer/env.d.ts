@@ -44,7 +44,11 @@ export type RelayBridge = {
   authenticate: (id: string, methodId: string) => Promise<void>;
   delete: (id: string) => Promise<void>;
   pickDirectory: () => Promise<string | null>;
-  listFiles: (cwd: string, query?: string) => Promise<string[]>;
+  listFiles: (
+    cwd: string,
+    query?: string,
+    opts?: { limit?: number; maxDepth?: number },
+  ) => Promise<string[]>;
   listSkills: (cwd?: string) => Promise<string[]>;
   branchInfo: (cwd: string) => Promise<BranchInfo | null>;
   pickImages: () => Promise<PromptAttachment[]>;
