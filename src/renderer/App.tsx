@@ -1640,7 +1640,7 @@ export function App() {
               cwd={selected?.workingDirectory ?? ""}
               preferred={state.settings.preferredEditor ?? null}
               disabled={!selected}
-              onPreferred={(id) => void window.relay.setSetting("preferredEditor", id)}
+              onPreferred={(id) => setSetting("preferredEditor", id)}
             />
             <span className="icon-btn static" aria-hidden>
               <IconMore />
