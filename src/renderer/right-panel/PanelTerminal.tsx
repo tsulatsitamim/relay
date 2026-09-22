@@ -3,6 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { terminalFontSize, terminalTheme, type StyleReader } from "./terminal-theme.ts";
+import type { TerminalEvent } from "../../shared/terminal.ts";
 
 const SCROLLBACK_LINES = 5000;
 const FIT_DEBOUNCE_MS = 100;
@@ -27,7 +28,14 @@ function exitLabel(exit: ExitState): string {
   return `[process exited with code ${exit.exitCode ?? 0}]`;
 }
 
-export function PanelTerminal({ terminalId, onStartNew, onCloseSelf }: Props) {
+// Each terminal tab owns its own view: the key makes React tear down and
+// rebuild the whole subtree when the active terminal changes, so no exit,
+// missing or notice state can leak from one terminal into another.
+export function PanelTerminal(props: Props) {
+  return <TerminalView key={props.terminalId} {...props} />;
+}
+
+function TerminalView({ terminalId, onStartNew, onCloseSelf }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [exit, setExit] = useState<ExitState | null>(null);
   const [missing, setMissing] = useState(false);
@@ -56,9 +64,10 @@ export function PanelTerminal({ terminalId, onStartNew, onCloseSelf }: Props) {
 
     let disposed = false;
     let fitTimer: ReturnType<typeof setTimeout> | null = null;
+    let attached = false;
+    const buffered: TerminalEvent[] = [];
 
-    const unsubscribe = window.relay.terminal.onEvent((event) => {
-      if (event.terminalId !== terminalId) return;
+    const apply = (event: TerminalEvent) => {
       if (event.type === "terminalData") {
         term.write(event.data);
         return;
@@ -70,6 +79,17 @@ export function PanelTerminal({ terminalId, onStartNew, onCloseSelf }: Props) {
       }
       setExit(null);
       term.reset();
+    };
+
+    const unsubscribe = window.relay.terminal.onEvent((event) => {
+      if (event.terminalId !== terminalId) return;
+      // Anything landing before the replay snapshot resolves is held back, so
+      // the snapshot can never be written twice or out of order.
+      if (!attached) {
+        buffered.push(event);
+        return;
+      }
+      apply(event);
     });
 
     const dataSubscription = term.onData((data) => {
@@ -129,9 +149,18 @@ export function PanelTerminal({ terminalId, onStartNew, onCloseSelf }: Props) {
         if (result.exited) {
           setExit({ exitCode: result.exitCode, signal: result.signal });
         }
+        attached = true;
+        for (const event of buffered) {
+          if (event.type === "terminalData" && event.seq <= result.seq) continue;
+          if (event.type === "terminalExit" && result.exited) continue;
+          apply(event);
+        }
+        buffered.length = 0;
       })
       .catch((error: unknown) => {
         if (disposed) return;
+        attached = true;
+        buffered.length = 0;
         setNotice(error instanceof Error ? error.message : String(error));
       });
 
@@ -150,9 +179,7 @@ export function PanelTerminal({ terminalId, onStartNew, onCloseSelf }: Props) {
   if (missing) {
     return (
       <div className="panel-terminal">
-        <p className="panel-note">
-          This terminal is no longer running. It ended when Relay restarted.
-        </p>
+        <p className="panel-note">This terminal is no longer running.</p>
         <button
           type="button"
           className="btn"
@@ -179,7 +206,11 @@ export function PanelTerminal({ terminalId, onStartNew, onCloseSelf }: Props) {
             className="btn"
             onClick={() => {
               setExit(null);
-              void window.relay.terminal.restart(terminalId);
+              void window.relay.terminal.restart(terminalId).catch(() => {
+                // The respawn failed, so main dropped the terminal; offer the
+                // same recovery path as a terminal that is simply gone.
+                setMissing(true);
+              });
             }}
           >
             Restart

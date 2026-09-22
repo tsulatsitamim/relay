@@ -487,7 +487,7 @@ describe("main relay:getState", () => {
     );
     expect(h.broadcasts).toContainEqual({
       channel: "relay:terminalEvent",
-      payload: { type: "terminalData", terminalId: created.terminalId, data: "boot" },
+      payload: { type: "terminalData", terminalId: created.terminalId, data: "boot", seq: 1 },
     });
 
     expect(attach({}, created.terminalId)).toMatchObject({ ok: true, data: expect.stringContaining("boot") });

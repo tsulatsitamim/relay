@@ -93,9 +93,9 @@ describe("PanelTerminal", () => {
     );
     await waitFor(() => expect(mocks.terminal.write).toHaveBeenCalledWith("replayed"));
     mocks.terminal.write.mockClear();
-    emit({ type: "terminalData", terminalId: "terminal:other", data: "nope" });
+    emit({ type: "terminalData", terminalId: "terminal:other", data: "nope", seq: 1 });
     expect(mocks.terminal.write).not.toHaveBeenCalled();
-    emit({ type: "terminalData", terminalId: ID, data: "yes" });
+    emit({ type: "terminalData", terminalId: ID, data: "yes", seq: 2 });
     expect(mocks.terminal.write).toHaveBeenCalledWith("yes");
   });
 
@@ -156,6 +156,93 @@ describe("PanelTerminal", () => {
     screen.getByRole("button", { name: "Start a new terminal" }).click();
     expect(onCloseSelf).toHaveBeenCalled();
     expect(onStartNew).toHaveBeenCalled();
+  });
+
+  it("resets per-terminal state when the active terminal switches", async () => {
+    const OTHER = "terminal:9c8b7a65-4321-4f0e-9d8c-7b6a5f4e3d2c";
+    const attach = vi.fn(async (id: string) =>
+      id === ID
+        ? { ok: false as const, reason: "missing" }
+        : { ok: true as const, data: "second", exited: false, exitCode: null, signal: null },
+    );
+    bridge({ attach });
+    const view = render(
+      <PanelTerminal terminalId={ID} onStartNew={() => {}} onCloseSelf={() => {}} />,
+    );
+    expect(await screen.findByText(/no longer running/)).toBeTruthy();
+    mocks.terminal.write.mockClear();
+    view.rerender(
+      <PanelTerminal terminalId={OTHER} onStartNew={() => {}} onCloseSelf={() => {}} />,
+    );
+    await waitFor(() => expect(attach).toHaveBeenCalledWith(OTHER));
+    await waitFor(() => expect(mocks.terminal.write).toHaveBeenCalledWith("second"));
+    expect(screen.queryByText(/no longer running/)).toBeNull();
+  });
+
+  it("does not double-write a chunk that lands between subscribe and attach", async () => {
+    let resolveAttach!: (value: unknown) => void;
+    const attach = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveAttach = resolve;
+        }),
+    );
+    const { emit } = bridge({ attach });
+    render(
+      <PanelTerminal terminalId={ID} onStartNew={() => {}} onCloseSelf={() => {}} />,
+    );
+    emit({ type: "terminalData", terminalId: ID, data: "LIVE", seq: 2 });
+    expect(mocks.terminal.write).not.toHaveBeenCalled();
+    resolveAttach({
+      ok: true,
+      data: "REPLAY",
+      exited: false,
+      exitCode: null,
+      signal: null,
+      seq: 1,
+    });
+    await waitFor(() => expect(mocks.terminal.write).toHaveBeenCalledWith("REPLAY"));
+    await waitFor(() => expect(mocks.terminal.write).toHaveBeenCalledWith("LIVE"));
+    expect(mocks.terminal.write).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops a buffered chunk that the attach snapshot already covers", async () => {
+    let resolveAttach!: (value: unknown) => void;
+    const attach = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveAttach = resolve;
+        }),
+    );
+    const { emit } = bridge({ attach });
+    render(
+      <PanelTerminal terminalId={ID} onStartNew={() => {}} onCloseSelf={() => {}} />,
+    );
+    emit({ type: "terminalData", terminalId: ID, data: "OLD", seq: 1 });
+    resolveAttach({
+      ok: true,
+      data: "REPLAY",
+      exited: false,
+      exitCode: null,
+      signal: null,
+      seq: 1,
+    });
+    await waitFor(() => expect(mocks.terminal.write).toHaveBeenCalledWith("REPLAY"));
+    expect(mocks.terminal.write).not.toHaveBeenCalledWith("OLD");
+  });
+
+  it("shows the recovery notice when restart fails", async () => {
+    const restart = vi.fn(async () => {
+      throw new Error("shell gone");
+    });
+    const { emit } = bridge({ restart });
+    render(
+      <PanelTerminal terminalId={ID} onStartNew={() => {}} onCloseSelf={() => {}} />,
+    );
+    await waitFor(() => expect(mocks.terminal.write).toHaveBeenCalledWith("replayed"));
+    emit({ type: "terminalExit", terminalId: ID, exitCode: 1, signal: null });
+    (await screen.findByRole("button", { name: "Restart" })).click();
+    expect(await screen.findByText(/no longer running/)).toBeTruthy();
   });
 
   it("reports an attach failure as a panel notice", async () => {

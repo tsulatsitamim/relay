@@ -49,6 +49,7 @@ type Entry = {
   chunks: Array<{ data: string; size: number }>;
   bytes: number;
   pending: string;
+  seq: number;
   scheduled: boolean;
   disposed: boolean;
   exited: boolean;
@@ -125,6 +126,7 @@ export class TerminalManager {
     return {
       ok: true,
       data: entry.chunks.length ? REPLAY_PREFIX + entry.chunks.map((c) => c.data).join("") : "",
+      seq: entry.seq,
       exited: entry.exited,
       exitCode: entry.exitCode,
       signal: entry.signal,
@@ -155,6 +157,9 @@ export class TerminalManager {
   async restart(terminalId: string): Promise<void> {
     const entry = this.entries.get(terminalId);
     if (!entry) return;
+    // Drop the entry before spawning: a failed respawn must leave no entry
+    // behind, so the renderer sees `missing` instead of a disposed terminal.
+    this.entries.delete(terminalId);
     this.dispose(entry);
     const replacement = await this.spawnEntry({
       terminalId: entry.terminalId,
@@ -212,6 +217,7 @@ export class TerminalManager {
       chunks: [],
       bytes: 0,
       pending: "",
+      seq: 0,
       scheduled: false,
       disposed: false,
       exited: false,
@@ -237,11 +243,15 @@ export class TerminalManager {
 
   private flush(entry: Entry): void {
     entry.scheduled = false;
+    // A scheduled flush can outlive its entry (close or restart); emitting it
+    // would leak bytes from a dead pty, or into a restarted one.
+    if (entry.disposed) return;
     const data = entry.pending;
     if (!data) return;
     entry.pending = "";
+    entry.seq += 1;
     this.append(entry, data);
-    this.emit({ type: "terminalData", terminalId: entry.terminalId, data });
+    this.emit({ type: "terminalData", terminalId: entry.terminalId, data, seq: entry.seq });
   }
 
   private append(entry: Entry, data: string): void {

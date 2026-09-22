@@ -9,7 +9,7 @@ export const MAX_ROWS = 1000;
 const TERMINAL_ID = /^terminal:[0-9a-fA-F-]{36}$/;
 
 export type TerminalEvent =
-  | { type: "terminalData"; terminalId: string; data: string }
+  | { type: "terminalData"; terminalId: string; data: string; seq: number }
   | {
       type: "terminalExit";
       terminalId: string;
@@ -24,6 +24,8 @@ export type TerminalAttachResult =
   | {
       ok: true;
       data: string;
+      /** Sequence of the last chunk included in `data`; events at or below it are already replayed. */
+      seq: number;
       exited: boolean;
       exitCode: number | null;
       signal: number | null;

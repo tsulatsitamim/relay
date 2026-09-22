@@ -134,11 +134,12 @@ describe("TerminalManager attach", () => {
     expect(events).toHaveLength(0);
     flushScheduled();
     expect(events).toEqual([
-      { type: "terminalData", terminalId, data: "hello world" },
+      { type: "terminalData", terminalId, data: "hello world", seq: 1 },
     ]);
     expect(manager.attach(terminalId)).toEqual({
       ok: true,
       data: `${"\x1b[0m\x1b[?25h"}hello world`,
+      seq: 1,
       exited: false,
       exitCode: null,
       signal: null,
@@ -158,7 +159,7 @@ describe("TerminalManager coalescing and buffering", () => {
     for (let index = 0; index < 50; index += 1) ptys[0]!.emitData("x");
     flushScheduled();
     expect(events).toEqual([
-      { type: "terminalData", terminalId, data: "x".repeat(50) },
+      { type: "terminalData", terminalId, data: "x".repeat(50), seq: 1 },
     ]);
   });
 
@@ -299,6 +300,7 @@ describe("TerminalManager lifecycle", () => {
     expect(manager.attach(terminalId)).toEqual({
       ok: true,
       data: "",
+      seq: 0,
       exited: false,
       exitCode: null,
       signal: null,
@@ -351,5 +353,74 @@ describe("TerminalManager lifecycle", () => {
     manager.shutdown();
     expect(ptys[0]!.kills).toBe(1);
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("TerminalManager ordering and spawn failures", () => {
+  it("stamps increasing sequence numbers and reports the snapshot sequence on attach", async () => {
+    const { manager, ptys, events, flushScheduled } = setup();
+    const created = await manager.create({ sessionId: SESSION, cwd: CWD, cols: 80, rows: 24 });
+    ptys[0]!.emitData("one");
+    flushScheduled();
+    ptys[0]!.emitData("two");
+    flushScheduled();
+    expect(manager.attach(created.terminalId)).toMatchObject({ ok: true, seq: 2 });
+    const sequences = events
+      .filter((event) => event.type === "terminalData")
+      .map((event) => event.seq);
+    expect(sequences).toEqual([1, 2]);
+  });
+
+  it("emits nothing for a disposed terminal whose flush was already scheduled", async () => {
+    const { manager, ptys, events, flushScheduled } = setup();
+    const created = await manager.create({ sessionId: SESSION, cwd: CWD, cols: 80, rows: 24 });
+    ptys[0]!.emitData("stale");
+    manager.close(created.terminalId);
+    flushScheduled();
+    expect(events.some((event) => event.type === "terminalData")).toBe(false);
+  });
+
+  it("rejects create when the shell cannot spawn and leaves no entry", async () => {
+    const manager = new TerminalManager({
+      spawnPty: () => {
+        throw new Error("shell missing");
+      },
+      shell: () => "/bin/zsh",
+      env: () => ({ PATH: "/usr/bin" }),
+      schedule: (callback) => callback(),
+      createId: () => "terminal:00000000-0000-4000-8000-000000000000",
+    });
+    await expect(
+      manager.create({ sessionId: SESSION, cwd: CWD, cols: 80, rows: 24 }),
+    ).rejects.toThrow("shell missing");
+    expect(manager.attach("terminal:00000000-0000-4000-8000-000000000000")).toEqual({
+      ok: false,
+      reason: "missing",
+    });
+  });
+
+  it("rejects restart when the shell cannot respawn and leaves no entry", async () => {
+    const ptys: FakePty[] = [];
+    const events: TerminalEvent[] = [];
+    let calls = 0;
+    const manager = new TerminalManager({
+      spawnPty: () => {
+        calls += 1;
+        if (calls > 1) throw new Error("shell gone");
+        const pty = new FakePty();
+        ptys.push(pty);
+        return pty;
+      },
+      shell: () => "/bin/zsh",
+      env: () => ({ PATH: "/usr/bin" }),
+      schedule: (callback) => callback(),
+      createId: () => "terminal:00000000-0000-4000-8000-000000000001",
+    });
+    manager.onEvent((event) => events.push(event));
+    const created = await manager.create({ sessionId: SESSION, cwd: CWD, cols: 80, rows: 24 });
+    await expect(manager.restart(created.terminalId)).rejects.toThrow("shell gone");
+    expect(manager.attach(created.terminalId)).toEqual({ ok: false, reason: "missing" });
+    expect(events.some((event) => event.type === "terminalReset")).toBe(false);
+    expect(ptys[0]!.kills).toBe(1);
   });
 });
