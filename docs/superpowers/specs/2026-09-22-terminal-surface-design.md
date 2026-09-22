@@ -177,7 +177,7 @@ The default spawner calls `node-pty` with `name: "xterm-256color"`, the given
 cwd/env, and the given size.
 
 **API:** `create({ sessionId, cwd, cols, rows }) -> { terminalId, title }`,
-`attach(id) -> { ok: true; data; exited; exitCode; signal } | { ok: false; reason: "missing" }`,
+`attach(id) -> { ok: true; data; seq; exited; exitCode; signal } | { ok: false; reason: "missing" }`,
 `write(id, data)`, `resize(id, cols, rows)`, `close(id)`, `restart(id)`,
 `removeSession(sessionId)`, `sweep(activeSessionIds)`, `shutdown()`, and
 `onEvent(cb)` mirroring `SessionManager.onEvent`. `create` receives an already
@@ -198,10 +198,17 @@ flood becomes one IPC message per tick instead of thousands.
 
 ```ts
 export type TerminalEvent =
-  | { type: "terminalData"; terminalId: string; data: string }
+  | { type: "terminalData"; terminalId: string; data: string; seq: number }
   | { type: "terminalExit"; terminalId: string; exitCode: number | null; signal: number | null }
   | { type: "terminalReset"; terminalId: string };
 ```
+
+**Sequence numbers.** Every flush stamps the chunk with an increasing
+per-terminal `seq`, and `attach` returns the `seq` its snapshot covers. The view
+buffers events until the snapshot resolves, then drops any chunk at or below
+that `seq`. Without it, a chunk flushing between subscribe and attach is written
+twice — once as an event and once inside the replay — so a busy terminal shows
+duplicated output after a tab switch.
 
 **Restart** kills the current PTY, spawns a fresh one under the *same* id,
 clears the buffer, keeps the title, and emits `terminalReset`.
@@ -219,7 +226,7 @@ or resurrect a process.
 | Channel | Direction | Payload |
 | --- | --- | --- |
 | `relay:terminalCreate` | invoke | `{ sessionId, cols, rows } -> { terminalId, title }` |
-| `relay:terminalAttach` | invoke | `{ terminalId } -> { ok: true; data; exited; exitCode; signal } \| { ok: false; reason: "missing" }` |
+| `relay:terminalAttach` | invoke | `{ terminalId } -> { ok: true; data; seq; exited; exitCode; signal } \| { ok: false; reason: "missing" }` |
 | `relay:terminalWrite` | invoke | `{ terminalId, data } -> void` |
 | `relay:terminalResize` | invoke | `{ terminalId, cols, rows } -> void` |
 | `relay:terminalClose` | invoke | `{ terminalId } -> void` |
@@ -261,7 +268,10 @@ and unmounts when it does not — that is the re-attach point.
   `terminalAttach(id)` then `term.write(data)`, subscribe to
   `relay:terminalEvent` filtered by `terminalId`, wire
   `term.onData -> terminalWrite` and `term.onResize -> terminalResize`, and
-  focus the view.
+  focus the view. Events for this id arriving before the attach snapshot
+  resolves are buffered and replayed after it, so nothing is written twice or
+  out of order. The view is keyed by `terminalId`, so switching tabs rebuilds it
+  and no exit or missing state can leak between terminals.
 - **Resize:** a `ResizeObserver` on the container debounces ~100 ms (the panel
   is drag-resizable) into `fit()`.
 - **Theme:** `terminalTheme()` reads the app's live CSS custom properties
@@ -278,7 +288,9 @@ and unmounts when it does not — that is the re-attach point.
   second guard.
 - **Exit state:** on `terminalExit`, write a dim `[process exited with code N]`
   line and show a **Restart** button calling `terminalRestart(id)`; on
-  `terminalReset`, `term.reset()` and clear the exited state.
+  `terminalReset`, `term.reset()` and clear the exited state. A restart whose
+  respawn fails leaves no terminal behind in main, so the view falls back to the
+  same recovery notice rather than pretending the shell is alive.
 - **Missing terminal:** when `terminalAttach` reports `missing` (the tab was
   restored after an app restart), do not open xterm against nothing — render a
   `<p className="panel-note">` notice plus a **Start a new terminal** button.
