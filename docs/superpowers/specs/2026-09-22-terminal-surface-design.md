@@ -23,8 +23,11 @@ the tab knowing the process is actually dead.
   `ClientCapabilities.terminal`). Relay still advertises `clientCapabilities: {}`
   and implements none of them. Not in this spec; a natural follow-up that could
   reuse this PTY manager.
-- **Restoring terminals across app restarts.** A PTY cannot be restored; a
-  restored tab would be a lie. Terminal surfaces are never persisted.
+- **Restoring a terminal's *process* across app restarts.** A PTY cannot be
+  restored. Terminal surfaces *are* persisted so the tab survives a renderer
+  reload, but after an app restart the restored tab has no process behind it:
+  it renders a "no longer running" notice with a Start-new-terminal action
+  rather than pretending to be live.
 - **cwd syncing.** New terminals start in the session cwd; existing terminals
   keep their own cwd.
 - **Split panes, tabs-inside-tabs, search-in-scrollback, terminal profiles,
@@ -48,8 +51,9 @@ the tab knowing the process is actually dead.
 - **Fidelity:** full real PTY — interactive programs, colors, signals, and
   resize behave normally. The native dependency is accepted.
 - **Cardinality:** multiple terminals per session, each its own tab.
-- **Lifecycle:** a shell dies when its tab closes; terminal tabs are not
-  restored after an app restart.
+- **Lifecycle:** a shell dies when its tab closes or the app quits. Tabs
+  survive a renderer reload and re-attach to the running shell; after an app
+  restart a restored tab reports that its terminal is gone.
 - **Entry point:** the panel's `+` menu only.
 - **Architecture:** main-owned PTY manager with a bounded scrollback replay;
   the renderer view mounts/unmounts per active tab and re-attaches from the
@@ -67,13 +71,17 @@ export type TerminalSurface = {
 };
 ```
 
-- **Identity is owned by main.** The renderer asks main to create a PTY; main
-  allocates `terminal:<n>` from a counter and returns `{ terminalId, title }`.
-  The id is the PTY's key in main and the surface id in the reducer, so there is
-  no second identifier to keep in sync and the reducer stays pure.
+- **Identity is owned by main and is a UUID.** The renderer asks main to create
+  a PTY; main mints `terminal:<uuid>` and returns `{ terminalId, title }`. The
+  id is the PTY's key in main and the surface id in the reducer, so there is no
+  second identifier to keep in sync and the reducer stays pure. A UUID — not a
+  counter ordinal — is required because surfaces are persisted: a restored
+  `terminal:2` must never be claimed by a different, freshly allocated PTY.
 - **Title** is a per-session ordinal computed by main at creation
   (`"Terminal 1"`, `"Terminal 2"`, …). It is stable for that PTY's lifetime —
-  closing another terminal does not renumber it — and survives Restart.
+  closing another terminal does not renumber it — and survives Restart. Because
+  ordinals restart with the app, two tabs can share a title after a restart;
+  accepted as cosmetic.
 - **Action:** `{ type: "openTerminal"; id: \`terminal:${string}\`; title: string }`
   upserts, activates, and sets `isOpen: true`. It does not interact with the
   `files`/`file:` mutual-exclusion rules.
@@ -114,6 +122,11 @@ One place, no missed path, unit-testable. Main additionally:
   exists — a safety net against any removal path the renderer misses;
 - closes every terminal on app shutdown.
 
+A renderer reload (⌘R, or a crashed renderer) is **not** a reason to kill
+anything: main keeps every PTY, the reloaded renderer restores its terminal
+tabs from persisted state and re-attaches to them. Nothing else in the system
+owns that signal, so this is stated explicitly.
+
 Terminals belonging to a **background** session keep running, so a dev server
 survives a session switch. The manager is keyed
 `terminalId -> { sessionId, pty, chunks, bytes, exited }`.
@@ -122,12 +135,18 @@ survives a session switch. The manager is keyed
 
 ## 3. Persistence
 
-Terminal surfaces are **not** restored. `persist.ts` keeps rejecting
-`kind: "terminal"` (it already returns `null` for unrecognized kinds), and a
-named test asserts that a persisted terminal surface is dropped rather than
-relying on the unknown-kind branch by accident. If a session's only surfaces
-were terminals, its panel does not reopen — consistent with the existing "never
-reopen an empty panel" rule.
+Terminal surfaces **are** persisted — `{ id, kind: "terminal", title }`, with a
+validator that requires the id to match `^terminal:[0-9a-fA-F-]{36}$` (a UUID)
+and the title to be a non-empty string — so a renderer reload restores the tabs
+and re-attaches to the still-running shells. This is what makes "reload without
+losing the shell" true; dropping terminal surfaces instead would leave live
+PTYs unreachable.
+
+What is *not* restored is the process itself. After an app restart the restored
+tab calls `terminalAttach` with an id main has never heard of; main answers
+`{ ok: false, reason: "missing" }` and the tab renders a "no longer running"
+notice with a **Start a new terminal** action (see §7). No dead tab is ever
+shown as live, and no id can collide (see §1).
 
 ## 4. Main process: `TerminalManager`
 
@@ -157,10 +176,13 @@ export type PtySpawner = (opts: {
 The default spawner calls `node-pty` with `name: "xterm-256color"`, the given
 cwd/env, and the given size.
 
-**API:** `create({ sessionId, cols, rows }) -> { terminalId, title }`,
-`attach(id) -> { data, exited }`, `write(id, data)`, `resize(id, cols, rows)`,
-`close(id)`, `restart(id)`, `removeSession(sessionId)`, `shutdown()`, and
-`onEvent(cb)` mirroring `SessionManager.onEvent`.
+**API:** `create({ sessionId, cwd, cols, rows }) -> { terminalId, title }`,
+`attach(id) -> { ok: true; data; exited; exitCode; signal } | { ok: false; reason: "missing" }`,
+`write(id, data)`, `resize(id, cols, rows)`, `close(id)`, `restart(id)`,
+`removeSession(sessionId)`, `sweep(activeSessionIds)`, `shutdown()`, and
+`onEvent(cb)` mirroring `SessionManager.onEvent`. `create` receives an already
+resolved cwd; the manager knows nothing about sessions beyond the opaque
+`sessionId` it stores for scoping and sweeping.
 
 **Scrollback buffer.** Per terminal, an array of raw output chunks capped at
 **256 KB of raw output bytes**, trimmed from the oldest whole chunk. `attach` returns the
@@ -186,14 +208,18 @@ clears the buffer, keeps the title, and emits `terminalReset`.
 
 ## 5. IPC surface
 
-All channels are `relay:<camelCase>` and all inputs are validated in main: the
-`terminalId` must exist, and `cols`/`rows` are clamped to positive integers
-(cols 1–1000, rows 1–1000).
+All channels are `relay:<camelCase>` and all inputs are validated in main:
+`sessionId` must be a known session, `cols`/`rows` are clamped to positive
+integers (cols 1–1000, rows 1–1000), and every id is shape-checked before use.
+A **missing** terminal is a normal state, not an error: `terminalAttach`
+answers `{ ok: false, reason: "missing" }`, and `write`/`resize`/`close`/
+`restart` on a missing id are no-ops, so a stale renderer can never crash main
+or resurrect a process.
 
 | Channel | Direction | Payload |
 | --- | --- | --- |
 | `relay:terminalCreate` | invoke | `{ sessionId, cols, rows } -> { terminalId, title }` |
-| `relay:terminalAttach` | invoke | `{ terminalId } -> { data, exited }` |
+| `relay:terminalAttach` | invoke | `{ terminalId } -> { ok: true; data; exited; exitCode; signal } \| { ok: false; reason: "missing" }` |
 | `relay:terminalWrite` | invoke | `{ terminalId, data } -> void` |
 | `relay:terminalResize` | invoke | `{ terminalId, cols, rows } -> void` |
 | `relay:terminalClose` | invoke | `{ terminalId } -> void` |
@@ -253,6 +279,12 @@ and unmounts when it does not — that is the re-attach point.
 - **Exit state:** on `terminalExit`, write a dim `[process exited with code N]`
   line and show a **Restart** button calling `terminalRestart(id)`; on
   `terminalReset`, `term.reset()` and clear the exited state.
+- **Missing terminal:** when `terminalAttach` reports `missing` (the tab was
+  restored after an app restart), do not open xterm against nothing — render a
+  `<p className="panel-note">` notice plus a **Start a new terminal** button.
+  That button calls `terminalCreate`, dispatches `openTerminal` for the new id
+  and `close` for the stale surface; main treats the stale id as a no-op, and
+  no new action type or rebind is needed.
 - **Failure:** if `terminalCreate` rejects (shell missing), no tab is opened and
   the message is shown with the panel's existing idiom,
   `<p className="panel-note">`.
@@ -279,17 +311,21 @@ and unmounts when it does not — that is the re-attach point.
 - `tests/terminal-manager.test.ts` — injected fake spawner: create, attach
   replay, the 256 KB trim, `setImmediate` coalescing (fake timers), the 64 KB
   immediate flush, close, restart (same id, cleared buffer, `terminalReset`),
-  `removeSession`, `shutdown`, and idempotent close after exit.
+  `removeSession`, `sweep`, `shutdown`, `attach` on a missing id, and
+  idempotent close after exit.
 - `tests/right-panel.test.ts` — `openTerminal` upserts, activates, opens the
   panel, and does not disturb the `files`/`file:` exclusion rules.
-- `tests/right-panel-persist.test.ts` — a persisted terminal surface is dropped
-  by name.
+- `tests/right-panel-persist.test.ts` — a well-formed terminal surface round
+  trips; malformed ones (bad id, missing title) are dropped by name.
 - `tests/right-panel-tabs.test.tsx` — the title comes from `surface.title`; the
   add menu exposes Terminal and calls `onNewTerminal`.
-- `tests/index.test.ts` — handlers are registered, an unknown `terminalId` is
-  rejected, sizes are clamped, and events broadcast on `relay:terminalEvent`.
-- `tests/panel-terminal.test.tsx` — mock `@xterm/xterm` and assert the wiring (attach
-  on mount, events routed by id, resize emitted, exit/restart state) rather than
+- `tests/index.test.ts` — handlers are registered, `attach` on an unknown
+  `terminalId` answers `missing` while `write`/`resize`/`restart` on it are
+  no-ops, sizes are clamped, a deleted session's terminals are swept, and events
+  broadcast on `relay:terminalEvent`.
+- `tests/panel-terminal.test.tsx` — mock `@xterm/xterm` and assert the wiring
+  (attach on mount, events routed by id, resize emitted, exit/restart state)
+  plus the `missing` notice and its Start-a-new-terminal flow, rather than
   running xterm in jsdom.
 - **Known limitation:** `postinstall` builds node-pty for the Electron ABI,
   while Vitest runs under plain Node 24, so a real-PTY integration test cannot
@@ -298,9 +334,11 @@ and unmounts when it does not — that is the re-attach point.
 
 **Manual checklist:** open from `+`; type and run a TUI (vim/htop); resize the
 panel; switch tab and back (replay); switch session and back (shell survived);
-reload with ⌘R (scrollback survived); exit and Restart; close the tab and
-confirm with `ps` that the shell is gone; quit the app and confirm no orphans;
-toggle the app theme and confirm the terminal follows.
+reload with ⌘R (tabs restored, scrollback survived, same shell — check the PID
+is unchanged); quit and relaunch and confirm the restored tab shows the
+"no longer running" notice and Start-a-new-terminal works; exit and Restart;
+close the tab and confirm with `ps` that the shell is gone; quit the app and
+confirm no orphans; toggle the app theme and confirm the terminal follows.
 
 ## 10. Risks
 
@@ -320,6 +358,10 @@ toggle the app theme and confirm the terminal follows.
 - **Multiple windows showing the same session** would render the same terminal
   twice and both would send resize events (last writer wins). Accepted for v1
   and documented; an exclusive-attach scheme is the fix if it matters.
+- **Persisted tabs can outlive their process** (an app restart, or a crash that
+  reaped the PTYs). Handled by the `missing` path rather than a lie, but a
+  restored panel can contain a terminal tab that does nothing until the user
+  starts a new one.
 - **Renderer bundle** grows by xterm and its addon.
 
 ## 11. Open questions
