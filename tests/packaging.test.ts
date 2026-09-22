@@ -66,10 +66,21 @@ describe("electron-builder configuration", () => {
     expect(config).toContain("node_modules/**/*");
   });
 
-  it("unpacks the sql.js wasm and skips native rebuilds", () => {
+  it("unpacks the native modules and rebuilds them for Electron", () => {
     const config = builderConfig();
     expect(config).toMatch(/asarUnpack:[\s\S]*?sql\.js/);
-    expect(config).toMatch(/npmRebuild:\s*false/);
+    expect(config).toMatch(/asarUnpack:[\s\S]*?node-pty/);
+    expect(config).toMatch(/npmRebuild:\s*true/);
+  });
+
+  it("keeps the terminal runtime dependencies and the rebuild tool", () => {
+    const pkg = packageJson();
+    expect(pkg.dependencies?.["node-pty"]).toBeTruthy();
+    expect(pkg.dependencies?.["@xterm/xterm"]).toBeTruthy();
+    expect(pkg.dependencies?.["@xterm/addon-fit"]).toBeTruthy();
+    expect(pkg.dependencies ?? {}).not.toHaveProperty("@electron/rebuild");
+    expect(pkg.devDependencies?.["@electron/rebuild"]).toBeTruthy();
+    expect(pkg.scripts.postinstall).toBe("electron-rebuild -f -w node-pty");
   });
 
   it("targets an unsigned macOS dmg and zip", () => {

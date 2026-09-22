@@ -9,7 +9,8 @@ files:
   - node_modules/**/*
 asarUnpack:
   - "**/node_modules/sql.js/**"
-npmRebuild: false
+  - "**/node_modules/node-pty/**"
+npmRebuild: true
 mac:
   category: public.app-category.developer-tools
   identity: null
