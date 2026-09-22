@@ -77,6 +77,22 @@ describe("usePanelStore", () => {
     expect(window.localStorage.getItem("relay.rightPanelWidth:s1")).toBeNull();
   });
 
+  it("does not overwrite stored panels when the initial read fails", () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("denied");
+    });
+    try {
+      render(<Probe sessionId="s1" />);
+      expect(setItem).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByText("changes"));
+      expect(setItem).toHaveBeenCalledTimes(1);
+    } finally {
+      getItem.mockRestore();
+      setItem.mockRestore();
+    }
+  });
+
   it("falls back to in-memory state when storage throws", () => {
     const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("denied");

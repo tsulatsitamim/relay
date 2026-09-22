@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   EMPTY_PANEL_STATE,
   panelReducer,
@@ -59,8 +59,13 @@ function clearWidthSafe(sessionId: string): void {
 export function usePanelStore(sessionId: string | null) {
   const [panels, setPanels] = useState(readPanelsSafe);
   const [width, setWidthState] = useState(() => readWidthSafe(sessionId));
+  const initialPersist = useRef(true);
 
   useEffect(() => {
+    if (initialPersist.current) {
+      initialPersist.current = false;
+      return;
+    }
     writePanelsSafe(panels);
   }, [panels]);
 
