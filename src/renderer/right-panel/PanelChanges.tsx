@@ -9,7 +9,7 @@ type Props = {
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
-  onOpenInEditor: (path: string) => void;
+  onOpenInEditor: (path: string, cwd?: string) => void;
 };
 
 export function PanelChanges({
@@ -119,7 +119,7 @@ export function PanelChanges({
                   type="button"
                   className="panel-file-open"
                   aria-label={`Open ${file.path} in editor`}
-                  onClick={() => onOpenInEditor(file.path)}
+                  onClick={() => onOpenInEditor(file.path, changes.root)}
                 >
                   <IconExternalLink />
                 </button>
@@ -132,7 +132,7 @@ export function PanelChanges({
         <div className="panel-diff">
           {diffError ? <p className="panel-note">{diffError}</p> : null}
           {diff ? (
-            <DiffView diff={diff} onOpenInEditor={onOpenInEditor} />
+            <DiffView diff={diff} root={changes.root} onOpenInEditor={onOpenInEditor} />
           ) : null}
         </div>
       ) : null}
@@ -142,10 +142,12 @@ export function PanelChanges({
 
 function DiffView({
   diff,
+  root,
   onOpenInEditor,
 }: {
   diff: GitFileDiff;
-  onOpenInEditor: (path: string) => void;
+  root: string;
+  onOpenInEditor: (path: string, cwd?: string) => void;
 }) {
   if (diff.binary) return <p className="panel-note">Binary file</p>;
   if (diff.truncated && !diff.oldText && !diff.newText) {
@@ -155,7 +157,7 @@ function DiffView({
         <button
           type="button"
           className="panel-action"
-          onClick={() => onOpenInEditor(diff.path)}
+          onClick={() => onOpenInEditor(diff.path, root)}
         >
           Open in editor
         </button>

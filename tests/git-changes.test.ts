@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync, unlinkSync, renameSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync, unlinkSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -67,6 +67,12 @@ describe("gitChanges", () => {
     expect(byPath.get("added.ts")).toMatchObject({ status: "untracked" });
     expect(byPath.get("gone.ts")).toMatchObject({ status: "deleted", deletions: 1 });
     expect(byPath.get("renamed.ts")).toMatchObject({ status: "renamed", oldPath: "moved.ts" });
+  });
+
+  it("carries the repository root so callers can resolve paths", async () => {
+    const root = repo();
+    const result = await gitChanges(root);
+    expect(result?.root).toBe(realpathSync(root));
   });
 
   it("returns null outside a repository", async () => {

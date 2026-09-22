@@ -477,9 +477,9 @@ export function App() {
     if (panelOpen) setChangesRevision((value) => value + 1);
   }, [panelOpen]);
   const openInEditor = useCallback(
-    (path: string, line?: number) => {
+    (path: string, cwdOverride?: string, line?: number) => {
       if (!selected) return;
-      const cwd = selected.workingDirectory;
+      const cwd = cwdOverride ?? selected.workingDirectory;
       const editor =
         editors.find((entry) => entry.id === state.settings.preferredEditor) ??
         editors[0] ??
@@ -1029,7 +1029,7 @@ export function App() {
             node: (
               <ErrorBanner
                 message={editorError.message}
-                onRetry={() => openInEditor(editorError.path, editorError.line)}
+                onRetry={() => openInEditor(editorError.path, undefined, editorError.line)}
               />
             ),
           },

@@ -16,6 +16,7 @@ export type GitChange = {
 
 export type GitChangesResult = {
   branch: string;
+  root: string;
   files: GitChange[];
 };
 

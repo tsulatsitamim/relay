@@ -21,7 +21,7 @@ type Props = {
   changesError: string | null;
   onRefreshChanges: () => void;
   planEntries: PlanEntry[];
-  onOpenInEditor: (path: string, line?: number) => void;
+  onOpenInEditor: (path: string, cwd?: string, line?: number) => void;
 };
 
 export function RightPanel({
@@ -150,7 +150,7 @@ export function RightPanel({
               loading={changesLoading}
               error={changesError}
               onRefresh={onRefreshChanges}
-              onOpenInEditor={(path) => onOpenInEditor(path)}
+              onOpenInEditor={(path, cwd) => onOpenInEditor(path, cwd)}
             />
           ) : null}
           {active?.kind === "files" ? (
@@ -165,7 +165,7 @@ export function RightPanel({
               path={active.path}
               revealLine={active.revealLine}
               revealRequestId={active.revealRequestId}
-              onOpenInEditor={onOpenInEditor}
+              onOpenInEditor={(path, line) => onOpenInEditor(path, undefined, line)}
             />
           ) : null}
           {active?.kind === "plan" ? <PanelPlan entries={planEntries} /> : null}

@@ -59,7 +59,7 @@ export async function gitChanges(cwd: string): Promise<GitChangesResult | null> 
   } catch {
     stats = new Map();
   }
-  return { branch: branchFromPorcelain(status), files: mergeStats(files, stats) };
+  return { branch: branchFromPorcelain(status), root, files: mergeStats(files, stats) };
 }
 
 export async function gitFileDiff(

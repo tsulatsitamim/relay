@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 function mockGitChanges() {
-  const gitChanges = vi.fn().mockResolvedValue({ branch: "main", files: [] });
+  const gitChanges = vi.fn().mockResolvedValue({ branch: "main", root: "/repo", files: [] });
   window.relay = { gitChanges } as unknown as RelayBridge;
   return gitChanges;
 }

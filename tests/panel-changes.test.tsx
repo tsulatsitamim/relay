@@ -24,6 +24,7 @@ function bridge(overrides: Partial<RelayBridge> = {}): RelayBridge {
   return {
     gitChanges: vi.fn(async () => ({
       branch: "main",
+      root: "/repo",
       files: [
         { path: "src/a.ts", status: "modified", insertions: 4, deletions: 2 },
         { path: "src/b.ts", status: "untracked" },
@@ -55,6 +56,7 @@ describe("PanelChanges", () => {
         cwd="/repo"
         changes={{
           branch: "main",
+          root: "/repo",
           files: [{ path: "src/a.ts", status: "modified", insertions: 4, deletions: 2 }],
         }}
         loading={false}
@@ -76,6 +78,7 @@ describe("PanelChanges", () => {
         cwd="/repo"
         changes={{
           branch: "main",
+          root: "/repo",
           files: [{ path: "src/a.ts", status: "modified", insertions: 4, deletions: 2 }],
         }}
         loading={false}
@@ -99,6 +102,7 @@ describe("PanelChanges", () => {
         cwd="/repo"
         changes={{
           branch: "main",
+          root: "/repo",
           files: [{ path: "src/a.ts", status: "modified", insertions: 4, deletions: 2 }],
         }}
         loading={false}
@@ -110,7 +114,7 @@ describe("PanelChanges", () => {
     const open = screen.getByRole("button", { name: "Open src/a.ts in editor" });
     open.focus();
     await user.keyboard("{Enter}");
-    expect(onOpenInEditor).toHaveBeenCalledWith("src/a.ts");
+    expect(onOpenInEditor).toHaveBeenCalledWith("src/a.ts", "/repo");
   });
 
   it("shows an empty state outside a repository and a retry when it errors", () => {
@@ -157,6 +161,7 @@ describe("useGitChanges", () => {
     await act(async () => {
       pending.resolve({
         branch: "main",
+        root: "/repo",
         files: [{ path: "src/a.ts", status: "modified", insertions: 4, deletions: 2 }],
       });
       await pending.promise;
