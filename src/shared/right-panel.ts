@@ -1,4 +1,4 @@
-export type RightPanelKind = "changes" | "files" | "plan" | "file";
+export type RightPanelKind = "changes" | "files" | "plan" | "file" | "terminal";
 
 export type SingletonSurface =
   | { id: "changes"; kind: "changes" }
@@ -13,7 +13,13 @@ export type FileSurface = {
   revealRequestId: number;
 };
 
-export type RightPanelSurface = SingletonSurface | FileSurface;
+export type TerminalSurface = {
+  id: `terminal:${string}`;
+  kind: "terminal";
+  title: string;
+};
+
+export type RightPanelSurface = SingletonSurface | FileSurface | TerminalSurface;
 
 export type SessionPanelState = {
   isOpen: boolean;
@@ -30,6 +36,7 @@ export const EMPTY_PANEL_STATE: SessionPanelState = {
 export type PanelAction =
   | { type: "open"; kind: "changes" | "files" | "plan" }
   | { type: "openFile"; path: string; line?: number | null }
+  | { type: "openTerminal"; id: `terminal:${string}`; title: string }
   | { type: "activate"; id: string }
   | { type: "close"; id: string }
   | { type: "closeOthers"; id: string }
@@ -96,6 +103,18 @@ export function panelReducer(
         isOpen: true,
         activeSurfaceId: id,
         surfaces: upsert(dropFilesExplorer(state.surfaces), surface),
+      };
+    }
+    case "openTerminal": {
+      const surface: TerminalSurface = {
+        id: action.id,
+        kind: "terminal",
+        title: action.title,
+      };
+      return {
+        isOpen: true,
+        activeSurfaceId: surface.id,
+        surfaces: upsert(state.surfaces, surface),
       };
     }
     case "activate": {

@@ -115,4 +115,44 @@ describe("panelReducer", () => {
     const state = panelReducer(openChanges(), { type: "open", kind: "plan" });
     expect(panelReducer(state, { type: "removeSession" })).toEqual(EMPTY_PANEL_STATE);
   });
+
+  it("opens a terminal surface and keeps it alongside other kinds", () => {
+    const id = "terminal:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b";
+    const state = panelReducer(openChanges(), {
+      type: "openTerminal",
+      id,
+      title: "Terminal 1",
+    });
+    expect(state.isOpen).toBe(true);
+    expect(state.activeSurfaceId).toBe(id);
+    expect(state.surfaces).toEqual([
+      { id: "changes", kind: "changes" },
+      { id, kind: "terminal", title: "Terminal 1" },
+    ]);
+  });
+
+  it("upserts a terminal surface by id without duplicating it", () => {
+    const id = "terminal:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b";
+    const once = panelReducer(EMPTY_PANEL_STATE, {
+      type: "openTerminal",
+      id,
+      title: "Terminal 1",
+    });
+    const twice = panelReducer(once, { type: "openTerminal", id, title: "Terminal 1" });
+    expect(twice.surfaces).toHaveLength(1);
+  });
+
+  it("leaves the files and file exclusion rules alone when a terminal opens", () => {
+    const files = panelReducer(EMPTY_PANEL_STATE, { type: "open", kind: "files" });
+    const file = panelReducer(files, { type: "openFile", path: "src/a.ts" });
+    const terminal = panelReducer(file, {
+      type: "openTerminal",
+      id: "terminal:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+      title: "Terminal 1",
+    });
+    expect(terminal.surfaces.map((surface) => surface.kind)).toEqual([
+      "file",
+      "terminal",
+    ]);
+  });
 });
