@@ -4522,7 +4522,6 @@ input:focus-visible {
 }
 
 .right-panel-tab.active {
-  background: var(--active);
   color: var(--text);
 }
 

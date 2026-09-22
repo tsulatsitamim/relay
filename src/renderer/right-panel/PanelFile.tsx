@@ -75,16 +75,6 @@ export function PanelFile({
     };
   }, [cwd, path, revealRequestId]);
 
-  useEffect(() => {
-    if (!revealLine || !scrollerRef.current) return;
-    const target = scrollerRef.current.querySelector(
-      `[data-line="${revealLine}"]`,
-    );
-    if (target instanceof HTMLElement && typeof target.scrollIntoView === "function") {
-      target.scrollIntoView({ block: "center" });
-    }
-  }, [revealLine, file]);
-
   return (
     <div className="panel-file">
       <div className="panel-row">

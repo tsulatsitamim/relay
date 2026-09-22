@@ -99,10 +99,12 @@ export function CodeBlock({ code, lang, revealLine = null }: Props) {
         {lines ? (
           <code className="hljs">
             {lines.map((line, index) => (
-              <span key={index} data-line={index + 1} className="code-line">
-                {line}
-                {"\n"}
-              </span>
+              <span
+                key={index}
+                data-line={index + 1}
+                className="code-line"
+                dangerouslySetInnerHTML={{ __html: `${line}\n` }}
+              />
             ))}
           </code>
         ) : html != null ? (

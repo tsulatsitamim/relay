@@ -55,6 +55,37 @@ describe("CodeBlock line reveal", () => {
     expect(container.querySelector("code")!.innerHTML).not.toContain("hljs-keyword");
   });
 
+  it("renders highlighted markup for the revealed line instead of literal tags", () => {
+    const { container } = render(
+      <CodeBlock
+        code={"const a = 1;\nconst b = 2;\n"}
+        lang="typescript"
+        revealLine={2}
+      />,
+    );
+    const revealed = container.querySelector('[data-line="2"]')!;
+    expect(revealed.querySelector("span.hljs-keyword")).toBeTruthy();
+    expect(revealed.textContent).toContain("const");
+    expect(revealed.textContent).toContain("2");
+    expect(container.textContent).not.toContain("<span");
+    expect(container.querySelectorAll("[data-line]").length).toBe(3);
+  });
+
+  it("escapes the plain-text fallback exactly once", () => {
+    const { container } = render(
+      <CodeBlock
+        code={"const s = `a\n<b>&x`;\n"}
+        lang="typescript"
+        revealLine={2}
+      />,
+    );
+    const second = container.querySelector('[data-line="2"]')!;
+    expect(second.textContent).toContain("<b>&x`;");
+    expect(container.textContent).not.toContain("&lt;b&gt;");
+    expect(container.textContent).not.toContain("<span");
+    expect(container.querySelectorAll("[data-line]").length).toBe(3);
+  });
+
   it("leaves highlighting intact when no reveal line is requested", () => {
     const { container } = render(
       <CodeBlock code={"const a = 1;\n"} lang="typescript" />,

@@ -92,9 +92,26 @@ describe("EditorButton", () => {
     expect(availableEditors).not.toHaveBeenCalled();
   });
 
+  it("closes the editor menu on a second toggle activation", async () => {
+    window.relay = bridge();
+    render(
+      <EditorButton cwd="/repo" preferred={null} onPreferred={() => {}} disabled={false} />,
+    );
+    await waitFor(() => expect(screen.getByText("Open in VS Code")).toBeTruthy());
+    const toggle = screen.getByRole("button", { name: "Choose editor" });
+
+    fireEvent.pointerDown(toggle);
+    fireEvent.click(toggle);
+    expect(screen.getByRole("menuitem", { name: "Zed" })).toBeTruthy();
+
+    fireEvent.pointerDown(toggle);
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("menuitem", { name: "Zed" })).toBeNull();
+  });
+
   it("closes the editor menu on Escape and on an outside press", async () => {
     window.relay = bridge();
-    const { container } = render(
+    render(
       <EditorButton cwd="/repo" preferred={null} onPreferred={() => {}} disabled={false} />,
     );
     await waitFor(() => expect(screen.getByText("Open in VS Code")).toBeTruthy());
@@ -107,7 +124,7 @@ describe("EditorButton", () => {
 
     fireEvent.click(toggle);
     expect(screen.getByRole("menuitem", { name: "Zed" })).toBeTruthy();
-    fireEvent.pointerDown(container.querySelector(".editor-button")!);
+    fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("menuitem", { name: "Zed" })).toBeNull();
   });
 });

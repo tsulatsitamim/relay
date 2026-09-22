@@ -25,7 +25,7 @@ export function EditorButton({
   const [fetchedEditors, setFetchedEditors] = useState<EditorInfo[]>([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLSpanElement>(null);
   const closeMenu = useCallback(() => setOpen(false), []);
   useDismissable(open, menuRef, closeMenu);
   const editors = suppliedEditors ?? fetchedEditors;
@@ -74,7 +74,7 @@ export function EditorButton({
   const label = preferredEditor ? `Open in ${preferredEditor.label}` : "Reveal in Finder";
 
   return (
-    <span className="editor-button">
+    <span className="editor-button" ref={menuRef}>
       <button
         type="button"
         className="editor-button-main"
@@ -98,7 +98,7 @@ export function EditorButton({
         <IconChevron />
       </button>
       {open ? (
-        <div className="right-panel-menu" role="menu" ref={menuRef}>
+        <div className="right-panel-menu" role="menu">
           {editors.map((editor) => (
             <button
               key={editor.id}
