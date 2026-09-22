@@ -446,6 +446,9 @@ export function App() {
     line?: number;
   } | null>(null);
   useEffect(() => {
+    setEditorError(null);
+  }, [selectedId]);
+  useEffect(() => {
     let cancelled = false;
     void window.relay
       .availableEditors()

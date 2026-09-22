@@ -757,6 +757,34 @@ describe("App editor resolution", () => {
     expect(await screen.findByText("VS Code is not installed")).toBeTruthy();
     expect(bridge.openInEditor).toHaveBeenCalled();
   });
+
+  it("clears the editor error when switching sessions", async () => {
+    const availableEditors = vi.fn().mockResolvedValue([vscode]);
+    const openInEditor = vi
+      .fn()
+      .mockResolvedValue({ ok: false, message: "VS Code is not installed" });
+    mount(
+      [
+        makeSession({ id: "s1", title: "Session one" }),
+        makeSession({ id: "s2", title: "Session two" }),
+      ],
+      {},
+      [],
+      [],
+      {},
+      [repo],
+      {},
+      {},
+      { availableEditors, openInEditor },
+    );
+    await openEditor();
+    expect(await screen.findByText("VS Code is not installed")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Session two"));
+    await waitFor(() =>
+      expect(screen.queryByText("VS Code is not installed")).toBeNull(),
+    );
+  });
 });
 
 describe("App plan badge", () => {
