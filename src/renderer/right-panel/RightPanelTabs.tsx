@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   PanelAction,
+  RightPanelKind,
   RightPanelSurface,
   SessionPanelState,
 } from "../../shared/right-panel.ts";
@@ -12,6 +13,7 @@ import {
   IconListTodo,
   IconPanelRight,
   IconPlus,
+  IconTerminal,
   IconX,
 } from "../icons";
 import { useDismissable } from "./dismiss.ts";
@@ -26,6 +28,7 @@ export function surfaceTitle(surface: RightPanelSurface): string {
   if (surface.kind === "changes") return "Changes";
   if (surface.kind === "files") return "Files";
   if (surface.kind === "plan") return "Plan";
+  if (surface.kind === "terminal") return surface.title;
   const parts = surface.path.split("/");
   return parts[parts.length - 1] || surface.path;
 }
@@ -34,13 +37,15 @@ function surfaceIcon(surface: RightPanelSurface): ReactNode {
   if (surface.kind === "changes") return <IconGitCompare />;
   if (surface.kind === "files") return <IconFiles />;
   if (surface.kind === "plan") return <IconListTodo />;
+  if (surface.kind === "terminal") return <IconTerminal />;
   return <IconFiles />;
 }
 
-const ADD_ACTIONS: Array<{ kind: "changes" | "files" | "plan"; label: string }> = [
+const ADD_ACTIONS: Array<{ kind: Exclude<RightPanelKind, "file">; label: string }> = [
   { kind: "changes", label: "Changes" },
   { kind: "files", label: "Files" },
   { kind: "plan", label: "Plan" },
+  { kind: "terminal", label: "Terminal" },
 ];
 
 type Props = {
@@ -48,9 +53,16 @@ type Props = {
   dispatch: (action: PanelAction) => void;
   maximized: boolean;
   onMaximize: () => void;
+  onNewTerminal: () => void;
 };
 
-export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props) {
+export function RightPanelTabs({
+  state,
+  dispatch,
+  maximized,
+  onMaximize,
+  onNewTerminal,
+}: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -198,6 +210,10 @@ export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props
                   role="menuitem"
                   onClick={() => {
                     setAddOpen(false);
+                    if (action.kind === "terminal") {
+                      onNewTerminal();
+                      return;
+                    }
                     dispatch({ type: "open", kind: action.kind });
                   }}
                 >

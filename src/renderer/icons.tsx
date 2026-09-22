@@ -126,6 +126,7 @@ export const IconSliders = icon(SlidersHorizontal);
 export const IconToolRead = icon(FileText, { size: 14, strokeWidth: 1.75 });
 export const IconToolEdit = icon(SquarePen, { size: 14, strokeWidth: 1.75 });
 export const IconToolExecute = icon(Terminal, { size: 14, strokeWidth: 1.75 });
+export const IconTerminal = icon(Terminal, { size: 14, strokeWidth: 1.75 });
 export const IconToolSearch = icon(Search, { size: 14, strokeWidth: 1.75 });
 export const IconToolWeb = icon(Globe, { size: 14, strokeWidth: 1.75 });
 export const IconToolGeneric = icon(Wrench, { size: 14, strokeWidth: 1.75 });

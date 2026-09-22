@@ -18,7 +18,7 @@ export type TerminalEvent =
     }
   | { type: "terminalReset"; terminalId: string };
 
-export type TerminalCreateResult = { terminalId: string; title: string };
+export type TerminalCreateResult = { terminalId: `terminal:${string}`; title: string };
 
 export type TerminalAttachResult =
   | {

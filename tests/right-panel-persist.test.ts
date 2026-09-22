@@ -58,6 +58,36 @@ describe("parsePanels", () => {
     ]);
   });
 
+  it("keeps a well-formed terminal surface and drops malformed ones", () => {
+    const panels = parsePanels(
+      JSON.stringify({
+        version: 1,
+        bySession: {
+          s1: {
+            isOpen: true,
+            activeSurfaceId: "terminal:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+            surfaces: [
+              {
+                id: "terminal:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+                kind: "terminal",
+                title: "Terminal 1",
+              },
+              { id: "terminal:1", kind: "terminal", title: "counter id" },
+              { id: "terminal:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b", kind: "terminal" },
+            ],
+          },
+        },
+      }),
+    );
+    expect(panels.s1!.surfaces).toEqual([
+      {
+        id: "terminal:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+        kind: "terminal",
+        title: "Terminal 1",
+      },
+    ]);
+  });
+
   it("drops a file surface without a path and normalizes its numbers", () => {
     const panels = parsePanels(
       JSON.stringify({

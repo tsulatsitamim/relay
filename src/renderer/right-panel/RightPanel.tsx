@@ -7,7 +7,9 @@ import { PanelChanges } from "./PanelChanges.tsx";
 import { PanelFile } from "./PanelFile.tsx";
 import { PanelFiles } from "./PanelFiles.tsx";
 import { PanelPlan } from "./PanelPlan.tsx";
+import { PanelTerminal } from "./PanelTerminal.tsx";
 import { PANEL_BODY_ID, RightPanelTabs, tabId } from "./RightPanelTabs.tsx";
+import { useTerminalLauncher } from "./useTerminalLauncher.ts";
 
 type Props = {
   sessionId: string;
@@ -22,6 +24,7 @@ type Props = {
   onRefreshChanges: () => void;
   planEntries: PlanEntry[];
   onOpenInEditor: (path: string, cwd?: string, line?: number) => void;
+  onNewTerminal?: () => void;
 };
 
 export function RightPanel({
@@ -37,6 +40,7 @@ export function RightPanel({
   onRefreshChanges,
   planEntries,
   onOpenInEditor,
+  onNewTerminal: onNewTerminalProp,
 }: Props) {
   const [maximized, setMaximized] = useState(false);
   const [overlay, setOverlay] = useState(
@@ -79,6 +83,9 @@ export function RightPanel({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [overlay, state.isOpen, dispatch]);
+
+  const launcher = useTerminalLauncher(sessionId, dispatch);
+  const onNewTerminal = onNewTerminalProp ?? launcher.launch;
 
   if (!state.isOpen) return null;
 
@@ -141,7 +148,9 @@ export function RightPanel({
           dispatch={dispatch}
           maximized={maximized}
           onMaximize={() => setMaximized((value) => !value)}
+          onNewTerminal={onNewTerminal}
         />
+        {launcher.error ? <p className="panel-note">{launcher.error}</p> : null}
         <div
           className="right-panel-body"
           id={PANEL_BODY_ID}
@@ -174,6 +183,13 @@ export function RightPanel({
             />
           ) : null}
           {active?.kind === "plan" ? <PanelPlan entries={planEntries} /> : null}
+          {active?.kind === "terminal" ? (
+            <PanelTerminal
+              terminalId={active.id}
+              onStartNew={onNewTerminal}
+              onCloseSelf={() => dispatch({ type: "close", id: active.id })}
+            />
+          ) : null}
         </div>
       </div>
     </>

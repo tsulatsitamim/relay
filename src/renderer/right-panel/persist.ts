@@ -3,6 +3,7 @@ import {
   type RightPanelSurface,
   type SessionPanelState,
 } from "../../shared/right-panel.ts";
+import { isTerminalId } from "../../shared/terminal.ts";
 
 export const PANELS_STORAGE_KEY = "relay.rightPanel";
 export const PANELS_VERSION = 1;
@@ -35,6 +36,12 @@ export function validateSurface(value: unknown): RightPanelSurface | null {
   if (value.kind === "changes") return { id: "changes", kind: "changes" };
   if (value.kind === "files") return { id: "files", kind: "files" };
   if (value.kind === "plan") return { id: "plan", kind: "plan" };
+  if (value.kind === "terminal") {
+    if (!isTerminalId(value.id)) return null;
+    const title = typeof value.title === "string" && value.title ? value.title : null;
+    if (!title) return null;
+    return { id: value.id, kind: "terminal", title };
+  }
   if (value.kind !== "file") return null;
   const path = typeof value.path === "string" && value.path ? value.path : null;
   if (!path) return null;

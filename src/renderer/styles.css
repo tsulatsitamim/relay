@@ -4586,6 +4586,29 @@ input:focus-visible {
   flex-direction: column;
 }
 
+.panel-terminal {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-terminal-host {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 4px 6px 0 8px;
+}
+
+.panel-terminal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--line);
+}
+
 .right-panel-handle {
   position: absolute;
   top: 0;

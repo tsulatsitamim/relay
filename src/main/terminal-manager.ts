@@ -35,7 +35,7 @@ export type TerminalManagerDeps = {
   shell?: () => string;
   env?: () => Record<string, string>;
   schedule?: (callback: () => void) => void;
-  createId?: () => string;
+  createId?: () => `terminal:${string}`;
 };
 
 type Entry = {
@@ -83,7 +83,7 @@ export class TerminalManager {
   private readonly resolveShell: () => string;
   private readonly resolveEnv: () => Record<string, string>;
   private readonly schedule: (callback: () => void) => void;
-  private readonly createId: () => string;
+  private readonly createId: () => `terminal:${string}`;
 
   constructor(deps: TerminalManagerDeps) {
     this.spawnPty = deps.spawnPty;

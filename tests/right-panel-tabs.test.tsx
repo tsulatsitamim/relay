@@ -41,6 +41,7 @@ describe("RightPanelTabs", () => {
         dispatch={dispatch}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     expect(screen.getByRole("tab", { name: "Changes" })).toBeTruthy();
@@ -58,6 +59,7 @@ describe("RightPanelTabs", () => {
         dispatch={dispatch}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
@@ -74,6 +76,7 @@ describe("RightPanelTabs", () => {
         dispatch={dispatch}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
@@ -91,6 +94,7 @@ describe("RightPanelTabs", () => {
         dispatch={dispatch}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
@@ -108,6 +112,7 @@ describe("RightPanelTabs", () => {
         dispatch={dispatch}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     const user = userEvent.setup();
@@ -127,6 +132,7 @@ describe("RightPanelTabs", () => {
         dispatch={() => {}}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     const changes = screen.getByRole("tab", { name: "Changes" });
@@ -146,6 +152,7 @@ describe("RightPanelTabs", () => {
         dispatch={() => {}}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
@@ -167,6 +174,7 @@ describe("RightPanelTabs", () => {
         dispatch={() => {}}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
@@ -182,6 +190,7 @@ describe("RightPanelTabs", () => {
         dispatch={() => {}}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Add panel surface" }));
@@ -203,6 +212,7 @@ describe("RightPanelTabs", () => {
         dispatch={() => {}}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     const strip = container.querySelector<HTMLElement>(".right-panel-tab-strip")!;
@@ -229,6 +239,7 @@ describe("RightPanelTabs", () => {
         dispatch={dispatch}
         maximized={false}
         onMaximize={() => {}}
+        onNewTerminal={() => {}}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Add panel surface" }));
@@ -244,9 +255,52 @@ describe("RightPanelTabs", () => {
         dispatch={() => {}}
         maximized={false}
         onMaximize={onMaximize}
+        onNewTerminal={() => {}}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Maximize panel" }));
     expect(onMaximize).toHaveBeenCalled();
+  });
+});
+
+describe("terminal tabs", () => {
+  const id = "terminal:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b";
+
+  it("titles a terminal tab from the surface title", () => {
+    expect(surfaceTitle({ id, kind: "terminal", title: "Terminal 7" })).toBe("Terminal 7");
+  });
+
+  it("offers Terminal in the add menu and calls onNewTerminal instead of dispatching", () => {
+    const dispatch = vi.fn();
+    const onNewTerminal = vi.fn();
+    render(
+      <RightPanelTabs
+        state={stateWith()}
+        dispatch={dispatch}
+        maximized={false}
+        onMaximize={() => {}}
+        onNewTerminal={onNewTerminal}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add panel surface" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Terminal" }));
+    expect(onNewTerminal).toHaveBeenCalledTimes(1);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("still dispatches the singleton kinds", () => {
+    const dispatch = vi.fn();
+    render(
+      <RightPanelTabs
+        state={stateWith()}
+        dispatch={dispatch}
+        maximized={false}
+        onMaximize={() => {}}
+        onNewTerminal={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add panel surface" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Plan" }));
+    expect(dispatch).toHaveBeenCalledWith({ type: "open", kind: "plan" });
   });
 });
