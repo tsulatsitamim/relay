@@ -73,4 +73,23 @@ describe("EditorButton", () => {
     );
     await waitFor(() => expect(screen.getByText("Reveal in Finder")).toBeTruthy());
   });
+
+  it("closes the editor menu on Escape and on an outside press", async () => {
+    window.relay = bridge();
+    const { container } = render(
+      <EditorButton cwd="/repo" preferred={null} onPreferred={() => {}} disabled={false} />,
+    );
+    await waitFor(() => expect(screen.getByText("Open in VS Code")).toBeTruthy());
+    const toggle = screen.getByRole("button", { name: "Choose editor" });
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole("menuitem", { name: "Zed" })).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menuitem", { name: "Zed" })).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole("menuitem", { name: "Zed" })).toBeTruthy();
+    fireEvent.pointerDown(container.querySelector(".editor-button")!);
+    expect(screen.queryByRole("menuitem", { name: "Zed" })).toBeNull();
+  });
 });

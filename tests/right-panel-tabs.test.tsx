@@ -138,6 +138,63 @@ describe("RightPanelTabs", () => {
     expect(changes.getAttribute("aria-controls")).toBe(plan.getAttribute("aria-controls"));
   });
 
+  it("closes the tab context menu on Escape and on an outside press", () => {
+    const state = stateWith({ type: "open", kind: "changes" }, { type: "open", kind: "plan" });
+    const { container } = render(
+      <RightPanelTabs
+        state={state}
+        dispatch={() => {}}
+        maximized={false}
+        onMaximize={() => {}}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
+    expect(screen.getByRole("menuitem", { name: "Close others" })).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menuitem", { name: "Close others" })).toBeNull();
+
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
+    expect(screen.getByRole("menuitem", { name: "Close others" })).toBeTruthy();
+    fireEvent.pointerDown(container.querySelector(".right-panel-tab-strip")!);
+    expect(screen.queryByRole("menuitem", { name: "Close others" })).toBeNull();
+  });
+
+  it("keeps the tab context menu open on an inside press", () => {
+    const state = stateWith({ type: "open", kind: "plan" });
+    render(
+      <RightPanelTabs
+        state={state}
+        dispatch={() => {}}
+        maximized={false}
+        onMaximize={() => {}}
+      />,
+    );
+    fireEvent.contextMenu(screen.getByRole("tab", { name: "Plan" }));
+    const item = screen.getByRole("menuitem", { name: "Close others" });
+    fireEvent.pointerDown(item);
+    expect(screen.getByRole("menuitem", { name: "Close others" })).toBeTruthy();
+  });
+
+  it("closes the add-surface menu on Escape and on an outside press", () => {
+    const { container } = render(
+      <RightPanelTabs
+        state={stateWith()}
+        dispatch={() => {}}
+        maximized={false}
+        onMaximize={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add panel surface" }));
+    expect(screen.getByRole("menuitem", { name: "Files" })).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menuitem", { name: "Files" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add panel surface" }));
+    expect(screen.getByRole("menuitem", { name: "Files" })).toBeTruthy();
+    fireEvent.pointerDown(container.querySelector(".right-panel-tab-strip")!);
+    expect(screen.queryByRole("menuitem", { name: "Files" })).toBeNull();
+  });
+
   it("adds a surface from the plus menu and queries files", () => {
     const dispatch = vi.fn();
     render(

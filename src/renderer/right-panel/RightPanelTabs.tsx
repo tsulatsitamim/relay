@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import type {
   PanelAction,
   RightPanelSurface,
   SessionPanelState,
 } from "../../shared/right-panel.ts";
 import {
+  IconChevron,
   IconFiles,
   IconGitCompare,
   IconListTodo,
@@ -12,6 +13,7 @@ import {
   IconPlus,
   IconX,
 } from "../icons";
+import { useDismissable } from "./dismiss.ts";
 
 export const PANEL_BODY_ID = "right-panel-body";
 
@@ -50,6 +52,12 @@ type Props = {
 export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [menuId, setMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const addRef = useRef<HTMLDivElement>(null);
+  const closeMenu = useCallback(() => setMenuId(null), []);
+  const closeAdd = useCallback(() => setAddOpen(false), []);
+  useDismissable(menuId !== null, menuRef, closeMenu);
+  useDismissable(addOpen, addRef, closeAdd);
 
   return (
     <div className="right-panel-tabs">
@@ -89,7 +97,7 @@ export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props
               <IconX />
             </button>
             {menuId === surface.id ? (
-              <div className="right-panel-menu" role="menu">
+              <div className="right-panel-menu" role="menu" ref={menuRef}>
                 <button
                   type="button"
                   role="menuitem"
@@ -127,7 +135,7 @@ export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props
             ) : null}
           </div>
         ))}
-        <div className="right-panel-add">
+        <div className="right-panel-add" ref={addRef}>
           <button
             type="button"
             className="icon-btn"

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { EditorInfo } from "../../shared/editors.ts";
 import { IconChevron, IconOut } from "../icons";
+import { useDismissable } from "./dismiss.ts";
 
 type Props = {
   cwd: string;
@@ -22,6 +23,9 @@ export function EditorButton({
   const [editors, setEditors] = useState<EditorInfo[]>([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const closeMenu = useCallback(() => setOpen(false), []);
+  useDismissable(open, menuRef, closeMenu);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +94,7 @@ export function EditorButton({
         <IconChevron />
       </button>
       {open ? (
-        <div className="right-panel-menu" role="menu">
+        <div className="right-panel-menu" role="menu" ref={menuRef}>
           {editors.map((editor) => (
             <button
               key={editor.id}
