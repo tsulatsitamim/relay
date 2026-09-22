@@ -99,7 +99,7 @@ describe("PanelChanges", () => {
     window.relay = bridge();
     render(
       <PanelChanges
-        cwd="/repo"
+        cwd="/repo/packages/app"
         changes={{
           branch: "main",
           root: "/repo",

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { usePanelStore } from "../src/renderer/right-panel/usePanelStore.ts";
@@ -83,7 +84,11 @@ describe("usePanelStore", () => {
       throw new Error("denied");
     });
     try {
-      render(<Probe sessionId="s1" />);
+      render(
+        <StrictMode>
+          <Probe sessionId="s1" />
+        </StrictMode>,
+      );
       expect(setItem).not.toHaveBeenCalled();
       fireEvent.click(screen.getByText("changes"));
       expect(setItem).toHaveBeenCalledTimes(1);

@@ -443,6 +443,7 @@ export function App() {
   const [editorError, setEditorError] = useState<{
     message: string;
     path: string;
+    cwd?: string;
     line?: number;
   } | null>(null);
   useEffect(() => {
@@ -492,12 +493,13 @@ export function App() {
           .openInEditor(cwd, editor.id, path, line)
           .then((result) => {
             if (result.ok) setEditorError(null);
-            else setEditorError({ message: result.message, path, line });
+            else setEditorError({ message: result.message, path, cwd, line });
           })
           .catch((cause: unknown) => {
             setEditorError({
               message: cause instanceof Error ? cause.message : String(cause),
               path,
+              cwd,
               line,
             });
           });
@@ -511,6 +513,7 @@ export function App() {
             setEditorError({
               message: "Could not reveal the file in Finder",
               path,
+              cwd,
               line,
             });
         })
@@ -518,6 +521,7 @@ export function App() {
           setEditorError({
             message: cause instanceof Error ? cause.message : String(cause),
             path,
+            cwd,
             line,
           });
         });
@@ -1032,7 +1036,7 @@ export function App() {
             node: (
               <ErrorBanner
                 message={editorError.message}
-                onRetry={() => openInEditor(editorError.path, undefined, editorError.line)}
+                onRetry={() => openInEditor(editorError.path, editorError.cwd, editorError.line)}
               />
             ),
           },

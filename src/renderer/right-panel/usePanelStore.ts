@@ -59,13 +59,11 @@ function clearWidthSafe(sessionId: string): void {
 export function usePanelStore(sessionId: string | null) {
   const [panels, setPanels] = useState(readPanelsSafe);
   const [width, setWidthState] = useState(() => readWidthSafe(sessionId));
-  const initialPersist = useRef(true);
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
-    if (initialPersist.current) {
-      initialPersist.current = false;
-      return;
-    }
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
     writePanelsSafe(panels);
   }, [panels]);
 
@@ -80,6 +78,7 @@ export function usePanelStore(sessionId: string | null) {
   const dispatch = useCallback(
     (action: PanelAction) => {
       if (!sessionId) return;
+      dirtyRef.current = true;
       setPanels((prev) => {
         const current = prev[sessionId] ?? EMPTY_PANEL_STATE;
         const next = panelReducer(current, action);
@@ -101,6 +100,7 @@ export function usePanelStore(sessionId: string | null) {
   );
 
   const removeSession = useCallback((id: string) => {
+    dirtyRef.current = true;
     setPanels((prev) => {
       if (!(id in prev)) return prev;
       const bySession = { ...prev };

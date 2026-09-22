@@ -16,6 +16,7 @@ import type { AgentConfig, PromptAttachment, Repo, Session } from "../src/shared
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
   delete (window as any).relay;
   delete (document as any).startViewTransition;
 });
@@ -783,6 +784,53 @@ describe("App editor resolution", () => {
     fireEvent.click(screen.getByText("Session two"));
     await waitFor(() =>
       expect(screen.queryByText("VS Code is not installed")).toBeNull(),
+    );
+  });
+
+  it("retries a changes-row open against the repository root", async () => {
+    const availableEditors = vi.fn().mockResolvedValue([vscode]);
+    const openInEditor = vi
+      .fn()
+      .mockResolvedValue({ ok: false, message: "VS Code is not installed" });
+    const gitChanges = vi.fn().mockResolvedValue({
+      branch: "main",
+      root: "/tmp/repo",
+      files: [{ path: "src/a.ts", status: "modified" }],
+    });
+    mount(
+      [
+        makeSession({
+          id: "s1",
+          title: "Session one",
+          workingDirectory: "/tmp/repo/packages/app",
+        }),
+      ],
+      {},
+      [],
+      [],
+      {},
+      [repo],
+      {},
+      {},
+      { availableEditors, openInEditor, gitChanges },
+    );
+    await openSession("Session one");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Toggle right panel (⌘⌥B)" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open src/a.ts in editor" }),
+    );
+    await waitFor(() => expect(openInEditor).toHaveBeenCalledTimes(1));
+
+    const alert = await screen.findByRole("alert");
+    fireEvent.click(within(alert).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(openInEditor).toHaveBeenCalledTimes(2));
+    expect(openInEditor).toHaveBeenLastCalledWith(
+      "/tmp/repo",
+      "vscode",
+      "src/a.ts",
+      undefined,
     );
   });
 });
