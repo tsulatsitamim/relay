@@ -7,7 +7,7 @@ import { PanelChanges } from "./PanelChanges.tsx";
 import { PanelFile } from "./PanelFile.tsx";
 import { PanelFiles } from "./PanelFiles.tsx";
 import { PanelPlan } from "./PanelPlan.tsx";
-import { RightPanelTabs } from "./RightPanelTabs.tsx";
+import { PANEL_BODY_ID, RightPanelTabs, tabId } from "./RightPanelTabs.tsx";
 
 type Props = {
   sessionId: string;
@@ -142,7 +142,12 @@ export function RightPanel({
           maximized={maximized}
           onMaximize={() => setMaximized((value) => !value)}
         />
-        <div className="right-panel-body">
+        <div
+          className="right-panel-body"
+          id={PANEL_BODY_ID}
+          role="tabpanel"
+          aria-labelledby={active ? tabId(active.id) : undefined}
+        >
           {active?.kind === "changes" ? (
             <PanelChanges
               cwd={cwd}

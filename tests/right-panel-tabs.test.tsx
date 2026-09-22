@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import {
   RightPanelTabs,
   surfaceTitle,
@@ -96,6 +97,45 @@ describe("RightPanelTabs", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Close all" }));
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(dispatch).toHaveBeenLastCalledWith({ type: "closeAll" });
+  });
+
+  it("activates a focused tab with Enter and Space", async () => {
+    const dispatch = vi.fn();
+    const state = stateWith({ type: "open", kind: "changes" }, { type: "open", kind: "plan" });
+    render(
+      <RightPanelTabs
+        state={state}
+        dispatch={dispatch}
+        maximized={false}
+        onMaximize={() => {}}
+      />,
+    );
+    const user = userEvent.setup();
+    screen.getByRole("tab", { name: "Plan" }).focus();
+    await user.keyboard("{Enter}");
+    await user.keyboard(" ");
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(dispatch).toHaveBeenNthCalledWith(1, { type: "activate", id: "plan" });
+    expect(dispatch).toHaveBeenNthCalledWith(2, { type: "activate", id: "plan" });
+  });
+
+  it("marks the active surface and links each tab to the panel body", () => {
+    const state = stateWith({ type: "open", kind: "changes" }, { type: "open", kind: "plan" });
+    render(
+      <RightPanelTabs
+        state={state}
+        dispatch={() => {}}
+        maximized={false}
+        onMaximize={() => {}}
+      />,
+    );
+    const changes = screen.getByRole("tab", { name: "Changes" });
+    const plan = screen.getByRole("tab", { name: "Plan" });
+    expect(plan.getAttribute("aria-selected")).toBe("true");
+    expect(changes.getAttribute("aria-selected")).toBe("false");
+    expect(plan.id).not.toBe("");
+    expect(plan.getAttribute("aria-controls")).toBeTruthy();
+    expect(changes.getAttribute("aria-controls")).toBe(plan.getAttribute("aria-controls"));
   });
 
   it("adds a surface from the plus menu and queries files", () => {

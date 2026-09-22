@@ -4496,14 +4496,21 @@ input:focus-visible {
   display: none;
 }
 
-.right-panel-tab {
+.right-panel-tab-slot {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.right-panel-tab {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   height: var(--height-sm);
   padding: 0 var(--space-1) 0 var(--space-2);
-  border-radius: var(--radius-sm);
+  border: 0;
+  background: transparent;
   color: var(--tertiary);
   font-size: var(--font-size-sm);
   white-space: nowrap;
@@ -4513,6 +4520,11 @@ input:focus-visible {
 .right-panel-tab.active {
   background: var(--active);
   color: var(--text);
+}
+
+.right-panel-tab-slot:has(.right-panel-tab.active) {
+  background: var(--active);
+  border-radius: var(--radius-sm);
 }
 
 .right-panel-tab-close {
@@ -4525,8 +4537,8 @@ input:focus-visible {
   opacity: 0;
 }
 
-.right-panel-tab:hover .right-panel-tab-close,
-.right-panel-tab.active .right-panel-tab-close {
+.right-panel-tab-slot:hover .right-panel-tab-close,
+.right-panel-tab-slot:has(.right-panel-tab.active) .right-panel-tab-close {
   opacity: 1;
 }
 

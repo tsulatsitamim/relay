@@ -13,6 +13,12 @@ import {
   IconX,
 } from "../icons";
 
+export const PANEL_BODY_ID = "right-panel-body";
+
+export function tabId(surfaceId: string): string {
+  return `right-panel-tab-${surfaceId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 export function surfaceTitle(surface: RightPanelSurface): string {
   if (surface.kind === "changes") return "Changes";
   if (surface.kind === "files") return "Files";
@@ -49,24 +55,28 @@ export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props
     <div className="right-panel-tabs">
       <div className="right-panel-tab-strip" role="tablist" aria-label="Panel surfaces">
         {state.surfaces.map((surface) => (
-          <div
-            key={surface.id}
-            role="tab"
-            tabIndex={0}
-            aria-selected={state.activeSurfaceId === surface.id}
-            className={
-              state.activeSurfaceId === surface.id
-                ? "right-panel-tab active"
-                : "right-panel-tab"
-            }
-            onClick={() => dispatch({ type: "activate", id: surface.id })}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              setMenuId(surface.id);
-            }}
-          >
-            {surfaceIcon(surface)}
-            <span className="right-panel-tab-title">{surfaceTitle(surface)}</span>
+          <div key={surface.id} className="right-panel-tab-slot">
+            <button
+              id={tabId(surface.id)}
+              type="button"
+              role="tab"
+              aria-selected={state.activeSurfaceId === surface.id}
+              aria-controls={PANEL_BODY_ID}
+              aria-label={surfaceTitle(surface)}
+              className={
+                state.activeSurfaceId === surface.id
+                  ? "right-panel-tab active"
+                  : "right-panel-tab"
+              }
+              onClick={() => dispatch({ type: "activate", id: surface.id })}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setMenuId(surface.id);
+              }}
+            >
+              {surfaceIcon(surface)}
+              <span className="right-panel-tab-title">{surfaceTitle(surface)}</span>
+            </button>
             <button
               type="button"
               className="right-panel-tab-close"

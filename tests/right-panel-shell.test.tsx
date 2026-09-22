@@ -68,6 +68,14 @@ describe("RightPanel", () => {
     expect(screen.getByRole("tab", { name: /a.ts/ })).toBeTruthy();
   });
 
+  it("links the active tab and the tabpanel by id", () => {
+    render(<RightPanel {...props([{ type: "open", kind: "changes" }])} />);
+    const tab = screen.getByRole("tab", { name: "Changes" });
+    const panel = screen.getByRole("tabpanel");
+    expect(tab.getAttribute("aria-controls")).toBe(panel.id);
+    expect(panel.getAttribute("aria-labelledby")).toBe(tab.id);
+  });
+
   it("resizes with the handle and persists the dragged width on release", () => {
     const setWidth = vi.fn();
     render(
