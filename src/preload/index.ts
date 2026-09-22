@@ -19,6 +19,11 @@ import type {
 import type { McpServerConfig } from "../shared/mcp.ts";
 import type { GitChangesResult, GitFileDiff } from "../shared/git.ts";
 import type { EditorInfo, OpenInEditorResult } from "../shared/editors.ts";
+import type {
+  TerminalAttachResult,
+  TerminalCreateResult,
+  TerminalEvent,
+} from "../shared/terminal.ts";
 
 contextBridge.exposeInMainWorld("relay", {
   getState: (): Promise<RelayState> => ipcRenderer.invoke("relay:getState"),
@@ -122,6 +127,29 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:revealInFinder", cwd, path),
   windowControl: (action: "min" | "max" | "close"): Promise<void> =>
     ipcRenderer.invoke("relay:windowControl", action),
+  terminal: {
+    create: (
+      sessionId: string,
+      cols: number,
+      rows: number,
+    ): Promise<TerminalCreateResult> =>
+      ipcRenderer.invoke("relay:terminalCreate", sessionId, cols, rows),
+    attach: (terminalId: string): Promise<TerminalAttachResult> =>
+      ipcRenderer.invoke("relay:terminalAttach", terminalId),
+    write: (terminalId: string, data: string): Promise<void> =>
+      ipcRenderer.invoke("relay:terminalWrite", terminalId, data),
+    resize: (terminalId: string, cols: number, rows: number): Promise<void> =>
+      ipcRenderer.invoke("relay:terminalResize", terminalId, cols, rows),
+    close: (terminalId: string): Promise<void> =>
+      ipcRenderer.invoke("relay:terminalClose", terminalId),
+    restart: (terminalId: string): Promise<void> =>
+      ipcRenderer.invoke("relay:terminalRestart", terminalId),
+    onEvent: (listener: (event: TerminalEvent) => void): (() => void) => {
+      const handler = (_e: unknown, event: TerminalEvent) => listener(event);
+      ipcRenderer.on("relay:terminalEvent", handler);
+      return () => ipcRenderer.removeListener("relay:terminalEvent", handler);
+    },
+  },
   subscribe: (listener: (event: RelayEvent) => void) => {
     const handler = (_e: unknown, event: RelayEvent) => listener(event);
     ipcRenderer.on("relay:event", handler);

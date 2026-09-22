@@ -14,7 +14,7 @@ import {
   screen,
 } from "electron";
 import type { MenuItemConstructorOptions } from "electron";
-import { applyLoginPath } from "./path-env.ts";
+import { applyLoginPath, resolveShell } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import {
   clampToWorkArea,
@@ -47,8 +47,10 @@ import { readFilePreview } from "./read-file.ts";
 import { gitChanges, gitFileDiff } from "./git-changes.ts";
 import { availableEditors, openInEditor } from "./editors.ts";
 import { readAttachment } from "./attachments.ts";
+import { TerminalManager, defaultPtySpawner } from "./terminal-manager.ts";
 import type { CreatePayload, DiffCommentInput, RelayState } from "../shared/ipc.ts";
 import type { AgentConfig, PromptAttachment, SessionStatus } from "../shared/types.ts";
+import { clampCols, clampRows, isTerminalId } from "../shared/terminal.ts";
 
 type ThemeSource = "system" | "light" | "dark";
 
@@ -222,6 +224,12 @@ async function main(): Promise<void> {
     }
   };
 
+  const terminals = new TerminalManager({
+    spawnPty: defaultPtySpawner,
+    shell: () => resolveShell(process.env),
+  });
+  terminals.onEvent((event) => broadcast("relay:terminalEvent", event));
+
   const notifyDeps: NotifyDeps = {
     isSupported: () => Notification.isSupported(),
     isFocused: () =>
@@ -251,6 +259,7 @@ async function main(): Promise<void> {
           });
         }
       }
+      terminals.sweep(event.sessions.map((session) => session.id));
     }
     broadcast("relay:event", event);
   });
@@ -372,6 +381,7 @@ async function main(): Promise<void> {
   ipcMain.handle("relay:delete", async (_e, id: string) => {
     logger.info("delete", { sessionId: id });
     await manager.delete(id);
+    terminals.removeSession(id);
   });
 
   ipcMain.handle("relay:pickDirectory", async (event) => {
@@ -574,6 +584,46 @@ async function main(): Promise<void> {
     } else win.close();
   });
 
+  ipcMain.handle(
+    "relay:terminalCreate",
+    async (_e, sessionId: unknown, cols: unknown, rows: unknown) => {
+      if (typeof sessionId !== "string") throw new Error("Unknown session");
+      const session = manager.get(sessionId);
+      if (!session) throw new Error("Unknown session");
+      return terminals.create({
+        sessionId,
+        cwd: session.workingDirectory,
+        cols: clampCols(cols),
+        rows: clampRows(rows),
+      });
+    },
+  );
+
+  ipcMain.handle("relay:terminalAttach", (_e, terminalId: unknown) =>
+    isTerminalId(terminalId) ? terminals.attach(terminalId) : { ok: false, reason: "missing" },
+  );
+
+  ipcMain.handle("relay:terminalWrite", (_e, terminalId: unknown, data: unknown) => {
+    if (!isTerminalId(terminalId) || typeof data !== "string") return;
+    terminals.write(terminalId, data);
+  });
+
+  ipcMain.handle(
+    "relay:terminalResize",
+    (_e, terminalId: unknown, cols: unknown, rows: unknown) => {
+      if (!isTerminalId(terminalId)) return;
+      terminals.resize(terminalId, cols, rows);
+    },
+  );
+
+  ipcMain.handle("relay:terminalClose", (_e, terminalId: unknown) => {
+    if (isTerminalId(terminalId)) terminals.close(terminalId);
+  });
+
+  ipcMain.handle("relay:terminalRestart", async (_e, terminalId: unknown) => {
+    if (isTerminalId(terminalId)) await terminals.restart(terminalId);
+  });
+
   const themeSource = normalizeStoredTheme(store.getSetting("theme"));
   nativeTheme.themeSource = themeSource;
 
@@ -628,6 +678,7 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     e.preventDefault();
     shuttingDown = true;
+    terminals.shutdown();
     store.flushNow();
     void manager.shutdown().finally(() => app.exit(0));
   });

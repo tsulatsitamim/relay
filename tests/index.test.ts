@@ -11,6 +11,43 @@ const agentPath = fileURLToPath(
   new URL("../agents/fake-acp-agent.mjs", import.meta.url),
 );
 
+class FakePty {
+  pid = 4242;
+  written: string[] = [];
+  sizes: Array<[number, number]> = [];
+  kills = 0;
+  private dataListeners: Array<(data: string) => void> = [];
+  private exitListeners: Array<(event: { exitCode: number; signal?: number }) => void> = [];
+
+  onData(listener: (data: string) => void): void {
+    this.dataListeners.push(listener);
+  }
+
+  onExit(listener: (event: { exitCode: number; signal?: number }) => void): void {
+    this.exitListeners.push(listener);
+  }
+
+  write(data: string): void {
+    this.written.push(data);
+  }
+
+  resize(cols: number, rows: number): void {
+    this.sizes.push([cols, rows]);
+  }
+
+  kill(): void {
+    this.kills += 1;
+  }
+
+  emitData(data: string): void {
+    for (const listener of this.dataListeners) listener(data);
+  }
+
+  emitExit(event: { exitCode: number; signal?: number }): void {
+    for (const listener of this.exitListeners) listener(event);
+  }
+}
+
 const h = vi.hoisted(() => ({
   userData: "",
   version: "9.9.9",
@@ -25,6 +62,8 @@ const h = vi.hoisted(() => ({
   },
   backgrounds: [] as string[],
   windows: [] as unknown[],
+  broadcasts: [] as Array<{ channel: string; payload: unknown }>,
+  ptys: [] as FakePty[],
   windowOptions: [] as Array<Record<string, unknown>>,
   errorBoxes: [] as Array<{ title: string; content: string }>,
   appListeners: new Map<string, Array<(...args: unknown[]) => void>>(),
@@ -39,7 +78,10 @@ const h = vi.hoisted(() => ({
 vi.mock("electron", () => {
   class BrowserWindow {
     options: Record<string, unknown>;
-    webContents = { send: () => {} };
+    webContents = {
+      send: (channel: string, payload: unknown) =>
+        void h.broadcasts.push({ channel, payload }),
+    };
     bounds = { x: 0, y: 0, width: 0, height: 0 };
     normalBounds = { x: 0, y: 0, width: 0, height: 0 };
     minimized = false;
@@ -174,6 +216,19 @@ vi.mock("electron", () => {
     nativeTheme: h.nativeTheme,
     screen: {
       getPrimaryDisplay: () => ({ workArea: { ...h.workArea } }),
+    },
+  };
+});
+
+vi.mock("../src/main/terminal-manager.ts", async (importActual) => {
+  const actual =
+    await importActual<typeof import("../src/main/terminal-manager.ts")>();
+  return {
+    ...actual,
+    defaultPtySpawner: async () => {
+      const pty = new FakePty();
+      h.ptys.push(pty);
+      return pty;
     },
   };
 });
@@ -373,6 +428,77 @@ describe("main relay:getState", () => {
 
     const reveal = h.handlers.get("relay:revealInFinder")!;
     expect(reveal({}, dir, "../secret")).toBe(false);
+  });
+
+  it("exposes terminal handlers that replay, broadcast and sweep", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    h.ptys.length = 0;
+    await import("../src/main/index.ts");
+    await waitFor(() => h.handlers.get("relay:getState"));
+
+    const attach = h.handlers.get("relay:terminalAttach")!;
+    expect(attach({}, "terminal:not-a-uuid")).toEqual({ ok: false, reason: "missing" });
+    expect(attach({}, "terminal:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b")).toEqual({
+      ok: false,
+      reason: "missing",
+    });
+
+    const write = h.handlers.get("relay:terminalWrite")!;
+    const resize = h.handlers.get("relay:terminalResize")!;
+    const restart = h.handlers.get("relay:terminalRestart")!;
+    const close = h.handlers.get("relay:terminalClose")!;
+    expect(write({}, "terminal:1", "x")).toBeUndefined();
+    expect(resize({}, "terminal:1", 10, 10)).toBeUndefined();
+    expect(await restart({}, "terminal:1")).toBeUndefined();
+    expect(close({}, "terminal:1")).toBeUndefined();
+
+    const create = h.handlers.get("relay:terminalCreate")!;
+    await expect(create({}, "no-such-session", 80, 24)).rejects.toThrow("Unknown session");
+
+    const saveAgent = h.handlers.get("relay:saveAgent")!;
+    const createSession = h.handlers.get("relay:create")!;
+    const savedAgent = saveAgent({}, {
+      id: "fake",
+      name: "Fake ACP",
+      command: process.execPath,
+      args: [agentPath],
+      env: {},
+    }) as AgentConfig;
+    const session = (await createSession({}, {
+      agentId: savedAgent.id,
+      cwd: process.cwd(),
+      prompt: "hello",
+    })) as Session;
+
+    const created = (await create({}, session.id, 2000, 0)) as {
+      terminalId: string;
+      title: string;
+    };
+    expect(created.terminalId).toMatch(/^terminal:[0-9a-fA-F-]{36}$/);
+    expect(created.title).toBe("Terminal 1");
+    expect(h.ptys).toHaveLength(1);
+    expect(h.ptys[0]!.kills).toBe(0);
+
+    h.ptys[0]!.emitData("boot");
+    await waitFor(() =>
+      h.broadcasts.some((entry) => entry.channel === "relay:terminalEvent")
+        ? true
+        : undefined,
+    );
+    expect(h.broadcasts).toContainEqual({
+      channel: "relay:terminalEvent",
+      payload: { type: "terminalData", terminalId: created.terminalId, data: "boot" },
+    });
+
+    expect(attach({}, created.terminalId)).toMatchObject({ ok: true, data: expect.stringContaining("boot") });
+
+    write({}, created.terminalId, "ls\r");
+    expect(h.ptys[0]!.written).toEqual(["ls\r"]);
+
+    const remove = h.handlers.get("relay:delete")!;
+    await remove({}, session.id);
+    expect(h.ptys[0]!.kills).toBe(1);
+    expect(attach({}, created.terminalId)).toEqual({ ok: false, reason: "missing" });
   });
 });
 

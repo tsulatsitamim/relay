@@ -18,6 +18,11 @@ import type {
 import type { McpServerConfig } from "../shared/mcp.ts";
 import type { GitChangesResult, GitFileDiff } from "../shared/git.ts";
 import type { EditorInfo, OpenInEditorResult } from "../shared/editors.ts";
+import type {
+  TerminalAttachResult,
+  TerminalCreateResult,
+  TerminalEvent,
+} from "../shared/terminal.ts";
 
 export type RelayBridge = {
   getState: () => Promise<RelayState>;
@@ -78,6 +83,19 @@ export type RelayBridge = {
   ) => Promise<OpenInEditorResult>;
   revealInFinder: (cwd: string, path: string) => Promise<boolean>;
   windowControl: (action: "min" | "max" | "close") => Promise<void>;
+  terminal: {
+    create: (
+      sessionId: string,
+      cols: number,
+      rows: number,
+    ) => Promise<TerminalCreateResult>;
+    attach: (terminalId: string) => Promise<TerminalAttachResult>;
+    write: (terminalId: string, data: string) => Promise<void>;
+    resize: (terminalId: string, cols: number, rows: number) => Promise<void>;
+    close: (terminalId: string) => Promise<void>;
+    restart: (terminalId: string) => Promise<void>;
+    onEvent: (listener: (event: TerminalEvent) => void) => () => void;
+  };
   subscribe: (listener: (event: RelayEvent) => void) => () => void;
 };
 
