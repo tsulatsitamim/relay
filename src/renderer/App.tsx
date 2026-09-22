@@ -1729,6 +1729,7 @@ export function App() {
               cwd={selected?.workingDirectory ?? ""}
               preferred={state.settings.preferredEditor ?? null}
               disabled={!selected}
+              editors={editors}
               onPreferred={(id) => setSetting("preferredEditor", id)}
             />
             <span className="icon-btn static" aria-hidden>

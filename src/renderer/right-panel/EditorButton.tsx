@@ -10,6 +10,7 @@ type Props = {
   preferred: string | null;
   onPreferred: (id: string) => void;
   disabled: boolean;
+  editors?: EditorInfo[];
 };
 
 export function EditorButton({
@@ -19,28 +20,31 @@ export function EditorButton({
   preferred,
   onPreferred,
   disabled,
+  editors: suppliedEditors,
 }: Props) {
-  const [editors, setEditors] = useState<EditorInfo[]>([]);
+  const [fetchedEditors, setFetchedEditors] = useState<EditorInfo[]>([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const closeMenu = useCallback(() => setOpen(false), []);
   useDismissable(open, menuRef, closeMenu);
+  const editors = suppliedEditors ?? fetchedEditors;
 
   useEffect(() => {
+    if (suppliedEditors) return;
     let cancelled = false;
     void window.relay
       .availableEditors()
       .then((result) => {
-        if (!cancelled) setEditors(result);
+        if (!cancelled) setFetchedEditors(result);
       })
       .catch(() => {
-        if (!cancelled) setEditors([]);
+        if (!cancelled) setFetchedEditors([]);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [suppliedEditors]);
 
   const preferredEditor =
     editors.find((editor) => editor.id === preferred) ?? editors[0] ?? null;

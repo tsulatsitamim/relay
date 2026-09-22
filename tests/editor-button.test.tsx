@@ -74,6 +74,24 @@ describe("EditorButton", () => {
     await waitFor(() => expect(screen.getByText("Reveal in Finder")).toBeTruthy());
   });
 
+  it("uses a supplied editors list without calling the bridge", async () => {
+    const availableEditors = vi.fn(async () => [
+      { id: "vscode", label: "VS Code", command: "code" },
+    ]);
+    window.relay = bridge({ availableEditors });
+    render(
+      <EditorButton
+        cwd="/repo"
+        preferred={null}
+        onPreferred={() => {}}
+        disabled={false}
+        editors={[{ id: "zed", label: "Zed", command: "zed" }]}
+      />,
+    );
+    expect(screen.getByText("Open in Zed")).toBeTruthy();
+    expect(availableEditors).not.toHaveBeenCalled();
+  });
+
   it("closes the editor menu on Escape and on an outside press", async () => {
     window.relay = bridge();
     const { container } = render(
