@@ -47,6 +47,7 @@ export function PanelFile({
   onOpenInEditor,
 }: Props) {
   const [file, setFile] = useState<ReadFileResult | null>(null);
+  const [missing, setMissing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
@@ -54,14 +55,18 @@ export function PanelFile({
     if (!cwd) return;
     let cancelled = false;
     setError(null);
+    setMissing(false);
     void window.relay
       .readFile(cwd, path)
       .then((result) => {
-        if (!cancelled) setFile(result);
+        if (cancelled) return;
+        setFile(result);
+        setMissing(result === null);
       })
       .catch((cause: unknown) => {
         if (!cancelled) {
           setFile(null);
+          setMissing(false);
           setError(cause instanceof Error ? cause.message : String(cause));
         }
       });
@@ -75,7 +80,9 @@ export function PanelFile({
     const target = scrollerRef.current.querySelector(
       `[data-line="${revealLine}"]`,
     );
-    if (target instanceof HTMLElement) target.scrollIntoView({ block: "center" });
+    if (target instanceof HTMLElement && typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({ block: "center" });
+    }
   }, [revealLine, file]);
 
   return (
@@ -95,12 +102,17 @@ export function PanelFile({
       </div>
       <div className="panel-file-body" ref={scrollerRef}>
         {error ? <p className="panel-note">{error}</p> : null}
+        {missing ? <p className="panel-note">Unable to read this file</p> : null}
         {file?.binary ? <p className="panel-note">Binary file</p> : null}
         {file && !file.binary && file.truncated ? (
           <p className="panel-note">File truncated</p>
         ) : null}
         {file && !file.binary ? (
-          <CodeBlock code={file.text} lang={languageForPath(path)} />
+          <CodeBlock
+            code={file.text}
+            lang={languageForPath(path)}
+            revealLine={revealLine}
+          />
         ) : null}
       </div>
     </div>
