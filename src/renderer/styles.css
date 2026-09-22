@@ -4496,6 +4496,10 @@ input:focus-visible {
   display: none;
 }
 
+.right-panel-tabs > .icon-btn {
+  flex-shrink: 0;
+}
+
 .right-panel-tab-slot {
   position: relative;
   display: inline-flex;

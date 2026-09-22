@@ -1,11 +1,12 @@
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   PanelAction,
   RightPanelSurface,
   SessionPanelState,
 } from "../../shared/right-panel.ts";
 import {
-  IconChevron,
+  IconChevronLeft,
+  IconChevronRight,
   IconFiles,
   IconGitCompare,
   IconListTodo,
@@ -54,14 +55,58 @@ export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props
   const [menuId, setMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const addRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [overflow, setOverflow] = useState(false);
   const closeMenu = useCallback(() => setMenuId(null), []);
   const closeAdd = useCallback(() => setAddOpen(false), []);
   useDismissable(menuId !== null, menuRef, closeMenu);
   useDismissable(addOpen, addRef, closeAdd);
 
+  useEffect(() => {
+    const strip = stripRef.current;
+    const update = () => {
+      if (!strip) return;
+      setOverflow(strip.scrollWidth > strip.clientWidth + 1);
+    };
+    update();
+    window.addEventListener("resize", update);
+    let observer: ResizeObserver | null = null;
+    if (strip && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(update);
+      observer.observe(strip);
+    }
+    return () => {
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
+  }, [state.surfaces]);
+
+  function scrollStrip(direction: -1 | 1) {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const amount = direction * Math.max(80, Math.round(strip.clientWidth * 0.6));
+    if (typeof strip.scrollBy === "function") strip.scrollBy({ left: amount });
+    else strip.scrollLeft += amount;
+  }
+
   return (
     <div className="right-panel-tabs">
-      <div className="right-panel-tab-strip" role="tablist" aria-label="Panel surfaces">
+      {overflow ? (
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Scroll tabs left"
+          onClick={() => scrollStrip(-1)}
+        >
+          <IconChevronLeft />
+        </button>
+      ) : null}
+      <div
+        className="right-panel-tab-strip"
+        role="tablist"
+        aria-label="Panel surfaces"
+        ref={stripRef}
+      >
         {state.surfaces.map((surface) => (
           <div key={surface.id} className="right-panel-tab-slot">
             <button
@@ -163,6 +208,16 @@ export function RightPanelTabs({ state, dispatch, maximized, onMaximize }: Props
           ) : null}
         </div>
       </div>
+      {overflow ? (
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Scroll tabs right"
+          onClick={() => scrollStrip(1)}
+        >
+          <IconChevronRight />
+        </button>
+      ) : null}
       <button
         type="button"
         className="icon-btn"

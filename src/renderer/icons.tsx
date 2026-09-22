@@ -78,6 +78,11 @@ export const IconFolderPlus = icon(FolderPlus);
 export const IconFilter = icon(ListFilter);
 export const IconChevron = icon(ChevronDown, { size: 14, strokeWidth: 2 });
 export const IconChevronRight = icon(ChevronRight, { size: 14, strokeWidth: 2 });
+export const IconChevronLeft = icon(ChevronRight, {
+  size: 14,
+  strokeWidth: 2,
+  style: { transform: "rotate(180deg)" },
+});
 export const IconArrowLeft = icon(ArrowLeft, { size: 16, strokeWidth: 1.75 });
 export const IconArrowRight = icon(ArrowRight, { size: 16, strokeWidth: 1.75 });
 export const IconPanelLeft = icon(PanelLeft);

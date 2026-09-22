@@ -195,6 +195,32 @@ describe("RightPanelTabs", () => {
     expect(screen.queryByRole("menuitem", { name: "Files" })).toBeNull();
   });
 
+  it("shows scroll buttons only when the strip overflows and scrolls on click", () => {
+    const state = stateWith({ type: "open", kind: "changes" }, { type: "open", kind: "plan" });
+    const { container } = render(
+      <RightPanelTabs
+        state={state}
+        dispatch={() => {}}
+        maximized={false}
+        onMaximize={() => {}}
+      />,
+    );
+    const strip = container.querySelector<HTMLElement>(".right-panel-tab-strip")!;
+    expect(screen.queryByRole("button", { name: "Scroll tabs left" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Scroll tabs right" })).toBeNull();
+
+    Object.defineProperty(strip, "scrollWidth", { value: 400, configurable: true });
+    Object.defineProperty(strip, "clientWidth", { value: 100, configurable: true });
+    const scrollBy = vi.fn();
+    (strip as unknown as { scrollBy: unknown }).scrollBy = scrollBy;
+    fireEvent(window, new Event("resize"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Scroll tabs right" }));
+    expect(scrollBy).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Scroll tabs left" }));
+    expect(scrollBy).toHaveBeenCalledTimes(2);
+  });
+
   it("adds a surface from the plus menu and queries files", () => {
     const dispatch = vi.fn();
     render(
