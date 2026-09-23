@@ -155,4 +155,59 @@ describe("panelReducer", () => {
       "terminal",
     ]);
   });
+
+  it("opens a preview beside other surfaces and activates it", () => {
+    const withChanges = panelReducer(EMPTY_PANEL_STATE, { type: "open", kind: "changes" });
+    const withPreview = panelReducer(withChanges, {
+      type: "openPreview",
+      id: "preview:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+      title: "localhost:5173",
+      url: "http://localhost:5173/",
+    });
+    expect(withPreview.isOpen).toBe(true);
+    expect(withPreview.activeSurfaceId).toBe(
+      "preview:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+    );
+    expect(withPreview.surfaces.map((surface) => surface.kind)).toEqual([
+      "changes",
+      "preview",
+    ]);
+  });
+
+  it("upserts a preview by id instead of duplicating it", () => {
+    const id = "preview:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b";
+    const first = panelReducer(EMPTY_PANEL_STATE, {
+      type: "openPreview",
+      id,
+      title: "localhost:5173",
+      url: "http://localhost:5173/",
+    });
+    const second = panelReducer(first, {
+      type: "openPreview",
+      id,
+      title: "localhost:5174",
+      url: "http://localhost:5174/",
+    });
+    expect(second.surfaces).toHaveLength(1);
+    expect(second.surfaces[0]).toEqual({
+      id,
+      kind: "preview",
+      title: "localhost:5174",
+      url: "http://localhost:5174/",
+    });
+  });
+
+  it("leaves the files and file exclusion rules alone when opening a preview", () => {
+    const state = panelReducer(EMPTY_PANEL_STATE, {
+      type: "openFile",
+      path: "src/a.ts",
+    });
+    const next = panelReducer(state, {
+      type: "openPreview",
+      id: "preview:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+      title: "Preview",
+      url: "",
+    });
+    expect(next.surfaces.map((surface) => surface.kind)).toEqual(["file", "preview"]);
+  });
 });

@@ -1,4 +1,10 @@
-export type RightPanelKind = "changes" | "files" | "plan" | "file" | "terminal";
+export type RightPanelKind =
+  | "changes"
+  | "files"
+  | "plan"
+  | "file"
+  | "terminal"
+  | "preview";
 
 export type SingletonSurface =
   | { id: "changes"; kind: "changes" }
@@ -19,7 +25,18 @@ export type TerminalSurface = {
   title: string;
 };
 
-export type RightPanelSurface = SingletonSurface | FileSurface | TerminalSurface;
+export type PreviewSurface = {
+  id: `preview:${string}`;
+  kind: "preview";
+  title: string;
+  url: string;
+};
+
+export type RightPanelSurface =
+  | SingletonSurface
+  | FileSurface
+  | TerminalSurface
+  | PreviewSurface;
 
 export type SessionPanelState = {
   isOpen: boolean;
@@ -37,6 +54,12 @@ export type PanelAction =
   | { type: "open"; kind: "changes" | "files" | "plan" }
   | { type: "openFile"; path: string; line?: number | null }
   | { type: "openTerminal"; id: `terminal:${string}`; title: string }
+  | {
+      type: "openPreview";
+      id: `preview:${string}`;
+      title: string;
+      url: string;
+    }
   | { type: "activate"; id: string }
   | { type: "close"; id: string }
   | { type: "closeOthers"; id: string }
@@ -110,6 +133,19 @@ export function panelReducer(
         id: action.id,
         kind: "terminal",
         title: action.title,
+      };
+      return {
+        isOpen: true,
+        activeSurfaceId: surface.id,
+        surfaces: upsert(state.surfaces, surface),
+      };
+    }
+    case "openPreview": {
+      const surface: PreviewSurface = {
+        id: action.id,
+        kind: "preview",
+        title: action.title,
+        url: action.url,
       };
       return {
         isOpen: true,
