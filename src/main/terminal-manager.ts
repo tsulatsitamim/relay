@@ -99,6 +99,10 @@ export class TerminalManager {
     return () => this.listeners.delete(listener);
   }
 
+  sessionIdOf(terminalId: string): string | null {
+    return this.entries.get(terminalId)?.sessionId ?? null;
+  }
+
   async create(input: {
     sessionId: string;
     cwd: string;

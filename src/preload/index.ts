@@ -24,6 +24,11 @@ import type {
   TerminalCreateResult,
   TerminalEvent,
 } from "../shared/terminal.ts";
+import type {
+  PreviewCreateResult,
+  PreviewEvent,
+  PreviewNavigateResult,
+} from "../shared/preview.ts";
 
 contextBridge.exposeInMainWorld("relay", {
   getState: (): Promise<RelayState> => ipcRenderer.invoke("relay:getState"),
@@ -127,6 +132,8 @@ contextBridge.exposeInMainWorld("relay", {
     ipcRenderer.invoke("relay:revealInFinder", cwd, path),
   windowControl: (action: "min" | "max" | "close"): Promise<void> =>
     ipcRenderer.invoke("relay:windowControl", action),
+  openExternal: (url: string): Promise<void> =>
+    ipcRenderer.invoke("relay:openExternal", url),
   terminal: {
     create: (
       sessionId: string,
@@ -148,6 +155,29 @@ contextBridge.exposeInMainWorld("relay", {
       const handler = (_e: unknown, event: TerminalEvent) => listener(event);
       ipcRenderer.on("relay:terminalEvent", handler);
       return () => ipcRenderer.removeListener("relay:terminalEvent", handler);
+    },
+  },
+  preview: {
+    create: (sessionId: string, url: string): Promise<PreviewCreateResult> =>
+      ipcRenderer.invoke("relay:previewCreate", sessionId, url),
+    show: (previewId: string, sessionId: string, url: string): Promise<void> =>
+      ipcRenderer.invoke("relay:previewShow", previewId, sessionId, url),
+    layout: (
+      previewId: string,
+      rect: { x: number; y: number; width: number; height: number } | null,
+    ): Promise<void> => ipcRenderer.invoke("relay:previewLayout", previewId, rect),
+    navigate: (previewId: string, url: string): Promise<PreviewNavigateResult> =>
+      ipcRenderer.invoke("relay:previewNavigate", previewId, url),
+    reload: (previewId: string): Promise<void> =>
+      ipcRenderer.invoke("relay:previewReload", previewId),
+    close: (previewId: string): Promise<void> =>
+      ipcRenderer.invoke("relay:previewClose", previewId),
+    detected: (sessionId: string): Promise<string[]> =>
+      ipcRenderer.invoke("relay:previewDetected", sessionId),
+    onEvent: (listener: (event: PreviewEvent) => void): (() => void) => {
+      const handler = (_e: unknown, event: PreviewEvent) => listener(event);
+      ipcRenderer.on("relay:previewEvent", handler);
+      return () => ipcRenderer.removeListener("relay:previewEvent", handler);
     },
   },
   subscribe: (listener: (event: RelayEvent) => void) => {

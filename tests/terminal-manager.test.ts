@@ -93,6 +93,8 @@ describe("TerminalManager create", () => {
       cols: 120,
       rows: 30,
     });
+    expect(manager.sessionIdOf(first.terminalId)).toBe("s1");
+    expect(manager.sessionIdOf("terminal:1")).toBeNull();
   });
 
   it("clamps the initial size", async () => {

@@ -48,6 +48,65 @@ class FakePty {
   }
 }
 
+class FakeWebContentsView {
+  handlers = new Map<string, Array<(...args: unknown[]) => void>>();
+  sessionHandlers = new Map<string, Array<(...args: unknown[]) => void>>();
+  permissionHandler: ((c: unknown, p: string, cb: (granted: boolean) => void) => void) | null =
+    null;
+  loaded: string[] = [];
+  bounds: { x: number; y: number; width: number; height: number } | null = null;
+  visible = false;
+  destroyed = false;
+  windowOpenHandler: ((details: { url: string }) => { action: "deny" }) | null = null;
+
+  private readonly session = {
+    on: (event: string, listener: (...args: unknown[]) => void) => {
+      const current = this.sessionHandlers.get(event) ?? [];
+      current.push(listener);
+      this.sessionHandlers.set(event, current);
+    },
+    setPermissionRequestHandler: (
+      handler: (c: unknown, p: string, cb: (granted: boolean) => void) => void,
+    ) => {
+      this.permissionHandler = handler;
+    },
+  };
+
+  webContents = {
+    loadURL: (url: string) => {
+      this.loaded.push(url);
+      return Promise.resolve();
+    },
+    reload: () => {},
+    stop: () => {},
+    close: () => {
+      this.destroyed = true;
+    },
+    isDestroyed: () => this.destroyed,
+    on: (event: string, listener: (...args: unknown[]) => void) => {
+      const current = this.handlers.get(event) ?? [];
+      current.push(listener);
+      this.handlers.set(event, current);
+    },
+    setWindowOpenHandler: (handler: FakeWebContentsView["windowOpenHandler"]) => {
+      this.windowOpenHandler = handler;
+    },
+    session: this.session,
+  };
+
+  setBounds(rect: { x: number; y: number; width: number; height: number }): void {
+    this.bounds = rect;
+  }
+
+  setVisible(visible: boolean): void {
+    this.visible = visible;
+  }
+
+  emit(event: string, ...args: unknown[]): void {
+    for (const listener of this.handlers.get(event) ?? []) listener(...args);
+  }
+}
+
 const h = vi.hoisted(() => ({
   userData: "",
   version: "9.9.9",
@@ -64,6 +123,10 @@ const h = vi.hoisted(() => ({
   windows: [] as unknown[],
   broadcasts: [] as Array<{ channel: string; payload: unknown }>,
   ptys: [] as FakePty[],
+  views: [] as FakeWebContentsView[],
+  addedViews: [] as unknown[],
+  removedViews: [] as unknown[],
+  openExternal: [] as string[],
   windowOptions: [] as Array<Record<string, unknown>>,
   errorBoxes: [] as Array<{ title: string; content: string }>,
   appListeners: new Map<string, Array<(...args: unknown[]) => void>>(),
@@ -79,8 +142,19 @@ vi.mock("electron", () => {
   class BrowserWindow {
     options: Record<string, unknown>;
     webContents = {
+      id: h.windows.length + 1,
       send: (channel: string, payload: unknown) =>
         void h.broadcasts.push({ channel, payload }),
+      setWindowOpenHandler: (
+        handler: (details: { url: string }) => { action: "deny" },
+      ) => {
+        this.windowOpenHandler = handler;
+      },
+    };
+    windowOpenHandler: ((details: { url: string }) => { action: "deny" }) | null = null;
+    contentView = {
+      addChildView: (view: unknown) => void h.addedViews.push(view),
+      removeChildView: (view: unknown) => void h.removedViews.push(view),
     };
     bounds = { x: 0, y: 0, width: 0, height: 0 };
     normalBounds = { x: 0, y: 0, width: 0, height: 0 };
@@ -212,6 +286,7 @@ vi.mock("electron", () => {
     shell: {
       openPath: async () => "",
       showItemInFolder: () => {},
+      openExternal: async (url: string) => void h.openExternal.push(url),
     },
     nativeTheme: h.nativeTheme,
     screen: {
@@ -232,6 +307,14 @@ vi.mock("../src/main/terminal-manager.ts", async (importActual) => {
     },
   };
 });
+
+vi.mock("../src/main/preview-view.ts", () => ({
+  createPreviewView: () => {
+    const view = new FakeWebContentsView();
+    h.views.push(view);
+    return view;
+  },
+}));
 
 async function waitFor<T>(get: () => T | undefined, timeoutMs = 10_000): Promise<T> {
   const started = Date.now();
@@ -499,6 +582,148 @@ describe("main relay:getState", () => {
     await remove({}, session.id);
     expect(h.ptys[0]!.kills).toBe(1);
     expect(attach({}, created.terminalId)).toEqual({ ok: false, reason: "missing" });
+  });
+
+  it("exposes preview handlers that lay out, navigate and sweep", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    h.views.length = 0;
+    h.ptys.length = 0;
+    h.broadcasts.length = 0;
+    h.addedViews.length = 0;
+    h.removedViews.length = 0;
+    h.openExternal.length = 0;
+    await import("../src/main/index.ts");
+    await waitFor(() => h.handlers.get("relay:getState"));
+
+    const create = h.handlers.get("relay:previewCreate")!;
+    await expect(create({ sender: { id: 1 } }, "no-such-session", "")).rejects.toThrow(
+      "Unknown session",
+    );
+
+    const saveAgent = h.handlers.get("relay:saveAgent")!;
+    const createSession = h.handlers.get("relay:create")!;
+    const savedAgent = saveAgent({}, {
+      id: "fake",
+      name: "Fake ACP",
+      command: process.execPath,
+      args: [agentPath],
+      env: {},
+    }) as AgentConfig;
+    const session = (await createSession({}, {
+      agentId: savedAgent.id,
+      cwd: process.cwd(),
+      prompt: "hello",
+    })) as Session;
+
+    const created = (await create({ sender: { id: 1 } }, session.id, "")) as {
+      previewId: string;
+      title: string;
+      url: string;
+    };
+    expect(created.previewId).toMatch(/^preview:[0-9a-fA-F-]{36}$/);
+    expect(created.title).toBe("Preview");
+    expect(h.views).toHaveLength(0); // creation is lazy
+
+    const show = h.handlers.get("relay:previewShow")!;
+    show({ sender: { id: 1 } }, created.previewId, session.id, "http://localhost:5173/");
+    expect(h.views).toHaveLength(1);
+    expect(h.views[0]!.loaded).toEqual(["http://localhost:5173/"]);
+    expect(h.addedViews).toEqual([h.views[0]]);
+
+    const layout = h.handlers.get("relay:previewLayout")!;
+    layout({}, created.previewId, { x: 0, y: 0, width: 400, height: 300 });
+    expect(h.views[0]!.bounds).toEqual({ x: 0, y: 0, width: 400, height: 300 });
+    expect(h.views[0]!.visible).toBe(true);
+    layout({}, created.previewId, null);
+    expect(h.views[0]!.visible).toBe(false);
+
+    const navigate = h.handlers.get("relay:previewNavigate")!;
+    expect(navigate({}, created.previewId, "https://example.com/")).toEqual({
+      ok: false,
+      reason: expect.stringContaining("example.com"),
+    });
+    expect(navigate({}, created.previewId, "localhost:4000")).toEqual({
+      ok: true,
+      url: "http://localhost:4000/",
+    });
+    expect(h.views[0]!.loaded).toEqual([
+      "http://localhost:5173/",
+      "http://localhost:4000/",
+    ]);
+
+    h.views[0]!.emit("did-finish-load");
+    await waitFor(() =>
+      h.broadcasts.some((entry) => entry.channel === "relay:previewEvent") ? true : undefined,
+    );
+    expect(h.broadcasts).toContainEqual({
+      channel: "relay:previewEvent",
+      payload: {
+        type: "previewState",
+        previewId: created.previewId,
+        state: "loaded",
+      },
+    });
+
+    // Terminal output feeds the detector, which broadcasts the previews event.
+    const terminalCreate = h.handlers.get("relay:terminalCreate")!;
+    await terminalCreate({}, session.id, 80, 24);
+    h.ptys[0]!.emitData("  ➜  Local:   http://localhost:5173/");
+    await waitFor(() =>
+      h.broadcasts.some(
+        (entry) =>
+          entry.channel === "relay:event" &&
+          (entry.payload as { type?: string }).type === "previews",
+      )
+        ? true
+        : undefined,
+    );
+    expect(h.broadcasts).toContainEqual({
+      channel: "relay:event",
+      payload: { type: "previews", sessionId: session.id, urls: ["http://localhost:5173/"] },
+    });
+
+    const detected = h.handlers.get("relay:previewDetected")!;
+    expect(detected({}, session.id)).toEqual(["http://localhost:5173/"]);
+
+    const openExternal = h.handlers.get("relay:openExternal")!;
+    await openExternal({}, "http://localhost:5173/");
+    await openExternal({}, "https://example.com/");
+    expect(h.openExternal).toEqual(["http://localhost:5173/"]);
+
+    const remove = h.handlers.get("relay:delete")!;
+    await remove({}, session.id);
+    expect(h.views[0]!.destroyed).toBe(true);
+    expect(h.removedViews).toEqual([h.views[0]]);
+  });
+
+  it("routes target=_blank links from the app window to the system browser", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+    await waitFor(() => h.handlers.get("relay:getState"));
+
+    const win = h.windows[0] as { windowOpenHandler: (details: { url: string }) => { action: string } };
+    expect(win.windowOpenHandler({ url: "https://example.com/docs" })).toEqual({
+      action: "deny",
+    });
+    expect(h.openExternal).toContain("https://example.com/docs");
+  });
+
+  it("accepts invalid certificates only for local hosts", async () => {
+    h.userData = mkdtempSync(join(tmpdir(), "relay-index-"));
+    await import("../src/main/index.ts");
+    const listener = await waitFor(
+      () => h.appListeners.get("certificate-error")?.[0],
+    );
+
+    const localEvent = { preventDefault: vi.fn() };
+    const localCallback = vi.fn();
+    listener(localEvent, {}, "https://localhost:5173/", "err", {}, localCallback);
+    expect(localEvent.preventDefault).toHaveBeenCalledTimes(1);
+    expect(localCallback).toHaveBeenCalledWith(true);
+
+    const remoteCallback = vi.fn();
+    listener({ preventDefault: vi.fn() }, {}, "https://example.com/", "err", {}, remoteCallback);
+    expect(remoteCallback).toHaveBeenCalledWith(false);
   });
 });
 

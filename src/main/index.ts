@@ -13,7 +13,7 @@ import {
   nativeTheme,
   screen,
 } from "electron";
-import type { MenuItemConstructorOptions } from "electron";
+import type { MenuItemConstructorOptions, View } from "electron";
 import { applyLoginPath, resolveShell } from "./path-env.ts";
 import { openStore } from "./db.ts";
 import {
@@ -48,9 +48,17 @@ import { gitChanges, gitFileDiff } from "./git-changes.ts";
 import { availableEditors, openInEditor } from "./editors.ts";
 import { readAttachment } from "./attachments.ts";
 import { TerminalManager, defaultPtySpawner } from "./terminal-manager.ts";
-import type { CreatePayload, DiffCommentInput, RelayState } from "../shared/ipc.ts";
+import type { CreatePayload, DiffCommentInput, RelayEvent, RelayState } from "../shared/ipc.ts";
 import type { AgentConfig, PromptAttachment, SessionStatus } from "../shared/types.ts";
 import { clampCols, clampRows, isTerminalId } from "../shared/terminal.ts";
+import {
+  isPreviewId,
+  normalizePreviewUrl,
+  type PreviewEvent,
+} from "../shared/preview.ts";
+import { detectLocalUrls, transcriptText, UrlStore } from "./preview-detect.ts";
+import { PreviewManager, toRect, type HostWindowLike } from "./preview-manager.ts";
+import { createPreviewView } from "./preview-view.ts";
 
 type ThemeSource = "system" | "light" | "dark";
 
@@ -99,6 +107,13 @@ function createWindow(
       nodeIntegration: false,
       sandbox: false,
     },
+  });
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("http:") || url.startsWith("https:")) {
+      void shell.openExternal(url);
+    }
+    return { action: "deny" };
   });
 
   if (state?.maximized) win.maximize();
@@ -228,7 +243,40 @@ async function main(): Promise<void> {
     spawnPty: defaultPtySpawner,
     shell: () => resolveShell(process.env),
   });
-  terminals.onEvent((event) => broadcast("relay:terminalEvent", event));
+  terminals.onEvent((event) => {
+    if (event.type === "terminalData") {
+      const sessionId = terminals.sessionIdOf(event.terminalId);
+      if (sessionId) publishDetected(sessionId, detectLocalUrls(event.data));
+    }
+    broadcast("relay:terminalEvent", event);
+  });
+
+  const hostWindow = (senderId: number): HostWindowLike | null => {
+    for (const win of windows) {
+      if (win.isDestroyed()) continue;
+      if (win.webContents.id !== senderId) continue;
+      return {
+        isDestroyed: () => win.isDestroyed(),
+        addView: (view) => win.contentView.addChildView(view as unknown as View),
+        removeView: (view) => win.contentView.removeChildView(view as unknown as View),
+      };
+    }
+    return null;
+  };
+
+  const previews = new PreviewManager({
+    createView: createPreviewView,
+    openExternal: (url) => void shell.openExternal(url),
+    getWindow: hostWindow,
+  });
+  previews.onEvent((event: PreviewEvent) => broadcast("relay:previewEvent", event));
+
+  const detectedUrls = new UrlStore();
+  const publishDetected = (sessionId: string, urls: readonly string[]): void => {
+    const list = detectedUrls.add(sessionId, urls);
+    if (!list) return;
+    broadcast("relay:event", { type: "previews", sessionId, urls: list } satisfies RelayEvent);
+  };
 
   const notifyDeps: NotifyDeps = {
     isSupported: () => Notification.isSupported(),
@@ -260,6 +308,10 @@ async function main(): Promise<void> {
         }
       }
       terminals.sweep(event.sessions.map((session) => session.id));
+      previews.sweep(event.sessions.map((session) => session.id));
+    }
+    if (event.type === "transcript") {
+      publishDetected(event.sessionId, detectLocalUrls(transcriptText(event.events)));
     }
     broadcast("relay:event", event);
   });
@@ -382,6 +434,8 @@ async function main(): Promise<void> {
     logger.info("delete", { sessionId: id });
     await manager.delete(id);
     terminals.removeSession(id);
+    previews.removeSession(id);
+    detectedUrls.remove(id);
   });
 
   ipcMain.handle("relay:pickDirectory", async (event) => {
@@ -624,6 +678,55 @@ async function main(): Promise<void> {
     if (isTerminalId(terminalId)) await terminals.restart(terminalId);
   });
 
+  ipcMain.handle("relay:previewCreate", async (event, sessionId: unknown, url: unknown) => {
+    if (typeof sessionId !== "string") throw new Error("Unknown session");
+    if (!manager.get(sessionId)) throw new Error("Unknown session");
+    return previews.create({
+      sessionId,
+      url: typeof url === "string" ? url : "",
+      senderId: event.sender.id,
+    });
+  });
+
+  ipcMain.handle(
+    "relay:previewShow",
+    (event, previewId: unknown, sessionId: unknown, url: unknown) => {
+      if (!isPreviewId(previewId) || typeof sessionId !== "string") return;
+      previews.show(previewId, sessionId, event.sender.id, typeof url === "string" ? url : "");
+    },
+  );
+
+  ipcMain.handle("relay:previewLayout", (_e, previewId: unknown, rect: unknown) => {
+    if (!isPreviewId(previewId)) return;
+    previews.setBounds(previewId, toRect(rect));
+  });
+
+  ipcMain.handle("relay:previewNavigate", (_e, previewId: unknown, url: unknown) => {
+    if (!isPreviewId(previewId) || typeof url !== "string") {
+      return { ok: false, reason: "This preview is no longer running" };
+    }
+    return previews.navigate(previewId, url);
+  });
+
+  ipcMain.handle("relay:previewReload", (_e, previewId: unknown) => {
+    if (isPreviewId(previewId)) previews.reload(previewId);
+  });
+
+  ipcMain.handle("relay:previewClose", (_e, previewId: unknown) => {
+    if (isPreviewId(previewId)) previews.close(previewId);
+  });
+
+  ipcMain.handle("relay:previewDetected", (_e, sessionId: unknown) =>
+    typeof sessionId === "string" ? detectedUrls.list(sessionId) : [],
+  );
+
+  ipcMain.handle("relay:openExternal", async (_e, url: unknown) => {
+    if (typeof url !== "string") return;
+    const normalized = normalizePreviewUrl(url);
+    if (!normalized.ok) return;
+    await shell.openExternal(normalized.url);
+  });
+
   const themeSource = normalizeStoredTheme(store.getSetting("theme"));
   nativeTheme.themeSource = themeSource;
 
@@ -673,12 +776,24 @@ async function main(): Promise<void> {
   app.on("child-process-gone", (_event, details) => {
     logger.error("child-process-gone", { ...details });
   });
+  app.on(
+    "certificate-error",
+    (event, _webContents, url, _error, _certificate, callback) => {
+      if (normalizePreviewUrl(url).ok) {
+        event.preventDefault();
+        callback(true);
+        return;
+      }
+      callback(false);
+    },
+  );
 
   app.on("before-quit", (e) => {
     if (shuttingDown) return;
     e.preventDefault();
     shuttingDown = true;
     terminals.shutdown();
+    previews.shutdown();
     store.flushNow();
     void manager.shutdown().finally(() => app.exit(0));
   });

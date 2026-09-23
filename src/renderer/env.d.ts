@@ -23,6 +23,11 @@ import type {
   TerminalCreateResult,
   TerminalEvent,
 } from "../shared/terminal.ts";
+import type {
+  PreviewCreateResult,
+  PreviewEvent,
+  PreviewNavigateResult,
+} from "../shared/preview.ts";
 
 export type RelayBridge = {
   getState: () => Promise<RelayState>;
@@ -83,6 +88,7 @@ export type RelayBridge = {
   ) => Promise<OpenInEditorResult>;
   revealInFinder: (cwd: string, path: string) => Promise<boolean>;
   windowControl: (action: "min" | "max" | "close") => Promise<void>;
+  openExternal: (url: string) => Promise<void>;
   terminal: {
     create: (
       sessionId: string,
@@ -95,6 +101,19 @@ export type RelayBridge = {
     close: (terminalId: string) => Promise<void>;
     restart: (terminalId: string) => Promise<void>;
     onEvent: (listener: (event: TerminalEvent) => void) => () => void;
+  };
+  preview: {
+    create: (sessionId: string, url: string) => Promise<PreviewCreateResult>;
+    show: (previewId: string, sessionId: string, url: string) => Promise<void>;
+    layout: (
+      previewId: string,
+      rect: { x: number; y: number; width: number; height: number } | null,
+    ) => Promise<void>;
+    navigate: (previewId: string, url: string) => Promise<PreviewNavigateResult>;
+    reload: (previewId: string) => Promise<void>;
+    close: (previewId: string) => Promise<void>;
+    detected: (sessionId: string) => Promise<string[]>;
+    onEvent: (listener: (event: PreviewEvent) => void) => () => void;
   };
   subscribe: (listener: (event: RelayEvent) => void) => () => void;
 };
