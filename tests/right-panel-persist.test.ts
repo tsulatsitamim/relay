@@ -88,6 +88,44 @@ describe("parsePanels", () => {
     ]);
   });
 
+  it("keeps a well-formed preview surface and drops remote or malformed ones", () => {
+    const panels = parsePanels(
+      JSON.stringify({
+        version: 1,
+        bySession: {
+          s1: {
+            isOpen: true,
+            activeSurfaceId: "preview:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+            surfaces: [
+              {
+                id: "preview:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+                kind: "preview",
+                title: "localhost:5173",
+                url: "localhost:5173",
+              },
+              { id: "preview:1", kind: "preview", title: "counter", url: "" },
+              { id: "preview:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b", kind: "preview", title: "x" },
+              {
+                id: "preview:3f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+                kind: "preview",
+                title: "remote",
+                url: "https://example.com/",
+              },
+            ],
+          },
+        },
+      }),
+    );
+    expect(panels.s1!.surfaces).toEqual([
+      {
+        id: "preview:2f1a3c4d-5b6e-4f70-8a9b-0c1d2e3f4a5b",
+        kind: "preview",
+        title: "localhost:5173",
+        url: "http://localhost:5173/",
+      },
+    ]);
+  });
+
   it("drops a file surface without a path and normalizes its numbers", () => {
     const panels = parsePanels(
       JSON.stringify({

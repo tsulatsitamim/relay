@@ -14,7 +14,8 @@ import {
   writeWidth,
   type Panels,
 } from "./persist.ts";
-import { closedTerminalIds } from "./terminal-lifecycle.ts";
+import { closedSurfaceIds } from "./surface-lifecycle.ts";
+import type { RightPanelSurface } from "../../shared/right-panel.ts";
 
 function readPanelsSafe(): Panels {
   try {
@@ -57,9 +58,10 @@ function clearWidthSafe(sessionId: string): void {
   }
 }
 
-function defaultCloseTerminal(terminalId: string): void {
+export function defaultCloseSurface(surface: RightPanelSurface): void {
   try {
-    void window.relay.terminal.close(terminalId);
+    if (surface.kind === "terminal") void window.relay.terminal.close(surface.id);
+    else if (surface.kind === "preview") void window.relay.preview.close(surface.id);
   } catch {
     return;
   }
@@ -67,7 +69,7 @@ function defaultCloseTerminal(terminalId: string): void {
 
 export function usePanelStore(
   sessionId: string | null,
-  closeTerminal: (terminalId: string) => void = defaultCloseTerminal,
+  closeSurface: (surface: RightPanelSurface) => void = defaultCloseSurface,
 ) {
   const [panels, setPanels] = useState(readPanelsSafe);
   const panelsRef = useRef(panels);
@@ -95,8 +97,8 @@ export function usePanelStore(
       dirtyRef.current = true;
       const current = panelsRef.current[sessionId] ?? EMPTY_PANEL_STATE;
       const next = panelReducer(current, action);
-      for (const id of closedTerminalIds(current.surfaces, next.surfaces)) {
-        closeTerminal(id);
+      for (const surface of closedSurfaceIds(current.surfaces, next.surfaces)) {
+        closeSurface(surface);
       }
       const mirror = { ...panelsRef.current };
       if (next.surfaces.length === 0) delete mirror[sessionId];
@@ -111,7 +113,7 @@ export function usePanelStore(
         return bySession;
       });
     },
-    [sessionId, closeTerminal],
+    [sessionId, closeSurface],
   );
 
   const setWidth = useCallback(
@@ -125,11 +127,11 @@ export function usePanelStore(
   const removeSession = useCallback(
     (id: string) => {
       dirtyRef.current = true;
-      for (const terminalId of closedTerminalIds(
+      for (const surface of closedSurfaceIds(
         panelsRef.current[id]?.surfaces ?? [],
         [],
       )) {
-        closeTerminal(terminalId);
+        closeSurface(surface);
       }
       setPanels((prev) => {
         if (!(id in prev)) return prev;
@@ -139,7 +141,7 @@ export function usePanelStore(
       });
       clearWidthSafe(id);
     },
-    [closeTerminal],
+    [closeSurface],
   );
 
   return { state, dispatch, width, setWidth, removeSession };

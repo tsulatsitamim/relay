@@ -4,6 +4,7 @@ import {
   type SessionPanelState,
 } from "../../shared/right-panel.ts";
 import { isTerminalId } from "../../shared/terminal.ts";
+import { isPreviewId, normalizePreviewUrl } from "../../shared/preview.ts";
 
 export const PANELS_STORAGE_KEY = "relay.rightPanel";
 export const PANELS_VERSION = 1;
@@ -41,6 +42,16 @@ export function validateSurface(value: unknown): RightPanelSurface | null {
     const title = typeof value.title === "string" && value.title ? value.title : null;
     if (!title) return null;
     return { id: value.id, kind: "terminal", title };
+  }
+  if (value.kind === "preview") {
+    if (!isPreviewId(value.id)) return null;
+    const title = typeof value.title === "string" && value.title ? value.title : null;
+    if (!title) return null;
+    const raw = typeof value.url === "string" ? value.url : "";
+    if (raw === "") return { id: value.id, kind: "preview", title, url: "" };
+    const normalized = normalizePreviewUrl(raw);
+    if (!normalized.ok) return null;
+    return { id: value.id, kind: "preview", title, url: normalized.url };
   }
   if (value.kind !== "file") return null;
   const path = typeof value.path === "string" && value.path ? value.path : null;
