@@ -40,6 +40,7 @@ export type RelayEvent =
   | { type: "transcript"; sessionId: string; events: TranscriptEvent[] }
   | { type: "permission"; sessionId: string; request: PermissionRequest }
   | { type: "permission_resolved"; sessionId: string; requestId: string }
+  | { type: "previews"; sessionId: string; urls: string[] }
   | { type: "log"; sessionId?: string; message: string };
 
 export type CreatePayload = {
